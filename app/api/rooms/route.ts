@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rooms } from './store'
+import { Room } from './store'
+import redis from '../redis'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,14 +13,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (rooms.has(roomId)) {
+    const exists = await redis.exists(`room:${roomId}`)
+    if (exists) {
       return NextResponse.json(
         { error: 'Room already exists' },
         { status: 409 }
       )
     }
 
-    const room = {
+    const room: Room = {
       id: roomId,
       name,
       workItem: null,
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now()
     }
 
-    rooms.set(roomId, room)
+    await redis.set(`room:${roomId}`, JSON.stringify(room))
 
     return NextResponse.json({ success: true, room })
   } catch (error) {
@@ -52,15 +54,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const room = rooms.get(roomId)
-
-    if (!room) {
+    const roomStr = await redis.get(`room:${roomId}`)
+    if (!roomStr) {
       return NextResponse.json(
         { error: 'Room not found' },
         { status: 404 }
       )
     }
-
+    const room: Room = JSON.parse(roomStr)
     return NextResponse.json({ room })
   } catch (error) {
     console.error('Get room error:', error)
