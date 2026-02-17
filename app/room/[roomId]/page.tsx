@@ -79,27 +79,50 @@ export default function RoomPage() {
   }, [roomId])
 
   useEffect(() => {
+    // Odaya ilk girişte katılımcı olarak ekle (oysuz)
+    const joinRoom = async () => {
+      try {
+        const res = await fetch('/api/rooms/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            roomId,
+            userId,
+            userName,
+            points: null
+          })
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          if (data?.error) {
+            alert(data.error)
+            router.replace(`/join?code=${roomId}`)
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    joinRoom()
     fetchRoom()
-    const interval = setInterval(fetchRoom, 1000) // Poll every 1 second for real-time updates
+    const interval = setInterval(fetchRoom, 1000)
     return () => clearInterval(interval)
   }, [fetchRoom])
 
   const handleVote = async (points: number | string) => {
     let voteValue: number | null = null
-    
     if (typeof points === 'number') {
       voteValue = points
-      setMyVote(points)  // UI için orijinal değeri sakla
+      setMyVote(points)
     } else if (points === '☕') {
-      voteValue = -1 // Kahve molası için özel değer
-      setMyVote('☕')  // UI için emoji sakla
+      voteValue = -1
+      setMyVote('☕')
     } else if (points === '?') {
       voteValue = null
-      setMyVote('?')  // UI için soru işareti sakla
+      setMyVote('?')
     }
-
     try {
-      await fetch('/api/rooms/vote', {
+      const res = await fetch('/api/rooms/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,8 +132,14 @@ export default function RoomPage() {
           points: voteValue
         })
       })
-      // Immediately fetch to see the updated votes
-      await fetchRoom()
+      if (!res.ok) {
+        const data = await res.json()
+        if (data?.error) {
+          alert(data.error)
+        }
+      } else {
+        await fetchRoom()
+      }
     } catch (error) {
       console.error('Failed to vote:', error)
     }

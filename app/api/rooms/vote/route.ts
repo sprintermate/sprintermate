@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rooms } from '../store'
+import { Room } from '../store'
+import redis from '../../redis'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,31 +13,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const room = rooms.get(roomId)
-
-    if (!room) {
+    const roomStr = await redis.get(`room:${roomId}`)
+    if (!roomStr) {
       return NextResponse.json(
         { error: 'Room not found' },
         { status: 404 }
       )
     }
+    const room: Room = JSON.parse(roomStr)
 
-    // Update or add vote
-    const existingVoteIndex = room.votes.findIndex(v => v.userId === userId)
-    
+    // userName unique ve case-insensitive kontrolü
+    const lowerUserName = userName.trim().toLocaleLowerCase('tr-TR')
+    const nameExists = room.votes.some(v => v.userName.trim().toLocaleLowerCase('tr-TR') === lowerUserName)
+    const existingVoteIndex = room.votes.findIndex(v => v.userName.trim().toLocaleLowerCase('tr-TR') === lowerUserName)
     const vote = {
       userId,
       userName,
       points: points ?? null,
       timestamp: Date.now()
     }
-
     if (existingVoteIndex >= 0) {
+      // Sadece kendi kaydını güncelle
       room.votes[existingVoteIndex] = vote
     } else {
+      if (nameExists) {
+        return NextResponse.json(
+          { error: `Bu odada '${userName}' adında birisi zaten var. Lütfen farklı bir isimle katılın.` },
+          { status: 409 }
+        )
+      }
       room.votes.push(vote)
+      // Katılımı ayrı bir anahtarda da kaydet
+      await redis.hset(`room-users:${roomId}`, userName.trim().toLocaleLowerCase('tr-TR'), JSON.stringify({
+        userName,
+        joinedAt: Date.now()
+      }))
     }
 
+    await redis.set(`room:${roomId}`, JSON.stringify(room))
     return NextResponse.json({ success: true, room })
   } catch (error) {
     console.error('Vote error:', error)
