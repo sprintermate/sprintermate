@@ -215,22 +215,19 @@ export default function RoomPage() {
     setEstimateData(null)
     setWorkItemTitle('')
     setWorkItemDescription('')
-    
-    if (isHost) {
-      // Reset all votes
-      try {
-        await fetch('/api/rooms/reveal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomId,
-            revealed: false
-          })
+    try {
+      await fetch('/api/rooms/reveal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          revealed: false
         })
-        
-        // Clear votes by creating empty vote entries
-        if (room?.votes) {
-          for (const vote of room.votes) {
+      })
+      // Kahve molasında olanlar hariç tüm oyları sıfırla
+      if (room?.votes) {
+        for (const vote of room.votes) {
+          if (vote.points !== -1) {
             await fetch('/api/rooms/vote', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -243,11 +240,10 @@ export default function RoomPage() {
             })
           }
         }
-        
-        fetchRoom()
-      } catch (error) {
-        console.error('Failed to reset:', error)
       }
+      fetchRoom()
+    } catch (error) {
+      console.error('Failed to reset:', error)
     }
   }
 
