@@ -118,7 +118,7 @@ export default function RoomPage() {
       voteValue = -1
       setMyVote('☕')
     } else if (points === '?') {
-      voteValue = null
+      voteValue = -99 // '?' oyu için özel bir değer
       setMyVote('?')
     }
     try {
@@ -145,6 +145,27 @@ export default function RoomPage() {
     }
   }
 
+  // Her kullanıcı kendi oyunu sıfırlayabilsin
+  const handleResetMyVote = async () => {
+    // Eğer mevcut oy kahve molasıysa sıfırlama yapma
+    if (myVote === '☕') return
+    setMyVote(null)
+    try {
+      await fetch('/api/rooms/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId,
+          userId,
+          userName,
+          points: null
+        })
+      })
+      await fetchRoom()
+    } catch (error) {
+      console.error('Failed to reset my vote:', error)
+    }
+  }
   const handleReveal = async () => {
     try {
       await fetch('/api/rooms/reveal', {
@@ -281,15 +302,13 @@ export default function RoomPage() {
                 <UserGroupIcon className="h-5 w-5 text-blue-600" />
                 <span className="font-bold text-blue-600">{room.votes.length}</span>
               </div>
-              {isHost && (
-                <button
-                  onClick={handleReset}
-                  className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium transition-all"
-                >
-                  <ArrowPathIcon className="h-5 w-5" />
-                  Sıfırla
-                </button>
-              )}
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl font-medium transition-all"
+              >
+                <ArrowPathIcon className="h-5 w-5" />
+                Herkesi Sıfırla
+              </button>
             </div>
           </div>
 
@@ -299,7 +318,7 @@ export default function RoomPage() {
             <div className="flex gap-6 text-sm">
               <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg">
                 <span className="text-green-600 font-bold">✓</span>
-                <span className="text-green-700 font-medium">Oy verdi</span>
+                <span className="text-green-700 font-medium">Oy verdi / ?</span>
               </div>
               <div className="flex items-center gap-2 bg-red-50 px-3 py-1.5 rounded-lg">
                 <span className="text-red-600 font-bold">❌</span>
@@ -483,17 +502,21 @@ export default function RoomPage() {
 
               {/* Oy Dağılımı */}
               {room.revealed && (() => {
-                const voteCounts: Record<number, number> = {}
-                const totalVotes = room.votes.filter(v => typeof v.points === 'number' && v.points > 0).length
-                
+                // Oy dağılımı: hem sayısal hem de '?' oylarını dahil et
+                const voteCounts: Record<string, number> = {}
+                let totalVotes = 0
                 room.votes.forEach(vote => {
                   if (typeof vote.points === 'number' && vote.points > 0) {
                     voteCounts[vote.points] = (voteCounts[vote.points] || 0) + 1
+                    totalVotes++
+                  } else if (vote.points === -99) { // '?' için
+                    voteCounts['?'] = (voteCounts['?'] || 0) + 1
+                    totalVotes++
                   }
                 })
-                const sortedPoints = Object.keys(voteCounts).map(Number).sort((a, b) => a - b)
-                
-                return sortedPoints.length > 0 ? (
+                const sortedPoints = Object.keys(voteCounts).filter(k => k !== '?').map(Number).sort((a, b) => a - b)
+                const hasQuestion = typeof voteCounts['?'] !== 'undefined'
+                return totalVotes > 0 ? (
                   <div className="mb-3 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
                     <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-1">
                       <ChartBarIcon className="h-4 w-4" />
@@ -503,7 +526,6 @@ export default function RoomPage() {
                       {sortedPoints.map(points => {
                         const count = voteCounts[points]
                         const percentage = ((count / totalVotes) * 100).toFixed(0)
-                        
                         return (
                           <div key={points} className="bg-white rounded-md p-2">
                             <div className="flex items-center justify-between mb-1">
@@ -524,6 +546,25 @@ export default function RoomPage() {
                           </div>
                         )
                       })}
+                      {hasQuestion && (
+                        <div className="bg-white rounded-md p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-base text-green-600">? (Bilinmiyor)</span>
+                            <div className="text-right">
+                              <span className="text-xs font-medium text-gray-900">{voteCounts['?']} kişi</span>
+                              <span className="text-xs text-gray-500 ml-1">(%{((voteCounts['?']/totalVotes)*100).toFixed(0)})</span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${((voteCounts['?']/totalVotes)*100).toFixed(0)}%` }}
+                              transition={{ duration: 0.5, delay: 0.1 }}
+                              className="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null
@@ -548,18 +589,24 @@ export default function RoomPage() {
                   
                   return sortedVotes.map((vote) => {
                     // Renk belirleme
+                    // '?' oyu da yeşil gösterilsin
+                    const isQuestionMark = vote.points === -99
                     const bgColor = vote.points === -1
                       ? 'bg-orange-50 border-orange-300'
-                      : vote.points !== null
+                      : vote.points !== null && vote.points !== -1
+                      ? 'bg-green-50 border-green-300'
+                      : isQuestionMark
                       ? 'bg-green-50 border-green-300'
                       : 'bg-red-50 border-red-300'
-                    
+
                     const textColor = vote.points === -1
                       ? 'text-orange-900'
-                      : vote.points !== null
+                      : vote.points !== null && vote.points !== -1
+                      ? 'text-green-900'
+                      : isQuestionMark
                       ? 'text-green-900'
                       : 'text-red-900'
-                    
+
                     return (
                       <motion.div
                         key={vote.userId}
@@ -571,7 +618,7 @@ export default function RoomPage() {
                         {room.revealed && (
                           <div className="flex items-center gap-2">
                             <span className="text-2xl font-bold text-blue-600">
-                              {vote.points === -1 ? '☕' : vote.points ?? '?'}
+                              {vote.points === -1 ? '☕' : vote.points === -99 ? '?' : vote.points ?? '?'}
                             </span>
                             {typeof vote.points === 'number' && vote.points > 0 && (
                               <span className="text-xs text-gray-500">SP</span>

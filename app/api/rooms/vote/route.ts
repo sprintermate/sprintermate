@@ -33,8 +33,19 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now()
     }
     if (existingVoteIndex >= 0) {
-      // Sadece kendi kaydını güncelle
-      room.votes[existingVoteIndex] = vote
+      // Eğer mevcut kayıt kahve molasıysa ve yeni oy null ise, kahve molasında kalmaya devam et
+      let finalPoints = points;
+      const prevVote = room.votes[existingVoteIndex];
+      if (prevVote.points === -1 && (points === null || points === undefined)) {
+        finalPoints = -1;
+      }
+      const updatedVote = {
+        userId,
+        userName,
+        points: finalPoints ?? null,
+        timestamp: Date.now()
+      }
+      room.votes[existingVoteIndex] = updatedVote
     } else {
       if (nameExists) {
         return NextResponse.json(
