@@ -16,10 +16,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
-| URL                   | Description                  |
-| --------------------- | ---------------------------- |
-| http://localhost      | App (nginx → frontend + API) |
-| http://localhost:4040 | ngrok inspector              |
+| URL                   | Description                       |
+| --------------------- | --------------------------------- |
+| http://localhost      | App (nginx → frontend + API)      |
+| http://localhost:4040 | ngrok inspector to get public url |
 
 ---
 
