@@ -14,19 +14,6 @@
 
 ---
 
-## Technology Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS |
-| Real-time | Socket.io (WebSocket) |
-| AI Agent | GitHub Copilot SDK (abstracted interface) |
-| Data source | Azure DevOps REST API v7.0 |
-| State management | Zustand or React Context |
-| Persistent store | Redis (room data) + localStorage (project config) |
-
----
-
 ## Security Requirements
 
 - [ ] OAuth access token and refresh token are never sent to the client side; all ADO calls are made server-side.
