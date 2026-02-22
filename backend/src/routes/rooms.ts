@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, Room } from '../db/schema';
-import { getWorkItemsForIteration, patAuthHeader, bearerAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
+import { getWorkItemsForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -170,10 +170,8 @@ router.get('/:code/work-items', async (req, res) => {
       res.status(500).json({ error: 'Failed to decrypt project credentials' });
       return;
     }
-  } else if (req.session.adoAccessToken) {
-    authHeader = bearerAuthHeader(req.session.adoAccessToken);
   } else {
-    res.status(401).json({ error: 'No ADO credentials available. Add a PAT to the project or sign in via Azure AD.' });
+    res.status(401).json({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
     return;
   }
 
@@ -232,10 +230,8 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
       res.status(500).json({ error: 'Failed to decrypt project credentials' });
       return;
     }
-  } else if (req.session.adoAccessToken) {
-    authHeader = bearerAuthHeader(req.session.adoAccessToken);
   } else {
-    res.status(401).json({ error: 'No ADO credentials available. Add a PAT to the project or sign in via Azure AD.' });
+    res.status(401).json({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
     return;
   }
 

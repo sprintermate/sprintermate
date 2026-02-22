@@ -2,17 +2,17 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { Link } from '@/i18n/navigation';
-import LoginForm from '@/components/LoginForm';
+import RegisterForm from '@/components/RegisterForm';
 
 type Props = {
   params: Promise<{ locale: string }>;
 };
 
-export default async function LoginPage({ params }: Props) {
+export default async function RegisterPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  // If the user already has a valid session, skip the login screen.
+  // If the user already has a valid session, skip the register screen.
   try {
     const cookieStore = await cookies();
     const res = await fetch(`${process.env.BACKEND_URL}/api/auth/me`, {
@@ -23,10 +23,10 @@ export default async function LoginPage({ params }: Props) {
       redirect(`/${locale}/dashboard`);
     }
   } catch {
-    // Backend unreachable — fall through and show the login page.
+    // Backend unreachable — fall through and show the register page.
   }
 
-  const t = await getTranslations('login');
+  const t = await getTranslations('register');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
@@ -47,13 +47,13 @@ export default async function LoginPage({ params }: Props) {
           </p>
         </div>
 
-        {/* Sign-in card */}
+        {/* Register card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 space-y-6 shadow-xl">
-          <LoginForm locale={locale} />
+          <RegisterForm locale={locale} />
           <p className="text-center text-slate-500 text-sm">
-            {t('noAccount')}{' '}
-            <Link href="/register" locale={locale} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
-              {t('register')}
+            {t('hasAccount')}{' '}
+            <Link href="/login" locale={locale} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+              {t('signIn')}
             </Link>
           </p>
         </div>

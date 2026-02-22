@@ -27,7 +27,7 @@
       },
       "devops": {
         "title": "Azure DevOps Native",
-        "description": "Sign in with your Azure DevOps account. Paste a sprint URL. Your backlog is instantly imported — no manual entry."
+        "description": "Paste a sprint URL and connect with a Personal Access Token. Your backlog is instantly imported — no manual entry."
       },
       "fibonacci": {
         "title": "Fibonacci Scale",
@@ -50,7 +50,7 @@
       "connect": {
         "step": "01",
         "title": "Connect Azure DevOps",
-        "description": "Sign in with OAuth and paste your sprint board URL. Scrum Poker parses your organization, project, and current sprint automatically."
+        "description": "Paste your sprint board URL. Scrum Poker parses your organization, project, and current sprint automatically."
       },
       "calibrate": {
         "step": "02",
@@ -82,16 +82,40 @@
   },
   "login": {
     "title": "Welcome to Scrum Poker",
-    "subtitle": "Sign in with your Microsoft account to continue.",
-    "signInWithMicrosoft": "Sign in with Microsoft",
-    "description": "Use your organization's Microsoft account to access sprint planning rooms, AI estimation, and Azure DevOps integration.",
+    "description": "Sign in to access sprint planning rooms and AI-powered estimation.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Your password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "noAccount": "Don't have an account?",
+    "register": "Register",
     "error": {
-      "access_denied": "Access was denied. Please try again.",
-      "state_mismatch": "Security check failed. Please try again.",
-      "token_exchange_failed": "Sign-in failed. Please try again.",
+      "invalid_credentials": "Invalid email or password.",
       "network_error": "A network error occurred. Please check your connection.",
-      "profile_fetch_failed": "Could not retrieve your profile. Please try again.",
-      "session_error": "Session error. Please try again.",
+      "unknown": "An unexpected error occurred."
+    }
+  },
+  "register": {
+    "title": "Create an account",
+    "description": "Join Scrum Poker and start planning sprints with your team.",
+    "displayNameLabel": "Display name",
+    "displayNamePlaceholder": "Your name",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Repeat your password",
+    "submit": "Create account",
+    "submitting": "Creating…",
+    "hasAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "error": {
+      "password_mismatch": "Passwords do not match.",
+      "email_taken": "This email is already registered.",
+      "weak_password": "Password must be at least 8 characters.",
       "unknown": "An unexpected error occurred."
     }
   },

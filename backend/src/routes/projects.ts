@@ -1,8 +1,8 @@
-import { Router, Request } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, ReferenceScore } from '../db/schema';
-import { parseSprintUrl, listSprints, validatePat, patAuthHeader, bearerAuthHeader } from '../services/azDevops';
+import { parseSprintUrl, listSprints, validatePat, patAuthHeader } from '../services/azDevops';
 import { encrypt, decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -202,7 +202,7 @@ router.get('/:id/sprints', async (req, res) => {
     return;
   }
 
-  const authResult = await resolveAdoAuthHeader(req, project);
+  const authResult = await resolveAdoAuthHeader(project);
   if ('error' in authResult) {
     res.status(authResult.status).json({ error: authResult.error, code: authResult.code });
     return;
@@ -314,12 +314,8 @@ export default router;
 // ---------------------------------------------------------------------------
 
 async function resolveAdoAuthHeader(
-  req: Request,
   project: Project,
 ): Promise<{ header: string } | { error: string; status: number; code?: string }> {
-  const session = req.session;
-  const TOKEN_BUFFER_SECS = 60;
-
   if (project.encrypted_pat) {
     let pat: string;
     try {
@@ -330,32 +326,6 @@ async function resolveAdoAuthHeader(
     return { header: patAuthHeader(pat) };
   }
 
-  if (session.adoAccessToken) {
-    const now = Math.floor(Date.now() / 1000);
-    const isExpired =
-      session.adoTokenExpiresAt !== undefined &&
-      now >= session.adoTokenExpiresAt - TOKEN_BUFFER_SECS;
-
-    if (!isExpired) {
-      return { header: bearerAuthHeader(session.adoAccessToken) };
-    }
-
-    if (session.adoRefreshToken) {
-      try {
-        const refreshed = await refreshAdoToken(session.adoRefreshToken);
-        session.adoAccessToken    = refreshed.access_token;
-        session.adoRefreshToken   = refreshed.refresh_token ?? session.adoRefreshToken;
-        session.adoTokenExpiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
-        session.save((err) => {
-          if (err) console.error('[projects] session save after token refresh:', err);
-        });
-        return { header: bearerAuthHeader(refreshed.access_token) };
-      } catch (err: any) {
-        console.warn('[projects] ADO token refresh failed:', err.message);
-      }
-    }
-  }
-
   return {
     error:
       'No ADO credentials available for this project. ' +
@@ -363,32 +333,4 @@ async function resolveAdoAuthHeader(
     status: 422,
     code: 'ADO_AUTH_REQUIRED',
   };
-}
-
-async function refreshAdoToken(refreshToken: string): Promise<{
-  access_token: string;
-  refresh_token?: string;
-  expires_in: number;
-}> {
-  const res = await fetch(
-    'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id:     process.env.MICROSOFT_CLIENT_ID!,
-        client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
-        grant_type:    'refresh_token',
-        refresh_token: refreshToken,
-        scope:         '499b84ac-0c2c-43d9-8ac5-3a25a2fb2b04/user_impersonation offline_access',
-      }).toString(),
-    },
-  );
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Token refresh failed (${res.status}): ${body}`);
-  }
-
-  return res.json() as Promise<{ access_token: string; refresh_token?: string; expires_in: number }>;
 }
