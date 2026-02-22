@@ -89,9 +89,11 @@ function buildRoomSnapshot(room: RoomState) {
 // ─── Socket initialisation ────────────────────────────────────────────────────
 
 export function initSocket(httpServer: HttpServer): SocketIOServer {
+  const frontendUrls = (process.env.FRONTEND_URL ?? 'http://localhost:3000')
+    .split(',').map(s => s.trim()).filter(Boolean);
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+      origin: frontendUrls.length === 1 ? frontendUrls[0] : frontendUrls,
       credentials: true,
     },
   });
