@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import DashboardClient from '../../../components/DashboardClient';
+import LogoutButton from '../../../components/LogoutButton';
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -89,14 +90,7 @@ export default async function DashboardPage({ params }: Props) {
               <span className="text-slate-300 text-sm hidden sm:block">{user.displayName}</span>
             </div>
 
-            <form action={`${process.env.BACKEND_URL}/api/auth/logout`} method="POST">
-              <button
-                type="submit"
-                className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 text-sm transition-colors"
-              >
-                Sign out
-              </button>
-            </form>
+            <LogoutButton locale={locale} />
           </div>
         </div>
       </header>

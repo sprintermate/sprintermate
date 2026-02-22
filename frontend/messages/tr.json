@@ -27,7 +27,7 @@
       },
       "devops": {
         "title": "Azure DevOps Entegrasyonu",
-        "description": "Azure DevOps hesabınızla giriş yapın. Sprint URL'sini yapıştırın. Backlog'unuz anında içe aktarılır — manuel giriş yok."
+        "description": "Sprint URL'sini yapıştırın ve Kişisel Erişim Belirteci ile bağlanın. Backlog'unuz anında içe aktarılır — manuel giriş yok."
       },
       "fibonacci": {
         "title": "Fibonacci Ölçeği",
@@ -50,7 +50,7 @@
       "connect": {
         "step": "01",
         "title": "Azure DevOps'a Bağlanın",
-        "description": "OAuth ile giriş yapın ve sprint panosu URL'nizi yapıştırın. Scrum Poker organizasyonunuzu, projenizi ve mevcut sprint'inizi otomatik olarak ayrıştırır."
+        "description": "Sprint panosu URL'nizi yapıştırın. Scrum Poker organizasyonunuzu, projenizi ve mevcut sprint'inizi otomatik olarak ayrıştırır."
       },
       "calibrate": {
         "step": "02",
@@ -82,16 +82,40 @@
   },
   "login": {
     "title": "Scrum Poker'a Hoş Geldiniz",
-    "subtitle": "Devam etmek için Microsoft hesabınızla giriş yapın.",
-    "signInWithMicrosoft": "Microsoft ile Giriş Yap",
-    "description": "Sprint planlama odalarına, YZ tahmine ve Azure DevOps entegrasyonuna erişmek için kuruluşunuzun Microsoft hesabını kullanın.",
+    "description": "Sprint planlama odalarına ve YZ destekli tahmine erişmek için giriş yapın.",
+    "emailLabel": "E-posta",
+    "emailPlaceholder": "siz@ornek.com",
+    "passwordLabel": "Şifre",
+    "passwordPlaceholder": "Şifreniz",
+    "signIn": "Giriş Yap",
+    "signingIn": "Giriş yapılıyor…",
+    "noAccount": "Hesabınız yok mu?",
+    "register": "Kayıt ol",
     "error": {
-      "access_denied": "Erişim reddedildi. Lütfen tekrar deneyin.",
-      "state_mismatch": "Güvenlik kontrolü başarısız. Lütfen tekrar deneyin.",
-      "token_exchange_failed": "Giriş başarısız oldu. Lütfen tekrar deneyin.",
+      "invalid_credentials": "Geçersiz e-posta veya şifre.",
       "network_error": "Bir ağ hatası oluştu. Bağlantınızı kontrol edin.",
-      "profile_fetch_failed": "Profiliniz alınamadı. Lütfen tekrar deneyin.",
-      "session_error": "Oturum hatası. Lütfen tekrar deneyin.",
+      "unknown": "Beklenmeyen bir hata oluştu."
+    }
+  },
+  "register": {
+    "title": "Hesap Oluştur",
+    "description": "Scrum Poker'a katılın ve ekibinizle sprint planlamaya başlayın.",
+    "displayNameLabel": "Görünen ad",
+    "displayNamePlaceholder": "Adınız",
+    "emailLabel": "E-posta",
+    "emailPlaceholder": "siz@ornek.com",
+    "passwordLabel": "Şifre",
+    "passwordPlaceholder": "En az 8 karakter",
+    "confirmPasswordLabel": "Şifreyi onayla",
+    "confirmPasswordPlaceholder": "Şifrenizi tekrar girin",
+    "submit": "Hesap oluştur",
+    "submitting": "Oluşturuluyor…",
+    "hasAccount": "Zaten hesabınız var mı?",
+    "signIn": "Giriş Yap",
+    "error": {
+      "password_mismatch": "Şifreler eşleşmiyor.",
+      "email_taken": "Bu e-posta zaten kayıtlı.",
+      "weak_password": "Şifre en az 8 karakter olmalıdır.",
       "unknown": "Beklenmeyen bir hata oluştu."
     }
   },

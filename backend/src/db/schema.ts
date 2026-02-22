@@ -1,4 +1,5 @@
 import sequelize from './database';
+import User from './models/User';
 import Project from './models/Project';
 import Sprint from './models/Sprint';
 import Room from './models/Room';
@@ -22,4 +23,4 @@ export async function initSchema(): Promise<void> {
   console.log('[db] schema synced');
 }
 
-export { sequelize, Project, Sprint, Room, ReferenceScore };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore };

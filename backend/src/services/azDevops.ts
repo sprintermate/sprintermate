@@ -68,18 +68,9 @@ export function patAuthHeader(pat: string): string {
 }
 
 /**
- * Returns the Bearer Authorization header value for an OAuth access token.
- */
-export function bearerAuthHeader(accessToken: string): string {
-  return `Bearer ${accessToken}`;
-}
-
-/**
  * Lists iterations (sprints) for a given team via the ADO REST API.
  *
- * @param authHeader - Full Authorization header value, either:
- *   - `Bearer <oauth-access-token>` for corporate/AAD accounts
- *   - `Basic <base64(:pat)>` for Personal Access Token auth
+ * @param authHeader - Full Authorization header value from {@link patAuthHeader}.
  */
 export async function listSprints(
   organization: string,

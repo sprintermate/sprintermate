@@ -9,8 +9,8 @@ services:
       PORT: "4000"
       NODE_ENV: production
       SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
-      # Tells CORS to allow the nginx / ngrok origin
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production}
     volumes:
       # Persist the SQLite database
       - backend_data:/app/data
