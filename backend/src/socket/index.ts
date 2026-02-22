@@ -110,6 +110,10 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       for (const [sid, p] of room.participants) {
         if (p.userId === userId && sid !== socket.id) {
           room.participants.delete(sid);
+          // Notify the displaced socket so the old tab shows a clear message
+          io.to(sid).emit('room:replaced', {
+            message: 'You joined this room from another window. This session is no longer active.',
+          });
         }
       }
 
