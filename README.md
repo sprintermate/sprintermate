@@ -6,7 +6,23 @@ Real-time planning poker with AI-powered story point estimation and Azure DevOps
 
 ---
 
-## Docker (recommended)
+## Desktop App (recommended)
+
+No Docker or Node.js required. Downloads and runs as a native app.
+
+```bash
+bash scripts/build-electron.sh
+cd electron && npx electron dist/main.js    # Test locally (dev mode)
+cd electron && npm run dist:mac             # → dist-electron/ScrumPoker-*.dmg
+cd electron && npm run dist:win             # → dist-electron/ScrumPoker-*.exe
+cd electron && npm run dist:linux           # → dist-electron/ScrumPoker-*.AppImage
+```
+
+On first launch you'll be prompted for a free [ngrok auth token](https://dashboard.ngrok.com/get-started/your-authtoken). The app then starts everything and shows a shareable public URL in the system tray.
+
+---
+
+## Docker
 
 Requires Docker, Docker Compose, and a free [ngrok](https://dashboard.ngrok.com/get-started/your-authtoken) account.
 
@@ -39,10 +55,11 @@ Copy `.env.example` to `.env` in `backend/` and set `SESSION_SECRET` and `FRONTE
 
 ## Environment Variables
 
-| Variable          | Description                               |
-| ----------------- | ----------------------------------------- |
-| `SESSION_SECRET`  | Secret for session cookie signing         |
-| `FRONTEND_URL`    | CORS origin (e.g. `http://localhost`)     |
-| `ENCRYPTION_KEY`  | AES-256-GCM key for encrypted PAT storage |
-| `NGROK_AUTHTOKEN` | ngrok token (Docker only)                 |
-| `PORT`            | Backend port (default `4000`)             |
+| Variable          | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `SESSION_SECRET`  | Secret for session cookie signing                  |
+| `FRONTEND_URL`    | CORS origin — comma-separated for multiple origins |
+| `ENCRYPTION_KEY`  | AES-256-GCM key for encrypted PAT storage          |
+| `NGROK_AUTHTOKEN` | ngrok token (Docker only; desktop app prompts GUI) |
+| `PORT`            | Backend port (default `4000`)                      |
+| `DB_PATH`         | SQLite file path (default `data/scrum-poker.db`)   |

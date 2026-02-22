@@ -20,8 +20,10 @@ export function createApp(): Application {
   // - HTTPS (ngrok / production TLS)    → secure: true
   app.set('trust proxy', 1);
 
+  const frontendUrls = (process.env.FRONTEND_URL ?? 'http://localhost:3000')
+    .split(',').map(s => s.trim()).filter(Boolean);
   app.use(cors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: frontendUrls.length === 1 ? frontendUrls[0] : frontendUrls,
     credentials: true,
   }));
   app.use(express.json());
@@ -37,7 +39,7 @@ export function createApp(): Application {
         // Use secure cookies only when the public-facing URL is HTTPS.
         // This prevents the browser from dropping the session cookie when
         // nginx serves plain HTTP (Docker without TLS / local dev).
-        secure: (process.env.FRONTEND_URL ?? '').startsWith('https://'),
+        secure: frontendUrls.some(u => u.startsWith('https://')),
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       },
