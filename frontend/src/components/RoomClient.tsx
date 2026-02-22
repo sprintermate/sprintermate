@@ -59,6 +59,9 @@ export default function RoomClient({ room, user, locale }: Props) {
   // Copy URL state (for moderator)
   const [urlCopied, setUrlCopied] = useState(false);
 
+  // Set when this session is displaced by a newer connection with the same userId
+  const [replacedMessage, setReplacedMessage] = useState<string | null>(null);
+
   // View: 'list' or 'item'
   const view = currentWorkItem ? 'item' : 'list';
 
@@ -162,6 +165,11 @@ export default function RoomClient({ room, user, locale }: Props) {
       setMyScore(null);
     });
 
+    socket.on('room:replaced', (data: { message: string }) => {
+      setReplacedMessage(data.message);
+      socket.disconnect();
+    });
+
     return () => {
       socket.emit('room:leave', { code: room.code });
       socket.disconnect();
@@ -240,6 +248,26 @@ export default function RoomClient({ room, user, locale }: Props) {
   }, [room.isModerator, room.code]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (replacedMessage) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto">
+            <span className="text-amber-400 text-xl">⚠</span>
+          </div>
+          <h2 className="text-white font-semibold text-lg">Session Replaced</h2>
+          <p className="text-slate-400 text-sm">{replacedMessage}</p>
+          <a
+            href={`/${locale}/dashboard`}
+            className="inline-block mt-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          >
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">

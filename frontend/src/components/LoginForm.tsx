@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
@@ -12,7 +11,6 @@ interface Props {
 
 export default function LoginForm({ locale }: Props) {
   const t = useTranslations('login');
-  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +31,7 @@ export default function LoginForm({ locale }: Props) {
       });
 
       if (res.ok) {
-        router.push(`/${locale}/dashboard`);
+        window.location.href = `/${locale}/dashboard`;
         return;
       }
 
