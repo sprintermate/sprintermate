@@ -1,0 +1,25 @@
+import sequelize from './database';
+import Project from './models/Project';
+import Sprint from './models/Sprint';
+import Room from './models/Room';
+import ReferenceScore from './models/ReferenceScore';
+
+// Define associations
+Project.hasMany(Sprint, { foreignKey: 'project_id', onDelete: 'CASCADE' });
+Sprint.belongsTo(Project, { foreignKey: 'project_id' });
+
+Project.hasMany(Room, { foreignKey: 'project_id', onDelete: 'CASCADE' });
+Room.belongsTo(Project, { foreignKey: 'project_id' });
+
+Sprint.hasMany(Room, { foreignKey: 'sprint_id', onDelete: 'CASCADE' });
+Room.belongsTo(Sprint, { foreignKey: 'sprint_id' });
+
+Project.hasMany(ReferenceScore, { foreignKey: 'project_id', onDelete: 'CASCADE' });
+ReferenceScore.belongsTo(Project, { foreignKey: 'project_id' });
+
+export async function initSchema(): Promise<void> {
+  await sequelize.sync();
+  console.log('[db] schema synced');
+}
+
+export { sequelize, Project, Sprint, Room, ReferenceScore };

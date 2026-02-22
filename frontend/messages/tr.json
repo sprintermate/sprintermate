@@ -1,0 +1,132 @@
+{
+  "nav": {
+    "joinRoom": "Odaya Katıl",
+    "createRoom": "Oda Oluştur",
+    "language": "Dil"
+  },
+  "hero": {
+    "badge": "YZ Destekli Tahminleme",
+    "headline": "Sprint Planlaması,\nYeniden Tasarlandı.",
+    "subheadline": "YZ destekli hikaye puanı tahmini ve yerel Azure DevOps entegrasyonuyla gerçek zamanlı işbirlikçi Scrum Poker.",
+    "ctaJoin": "Odaya Katıl",
+    "ctaCreate": "Oda Oluştur",
+    "scroll": "Nasıl çalıştığını keşfet"
+  },
+  "features": {
+    "sectionLabel": "İhtiyacınız olan her şey",
+    "sectionTitle": "Modern mühendislik ekipleri için tasarlandı",
+    "sectionSubtitle": "Tahmin tartışmalarını bırakın. Veri ve YZ konuşmayı yönlendirsin.",
+    "items": {
+      "realtime": {
+        "title": "Gerçek Zamanlı İşbirliği",
+        "description": "Herkes aynı anda oy verir. Kartlar açılışta çevrilir. Artık tahminlerinizi bozan sabitleme yanılgısı ya da sosyal baskı yok."
+      },
+      "ai": {
+        "title": "YZ Tahmin Motoru",
+        "description": "YZ'miz son üç sprint'inizi analiz ederek güven derecesi ve benzer öğe referanslarıyla birlikte Fibonacci hikaye puanı önerir."
+      },
+      "devops": {
+        "title": "Azure DevOps Entegrasyonu",
+        "description": "Azure DevOps hesabınızla giriş yapın. Sprint URL'sini yapıştırın. Backlog'unuz anında içe aktarılır — manuel giriş yok."
+      },
+      "fibonacci": {
+        "title": "Fibonacci Ölçeği",
+        "description": "Tahminler standart Fibonacci dizisini (1, 2, 3, 5, 8, 13, 21, 34, 55) kullanır — ekibinizin zaten bildiği ölçek."
+      },
+      "history": {
+        "title": "Geçmiş Bağlam",
+        "description": "Geçmiş sprint verileri daha akıllı tahminler sağlar. YZ, ekibinizin zaten puanladığı ve açıkladığı öğelerden öğrenir."
+      },
+      "rooms": {
+        "title": "Anlık Odalar",
+        "description": "Saniyeler içinde oda oluşturun. 6 karakterli kod veya QR kodunu paylaşın. Katılımcılar hesap gerekmeden katılır."
+      }
+    }
+  },
+  "howItWorks": {
+    "sectionLabel": "Hikaye",
+    "sectionTitle": "Dakikalar içinde tahminden sonuca",
+    "steps": {
+      "connect": {
+        "step": "01",
+        "title": "Azure DevOps'a Bağlanın",
+        "description": "OAuth ile giriş yapın ve sprint panosu URL'nizi yapıştırın. Scrum Poker organizasyonunuzu, projenizi ve mevcut sprint'inizi otomatik olarak ayrıştırır."
+      },
+      "calibrate": {
+        "step": "02",
+        "title": "YZ'yi Kalibre Edin",
+        "description": "Fibonacci ölçeğini kullanarak birkaç referans öğeyi puanlayın. Bu tek seferlik kalibrasyon, YZ'ye ekibinizin boyutlandırma kurallarını öğretir."
+      },
+      "create": {
+        "step": "03",
+        "title": "Oda Oluşturun",
+        "description": "'Oda Oluştur'a tıklayın. Benzersiz 6 karakterli bir kod oluşturulur. Ekibinizle kod veya QR aracılığıyla paylaşın. Herkes gerçek zamanlı olarak katılır."
+      },
+      "vote": {
+        "step": "04",
+        "title": "Oylayın ve Açıklayın",
+        "description": "Bir iş öğesi seçin. YZ bir tahmin önerir. Ekip oy verir. Kartlar aynı anda çevrilir. Kolaylaştırıcı puanı kabul eder veya geçersiz kılar."
+      }
+    }
+  },
+  "integrations": {
+    "sectionLabel": "Entegrasyonlar",
+    "sectionTitle": "Mevcut araçlarınızla uyumlu çalışır",
+    "azure": "Azure DevOps",
+    "ai": "YZ Tahmin",
+    "websocket": "Gerçek Zamanlı WebSocket"
+  },
+  "footer": {
+    "tagline": "Scrum Poker — daha akıllı sprint planlaması.",
+    "rights": "Tüm hakları saklıdır."
+  },
+  "login": {
+    "title": "Scrum Poker'a Hoş Geldiniz",
+    "subtitle": "Devam etmek için Microsoft hesabınızla giriş yapın.",
+    "signInWithMicrosoft": "Microsoft ile Giriş Yap",
+    "description": "Sprint planlama odalarına, YZ tahmine ve Azure DevOps entegrasyonuna erişmek için kuruluşunuzun Microsoft hesabını kullanın.",
+    "error": {
+      "access_denied": "Erişim reddedildi. Lütfen tekrar deneyin.",
+      "state_mismatch": "Güvenlik kontrolü başarısız. Lütfen tekrar deneyin.",
+      "token_exchange_failed": "Giriş başarısız oldu. Lütfen tekrar deneyin.",
+      "network_error": "Bir ağ hatası oluştu. Bağlantınızı kontrol edin.",
+      "profile_fetch_failed": "Profiliniz alınamadı. Lütfen tekrar deneyin.",
+      "session_error": "Oturum hatası. Lütfen tekrar deneyin.",
+      "unknown": "Beklenmeyen bir hata oluştu."
+    }
+  },
+  "dashboard": {
+    "title": "Panel",
+    "welcome": "Hoş geldiniz, {name}!",
+    "signOut": "Çıkış Yap",
+    "rooms": "Odalarınız",
+    "noRooms": "Henüz oda yok. Başlamak için bir tane oluşturun.",
+    "createRoom": "+ Oda Oluştur",
+    "joinByCode": "Kodla Katıl"
+  },
+  "createRoom": {
+    "title": "Oda Oluştur",
+    "stepProject": "Azure DevOps'a Bağlan",
+    "stepSprint": "Sprint Seç",
+    "savedProjects": "Kayıtlı projeleriniz",
+    "connectNew": "+ Yeni proje bağla",
+    "urlLabel": "Azure DevOps sprint panosu URL'si",
+    "urlPlaceholder": "https://dev.azure.com/org/proje/_sprints/backlog/Takim/.../Sprint",
+    "parseButton": "URL'yi Ayrıştır",
+    "parsing": "Ayrıştırılıyor…",
+    "parsedPreview": "Başarıyla ayrıştırıldı",
+    "fieldOrg": "Organizasyon",
+    "fieldProject": "Proje",
+    "fieldTeam": "Takım",
+    "fieldSprint": "Sprint",
+    "confirmProject": "Onayla ve Sprint Seç",
+    "loadingSprints": "Sprintler yükleniyor…",
+    "sprintLabel": "Sprint seçin",
+    "back": "Geri",
+    "createButton": "Oda Oluştur",
+    "creating": "Oluşturuluyor…",
+    "errorParse": "URL ayrıştırılamadı. Lütfen geçerli bir Azure DevOps sprint URL'si olduğunu kontrol edin.",
+    "errorSprints": "Sprintler yüklenemedi. az CLI'nin oturumunun açık olduğundan emin olun.",
+    "errorCreate": "Oda oluşturulamadı. Lütfen tekrar deneyin."
+  }
+}
