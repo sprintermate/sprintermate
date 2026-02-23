@@ -208,11 +208,17 @@ router.post('/estimate', requireAuth, async (req, res) => {
         authHeader,
       );
 
-      // Find the sprint immediately before the current one
+      // Find the index of the current sprint
       const currentIdx = allSprints.findIndex((s) => s.id === sprint.ado_sprint_id);
-      const prevSprint = currentIdx > 0 ? allSprints[currentIdx - 1] : null;
+      // Get up to 10 previous sprints
+      const prevSprints = (currentIdx > 0)
+        ? allSprints.slice(Math.max(0, currentIdx - 10), currentIdx)
+        : [];
 
-      if (prevSprint) {
+      // Hangi formatta link üretileceğini belirle
+      const isVisualStudio = req.headers['referer']?.includes('.visualstudio.com') || project.ado_url?.includes('.visualstudio.com');
+
+      for (const prevSprint of prevSprints) {
         const prevItems = await getWorkItemsForIteration(
           project.organization,
           project.name,
@@ -220,9 +226,6 @@ router.post('/estimate', requireAuth, async (req, res) => {
           prevSprint.id,
           authHeader,
         );
-
-        // Hangi formatta link üretileceğini belirle
-        const isVisualStudio = req.headers['referer']?.includes('.visualstudio.com') || project.ado_url?.includes('.visualstudio.com');
         for (const item of prevItems) {
           if (item.storyPoints !== null) {
             previousSprintItems.push({
