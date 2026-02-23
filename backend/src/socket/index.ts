@@ -1,5 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import type { AIEstimateResult } from '../services/aiService';
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ interface RoomState {
   /** userId → score */
   votes: Map<string, Vote>;
   revealed: boolean;
+  aiEstimate: AIEstimateResult | null;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       scoringActive: false,
       votes: new Map(),
       revealed: false,
+      aiEstimate: null,
     };
     rooms.set(code, state);
   }
@@ -83,6 +86,7 @@ function buildRoomSnapshot(room: RoomState) {
     scoringActive: room.scoringActive,
     votes: serializeVotes(room, room.revealed),
     revealed: room.revealed,
+    aiEstimate: room.revealed ? room.aiEstimate : null,
   };
 }
 
@@ -153,6 +157,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.scoringActive   = false;
       room.votes           = new Map();
       room.revealed        = false;
+      room.aiEstimate      = null;
 
       io.to(code).emit('session:navigate', { workItem });
     });
@@ -199,8 +204,8 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     });
 
     // ── vote:reveal ───────────────────────────────────────────────────────────
-    // Moderator reveals all scores
-    socket.on('vote:reveal', (data: { code: string }) => {
+    // Moderator reveals all scores (optionally includes AI estimate)
+    socket.on('vote:reveal', (data: { code: string; aiEstimate?: AIEstimateResult }) => {
       const { code } = data;
       const room = rooms.get(code);
       if (!room) return;
@@ -209,6 +214,9 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       if (!participant || participant.userId !== room.moderatorId) return;
 
       room.revealed = true;
+      if (data.aiEstimate) {
+        room.aiEstimate = data.aiEstimate;
+      }
 
       const votes = serializeVotes(room, true);
       const scores = votes.map((v) => v.score as number);
@@ -223,6 +231,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
           highest: sorted[sorted.length - 1] ?? 0,
           lowest: sorted[0] ?? 0,
         },
+        aiEstimate: room.aiEstimate,
       });
     });
 
@@ -240,6 +249,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.scoringActive   = false;
       room.votes           = new Map();
       room.revealed        = false;
+      room.aiEstimate      = null;
 
       io.to(code).emit('session:reset', {});
     });

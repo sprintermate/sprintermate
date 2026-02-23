@@ -1,15 +1,15 @@
-import express, { Application } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import session from 'express-session';
+import cookieParser from 'cookie-parser';
 import passport from 'passport';
-import { Strategy as LocalStrategy } from 'passport-local';
-import bcrypt from 'bcryptjs';
+import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import roomsRouter from './routes/rooms';
+import aiRouter from './routes/ai';
 import { User } from './db/schema';
-import type { UserSession } from './types/auth';
-import './types/auth'; // register SessionData augmentation
+import type { JwtPayload } from './types/auth';
+import './types/auth'; // register Express.User augmentation
 
 export function createApp(): Application {
   const app = express();
@@ -28,61 +28,51 @@ export function createApp(): Application {
   }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
+  app.use(cookieParser());
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET ?? 'dev-secret-change-me',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        // Use secure cookies only when the public-facing URL is HTTPS.
-        // This prevents the browser from dropping the session cookie when
-        // nginx serves plain HTTP (Docker without TLS / local dev).
-        secure: frontendUrls.some(u => u.startsWith('https://')),
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      },
-    }),
-  );
+  // ── JWT Strategy ────────────────────────────────────────────────────────────
+  const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-me';
 
-  // ── Passport local strategy ────────────────────────────────────────────────
+  const cookieExtractor = (req: Request): string | null => req?.cookies?.token ?? null;
+
   passport.use(
-    new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
-      try {
-        const user = await User.findOne({ where: { email: email.toLowerCase() } });
-        if (!user) return done(null, false, { message: 'Invalid email or password' });
-        const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) return done(null, false, { message: 'Invalid email or password' });
-        const session: UserSession = { id: user.id, displayName: user.display_name, email: user.email };
-        return done(null, session);
-      } catch (err) {
-        return done(err);
-      }
-    }),
+    new JwtStrategy(
+      {
+        jwtFromRequest: cookieExtractor,
+        secretOrKey: JWT_SECRET,
+      },
+      async (payload: JwtPayload, done) => {
+        try {
+          const user = await User.findByPk(payload.id);
+          if (!user) return done(null, false);
+          const u = user.get({ plain: true });
+          return done(null, { id: u.id, displayName: u.display_name, email: u.email });
+        } catch (err) {
+          return done(err, false);
+        }
+      },
+    ),
   );
-
-  passport.serializeUser((user, done) => {
-    done(null, (user as UserSession).id);
-  });
-
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await User.findByPk(id);
-      if (!user) return done(null, false);
-      const session: UserSession = { id: user.id, displayName: user.display_name, email: user.email };
-      done(null, session);
-    } catch (err) {
-      done(err);
-    }
-  });
 
   app.use(passport.initialize());
-  app.use(passport.session());
+
+  // Soft JWT check — populates req.user if token is valid, continues if not.
+  // This allows guest-accessible routes to work without requiring authentication.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    passport.authenticate(
+      'jwt',
+      { session: false },
+      (_err: unknown, user: Express.User | false) => {
+        if (user) req.user = user;
+        next();
+      },
+    )(req, _res, next);
+  });
 
   app.use('/api/auth', authRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/rooms', roomsRouter);
+  app.use('/api/ai', aiRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

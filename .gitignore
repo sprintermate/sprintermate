@@ -36,6 +36,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

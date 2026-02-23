@@ -20,7 +20,7 @@ function sanitizeProject(row: any) {
 
 /** GET /api/projects — list the authenticated user's saved projects */
 router.get('/', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const rows = await Project.findAll({
     where: { user_id: userId },
     order: [['created_at', 'DESC']],
@@ -76,7 +76,7 @@ router.post('/', async (req, res) => {
     return;
   }
 
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -106,7 +106,7 @@ router.post('/', async (req, res) => {
 
 /** PUT /api/projects/:id — update project details */
 router.put('/:id', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
@@ -132,7 +132,7 @@ router.put('/:id', async (req, res) => {
 
 /** DELETE /api/projects/:id — delete a project and all its related data */
 router.delete('/:id', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
@@ -146,7 +146,7 @@ router.delete('/:id', async (req, res) => {
 
 /** PUT /api/projects/:id/pat — set or update the PAT for an existing project */
 router.put('/:id/pat', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
@@ -178,7 +178,7 @@ router.put('/:id/pat', async (req, res) => {
 
 /** GET /api/projects/:id/sprints — fetch sprints via ADO REST API, cache in DB */
 router.get('/:id/sprints', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
@@ -256,7 +256,7 @@ router.get('/:id/sprints', async (req, res) => {
 
 /** GET /api/projects/:id/reference-scores — get reference scores for a project */
 router.get('/:id/reference-scores', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
@@ -274,7 +274,7 @@ router.get('/:id/reference-scores', async (req, res) => {
 
 /** POST /api/projects/:id/reference-scores — replace all reference scores for a project */
 router.post('/:id/reference-scores', async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {

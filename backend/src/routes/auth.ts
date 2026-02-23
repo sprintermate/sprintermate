@@ -1,11 +1,26 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import passport from 'passport';
+import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { User } from '../db/schema';
 import type { UserSession } from '../types/auth';
 
 const router = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-me';
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days in seconds
+
+function setAuthCookie(res: Response, payload: UserSession): void {
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const isSecure = (process.env.FRONTEND_URL ?? '').split(',').some(u => u.trim().startsWith('https://'));
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: 'lax',
+    maxAge: COOKIE_MAX_AGE,
+  });
+}
 
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response) => {
@@ -45,14 +60,8 @@ router.post('/register', async (req: Request, res: Response) => {
       email: user.email,
     };
 
-    req.session.user = sessionUser;
-    req.session.save((err) => {
-      if (err) {
-        console.error('[auth] session save error on /register:', err);
-        return res.status(500).json({ error: 'Session error' });
-      }
-      return res.status(201).json(sessionUser);
-    });
+    setAuthCookie(res, sessionUser);
+    return res.status(201).json(sessionUser);
   } catch (err) {
     console.error('[auth] register error:', err);
     return res.status(500).json({ error: 'Registration failed' });
@@ -60,45 +69,49 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req: Request, res: Response, next: NextFunction) => {
-  passport.authenticate(
-    'local',
-    (err: unknown, user: UserSession | false, info: { message: string } | undefined) => {
-      if (err) return next(err);
-      if (!user) {
-        return res.status(401).json({ error: info?.message ?? 'Invalid email or password' });
-      }
+router.post('/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body as { email?: string; password?: string };
 
-      req.session.user = user;
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error('[auth] session save error on /login:', saveErr);
-          return res.status(500).json({ error: 'Session error' });
-        }
-        return res.json(user);
-      });
-    },
-  )(req, res, next);
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email and password are required' });
+  }
+
+  try {
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const sessionUser: UserSession = {
+      id: user.id,
+      displayName: user.display_name,
+      email: user.email,
+    };
+
+    setAuthCookie(res, sessionUser);
+    return res.json(sessionUser);
+  } catch (err) {
+    console.error('[auth] login error:', err);
+    return res.status(500).json({ error: 'Login failed' });
+  }
 });
 
 // GET /api/auth/me
 router.get('/me', (req: Request, res: Response) => {
-  if (!req.session.user) {
+  if (!req.user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  res.json(req.session.user);
+  res.json(req.user);
 });
 
 // POST /api/auth/logout
-router.post('/logout', (req: Request, res: Response) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('[auth] session destroy error:', err);
-      return res.status(500).json({ error: 'Logout failed' });
-    }
-    res.clearCookie('connect.sid');
-    res.json({ ok: true });
-  });
+router.post('/logout', (_req: Request, res: Response) => {
+  res.clearCookie('token');
+  res.json({ ok: true });
 });
 
 export default router;
