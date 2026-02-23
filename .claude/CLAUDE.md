@@ -100,7 +100,7 @@ Key components:
 ## Environment Variables
 
 Required (see `.env.example`):
-- `SESSION_SECRET` — express-session signing key
+- `JWT_SECRET` — express-session signing key
 - `ENCRYPTION_KEY` — AES-256-GCM key for PAT/API key encryption
 - `FRONTEND_URL` — comma-separated allowed CORS origins
 - `NEXT_PUBLIC_BACKEND_URL` — backend base URL for frontend fetch calls

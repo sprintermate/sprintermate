@@ -530,7 +530,7 @@ function spawnBackend(config: AppConfig, frontendUrl: string): ChildProcess {
         ELECTRON_RUN_AS_NODE: '1',
         PORT: '4000',
         FRONTEND_URL: frontendUrl,
-        SESSION_SECRET: config.sessionSecret,
+        JWT_SECRET: config.sessionSecret,
         ENCRYPTION_KEY: config.encryptionKey,
         DB_PATH: getDbPath(),
         NODE_ENV: 'production',

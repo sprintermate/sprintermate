@@ -8,7 +8,7 @@ services:
     environment:
       PORT: "4000"
       NODE_ENV: production
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production}
     volumes:

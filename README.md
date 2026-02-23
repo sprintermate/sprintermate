@@ -28,7 +28,7 @@ Requires Docker, Docker Compose, and a free [ngrok](https://dashboard.ngrok.com/
 
 ```bash
 cp .env.example .env
-# fill in NGROK_AUTHTOKEN, SESSION_SECRET, ENCRYPTION_KEY
+# fill in NGROK_AUTHTOKEN, JWT_SECRET, ENCRYPTION_KEY
 docker compose up --build
 ```
 
@@ -49,7 +49,7 @@ cd backend && npm install && npm run dev     # http://localhost:4000
 cd frontend && npm install && npm run dev    # http://localhost:3000
 ```
 
-Copy `.env.example` to `.env` in `backend/` and set `SESSION_SECRET` and `FRONTEND_URL=http://localhost:3000`.
+Copy `.env.example` to `.env` in `backend/` and set `JWT_SECRET` and `FRONTEND_URL=http://localhost:3000`.
 
 ---
 
@@ -57,7 +57,7 @@ Copy `.env.example` to `.env` in `backend/` and set `SESSION_SECRET` and `FRONTE
 
 | Variable          | Description                                        |
 | ----------------- | -------------------------------------------------- |
-| `SESSION_SECRET`  | Secret for session cookie signing                  |
+| `JWT_SECRET`  | Secret for session cookie signing                  |
 | `FRONTEND_URL`    | CORS origin — comma-separated for multiple origins |
 | `ENCRYPTION_KEY`  | AES-256-GCM key for encrypted PAT storage          |
 | `NGROK_AUTHTOKEN` | ngrok token (Docker only; desktop app prompts GUI) |
