@@ -19,6 +19,12 @@ export interface VoteStats {
   lowest: number;
 }
 
+export interface AIEstimateResult {
+  'story-point': number;
+  reason: string;
+  'similar-items': string[];
+}
+
 interface Props {
   workItem: WorkItem;
   isModerator: boolean;
@@ -34,6 +40,10 @@ interface Props {
   onReset: () => void;
   onBack: () => void;
   onUpdateWorkItem?: (score: number) => void;
+  aiEstimate?: AIEstimateResult | null;
+  aiLoading?: boolean;
+  aiError?: string | null;
+  onEstimateWithAI?: () => void;
 }
 
 function initials(name: string): string {
@@ -60,6 +70,10 @@ export default function WorkItemDetail({
   onReset,
   onBack,
   onUpdateWorkItem,
+  aiEstimate,
+  aiLoading,
+  aiError,
+  onEstimateWithAI,
 }: Props) {
   const myVote = votes.find((v) => v.userId === userId);
   const votedCount = votes.filter((v) => v.hasVoted).length;
@@ -103,7 +117,26 @@ export default function WorkItemDetail({
         )}
 
         {/* Moderator controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isModerator && onEstimateWithAI && (
+            <button
+              onClick={onEstimateWithAI}
+              disabled={aiLoading}
+              className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white border border-violet-400/30 shadow-lg shadow-violet-500/30 transition-all duration-200 hover:scale-105 hover:shadow-violet-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+            >
+              {aiLoading ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                  <span>Analyzing…</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-base leading-none">✨</span>
+                  <span>Estimate with AI</span>
+                </>
+              )}
+            </button>
+          )}
           {isModerator && !scoringActive && !revealed && (
             <button
               onClick={onStartScoring}
@@ -264,6 +297,50 @@ export default function WorkItemDetail({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* AI error */}
+            {aiError && (
+              <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2">
+                <svg className="w-4 h-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-400 text-xs">{aiError}</p>
+              </div>
+            )}
+
+            {/* AI Estimate panel – shown to moderator before reveal, to all after reveal */}
+            {aiEstimate && (
+              <div className="rounded-xl bg-gradient-to-br from-violet-900/40 to-indigo-900/20 border border-violet-500/30 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-base leading-none">✨</span>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-violet-300">AI Estimate</p>
+                </div>
+                <div className="flex items-baseline justify-center gap-1 mb-3">
+                  <span className="text-4xl font-bold text-white">{aiEstimate['story-point']}</span>
+                  <span className="text-sm text-violet-300 font-medium">SP</span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed mb-3">{aiEstimate.reason}</p>
+                {aiEstimate['similar-items'].length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Similar items</p>
+                    <ul className="space-y-1">
+                      {aiEstimate['similar-items'].map((url, i) => (
+                        <li key={i}>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-violet-400 hover:text-violet-300 underline underline-offset-2 line-clamp-1 block transition-colors"
+                          >
+                            {url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

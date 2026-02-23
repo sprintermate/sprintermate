@@ -4,5 +4,6 @@ import { routing } from './i18n/routing';
 export default createMiddleware(routing);
 
 export const config = {
-  matcher: ['/((?!_next|_vercel|.*\\..*).*)'],
+  // Exclude /api/* and socket.io from locale middleware — those go straight to the backend
+  matcher: ['/((?!_next|_vercel|api|socket.io|.*\..*).*)'],
 };

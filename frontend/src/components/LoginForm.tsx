@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
 interface Props {
   locale: string;

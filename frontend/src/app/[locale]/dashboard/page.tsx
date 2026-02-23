@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import DashboardClient from '../../../components/DashboardClient';
 import LogoutButton from '../../../components/LogoutButton';
+import AISettingsButton from '../../../components/AISettingsButton';
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -90,6 +91,7 @@ export default async function DashboardPage({ params }: Props) {
               <span className="text-slate-300 text-sm hidden sm:block">{user.displayName}</span>
             </div>
 
+            <AISettingsButton />
             <LogoutButton locale={locale} />
           </div>
         </div>

@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import roomsRouter from './routes/rooms';
+import aiRouter from './routes/ai';
 import { User } from './db/schema';
 import type { UserSession } from './types/auth';
 import './types/auth'; // register SessionData augmentation
@@ -83,6 +84,7 @@ export function createApp(): Application {
   app.use('/api/auth', authRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/rooms', roomsRouter);
+  app.use('/api/ai', aiRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

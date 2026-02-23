@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import WorkItemList, { type WorkItem } from './WorkItemList';
-import WorkItemDetail, { type VoteInfo, type VoteStats } from './WorkItemDetail';
+import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult } from './WorkItemDetail';
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,11 @@ export default function RoomClient({ room, user, locale }: Props) {
   const [stats, setStats] = useState<VoteStats | null>(null);
   const [myScore, setMyScore] = useState<number | null>(null);
 
+  // AI estimation state
+  const [aiEstimate, setAiEstimate] = useState<AIEstimateResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // Copy URL state (for moderator)
   const [urlCopied, setUrlCopied] = useState(false);
 
@@ -96,7 +101,7 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   // ── Socket connection ──────────────────────────────────────────────────────
   useEffect(() => {
-    const socket = io(BACKEND, { withCredentials: true });
+    const socket = io(BACKEND || undefined, { withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -116,12 +121,14 @@ export default function RoomClient({ room, user, locale }: Props) {
       scoringActive: boolean;
       votes: VoteInfo[];
       revealed: boolean;
+      aiEstimate?: AIEstimateResult | null;
     }) => {
       setParticipants(data.participants);
       setCurrentWorkItem(data.currentWorkItem);
       setScoringActive(data.scoringActive);
       setVotes(data.votes);
       setRevealed(data.revealed);
+      setAiEstimate(data.aiEstimate ?? null);
       setMyScore(null);
     });
 
@@ -136,6 +143,8 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(false);
       setStats(null);
       setMyScore(null);
+      setAiEstimate(null);
+      setAiError(null);
     });
 
     socket.on('session:start_scoring', () => {
@@ -144,16 +153,18 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(false);
       setStats(null);
       setMyScore(null);
+      setAiError(null);
     });
 
     socket.on('vote:update', (data: { votes: VoteInfo[] }) => {
       setVotes(data.votes);
     });
 
-    socket.on('vote:revealed', (data: { votes: VoteInfo[]; stats: VoteStats }) => {
+    socket.on('vote:revealed', (data: { votes: VoteInfo[]; stats: VoteStats; aiEstimate?: AIEstimateResult | null }) => {
       setVotes(data.votes);
       setStats(data.stats);
       setRevealed(true);
+      setAiEstimate(data.aiEstimate ?? null);
     });
 
     socket.on('session:reset', () => {
@@ -163,6 +174,8 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(false);
       setStats(null);
       setMyScore(null);
+      setAiEstimate(null);
+      setAiError(null);
     });
 
     socket.on('room:replaced', (data: { message: string }) => {
@@ -207,8 +220,34 @@ export default function RoomClient({ room, user, locale }: Props) {
   }, [room.code]);
 
   const handleReveal = useCallback(() => {
-    socketRef.current?.emit('vote:reveal', { code: room.code });
-  }, [room.code]);
+    socketRef.current?.emit('vote:reveal', {
+      code: room.code,
+      ...(aiEstimate ? { aiEstimate } : {}),
+    });
+  }, [room.code, aiEstimate]);
+
+  const handleAIEstimate = useCallback(async () => {
+    if (!currentWorkItem) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/ai/estimate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: room.code, workItemId: currentWorkItem.id, locale }),
+      });
+      const data = await res.json() as { 'story-point'?: number; reason?: string; 'similar-items'?: string[]; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setAiEstimate(data as AIEstimateResult);
+    } catch (err: unknown) {
+      setAiError(err instanceof Error ? err.message : 'AI estimation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [currentWorkItem, room.code]);
 
   const handleReset = useCallback(() => {
     socketRef.current?.emit('session:reset', { code: room.code });
@@ -419,6 +458,10 @@ export default function RoomClient({ room, user, locale }: Props) {
             onReset={handleReset}
             onBack={handleBack}
             onUpdateWorkItem={room.isModerator ? handleUpdateWorkItem : undefined}
+            aiEstimate={room.isModerator ? aiEstimate : (revealed ? aiEstimate : null)}
+            aiLoading={aiLoading}
+            aiError={aiError}
+            onEstimateWithAI={room.isModerator ? handleAIEstimate : undefined}
           />
         ) : null}
       </main>
