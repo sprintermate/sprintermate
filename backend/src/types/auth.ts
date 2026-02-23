@@ -4,10 +4,16 @@ export interface UserSession {
   email: string;
 }
 
-import 'express-session';
+export interface JwtPayload {
+  id: string;
+  displayName: string;
+  email: string;
+  iat?: number;
+  exp?: number;
+}
 
-declare module 'express-session' {
-  interface SessionData {
-    user?: UserSession;
+declare global {
+  namespace Express {
+    interface User extends UserSession {}
   }
 }

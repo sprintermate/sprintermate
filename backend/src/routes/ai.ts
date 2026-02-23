@@ -26,7 +26,7 @@ const ALL_PROVIDERS = new Set([...CLI_PROVIDERS, ...API_PROVIDERS]);
 // ─── GET /api/ai/settings ─────────────────────────────────────────────────────
 router.get('/settings', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.user!.id;
+    const userId = req.user!.id;
     const settings = await UserAISettings.findOne({ where: { user_id: userId } });
 
     if (!settings) {
@@ -46,7 +46,7 @@ router.get('/settings', requireAuth, async (req, res) => {
 // ─── PUT /api/ai/settings ─────────────────────────────────────────────────────
 router.put('/settings', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.user!.id;
+    const userId = req.user!.id;
     const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
 
     if (!provider || !ALL_PROVIDERS.has(provider)) {
@@ -110,7 +110,7 @@ router.post('/test', requireAuth, async (req, res) => {
 // ─── POST /api/ai/estimate ────────────────────────────────────────────────────
 router.post('/estimate', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.user!.id;
+    const userId = req.user!.id;
     const { roomCode, workItemId, locale } = req.body as { roomCode?: string; workItemId?: number; locale?: string };
 
     if (!roomCode || workItemId === undefined) {

@@ -1,4 +1,7 @@
 import { spawn } from 'child_process';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import type { Schema } from '@google/generative-ai';
+import OpenAI from 'openai';
 import type { AdoWorkItem } from './azDevops';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -201,56 +204,52 @@ async function callCodexCLI(prompt: string): Promise<string> {
 
 // ─── API Providers ────────────────────────────────────────────────────────────
 
+const estimateSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    'story-point': {
+      type: SchemaType.NUMBER,
+      description: 'Fibonacci story point estimate (1, 2, 3, 5, 8, 13, 21, 34, or 55)',
+    },
+    reason: {
+      type: SchemaType.STRING,
+      description: 'Brief explanation of the estimate with similarities to reference items',
+    },
+    'similar-items': {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: 'URLs of similar work items from the previous sprint context',
+    },
+  },
+  required: ['story-point', 'reason', 'similar-items'],
+};
+
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
-    }),
-    signal: AbortSignal.timeout(60000),
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-flash-latest',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: estimateSchema,
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+    },
   });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
-  }
-
-  const data = await res.json() as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
   if (!text) throw new Error('Gemini returned empty response');
   return text;
 }
 
 async function callChatGPT(prompt: string, apiKey: string): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-      max_tokens: 1024,
-    }),
-    signal: AbortSignal.timeout(60000),
+  const client = new OpenAI({ apiKey });
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.2,
+    max_tokens: 1024,
   });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${body.slice(0, 300)}`);
-  }
-
-  const data = await res.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const text = data.choices?.[0]?.message?.content ?? '';
+  const text = response.choices[0]?.message?.content ?? '';
   if (!text) throw new Error('ChatGPT returned empty response');
   return text;
 }

@@ -19,7 +19,7 @@ router.post('/', requireAuth, async (req, res) => {
     return;
   }
 
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
 
   // Verify project belongs to user
   const project = await Project.findOne({ where: { id: projectId, user_id: userId } });
@@ -54,7 +54,7 @@ router.post('/', requireAuth, async (req, res) => {
 
 /** GET /api/rooms — list the authenticated user's rooms */
 router.get('/', requireAuth, async (req, res) => {
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
 
   const rooms = await Room.findAll({
     where: { moderator_id: userId },
@@ -84,7 +84,7 @@ router.get('/', requireAuth, async (req, res) => {
 /** DELETE /api/rooms/:id — delete a room (moderator only) */
 router.delete('/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
 
   const room = await Room.findOne({ where: { id } });
   if (!room) {
@@ -104,7 +104,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 /** GET /api/rooms/:code — get a single room's details (public – guests allowed) */
 router.get('/:code', async (req, res) => {
   const { code } = req.params;
-  const userId = req.session.user?.id ?? null;
+  const userId = req.user?.id ?? null;
 
   const room = await Room.findOne({ where: { code } });
 
@@ -199,7 +199,7 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
     return;
   }
 
-  const userId = req.session.user!.id;
+  const userId = req.user!.id;
   const room = await Room.findOne({ where: { code } });
 
   if (!room) {
