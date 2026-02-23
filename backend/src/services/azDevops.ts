@@ -1,3 +1,21 @@
+/**
+ * Azure DevOps work item URL'sini organization, project ve workItemId'ye göre üretir.
+ * dev.azure.com ve *.visualstudio.com formatlarını destekler.
+ */
+export function buildWorkItemUrl(
+  organization: string,
+  project: string,
+  workItemId: number | string,
+  opts?: { visualStudio?: boolean }
+): string {
+  if (opts?.visualStudio) {
+    // https://{org}.visualstudio.com/{project}/_workitems/edit/{id}
+    return `https://${organization}.visualstudio.com/${encodeURIComponent(project)}/_workitems/edit/${workItemId}`;
+  } else {
+    // https://dev.azure.com/{org}/{project}/_workitems/edit/{id}
+    return `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_workitems/edit/${workItemId}`;
+  }
+}
 export interface ParsedSprintUrl {
   organization: string;
   project: string;
@@ -20,31 +38,49 @@ export function parseSprintUrl(rawUrl: string): ParsedSprintUrl | null {
     return null;
   }
 
-  if (url.hostname !== 'dev.azure.com') return null;
+  // dev.azure.com veya *.visualstudio.com destekle
+  const isDevAzure = url.hostname === 'dev.azure.com';
+  const isVisualStudio = url.hostname.endsWith('.visualstudio.com');
+  if (!isDevAzure && !isVisualStudio) return null;
 
-  // pathname starts with /, split gives ['', org, project, ...]
   const segments = url.pathname.split('/').map(s => decodeURIComponent(s));
 
-  const org     = segments[1];
-  const project = segments[2];
-  const typeKey = segments[3]; // '_sprints' or '_boards'
+  if (isDevAzure) {
+    // dev.azure.com/{org}/{project}/...
+    const org     = segments[1];
+    const project = segments[2];
+    const typeKey = segments[3]; // '_sprints' or '_boards'
+    if (!org || !project) return null;
 
-  if (!org || !project) return null;
-
-  if (typeKey === '_sprints') {
-    // segments: ['', org, project, '_sprints', type, team, ...rest, sprint]
-    const team   = segments[5];
-    const sprint = segments[segments.length - 1];
-    if (!team || !sprint) return null;
-    return { organization: org, project, team, sprint };
+    if (typeKey === '_sprints') {
+      // ['', org, project, '_sprints', type, team, ...rest, sprint]
+      const team   = segments[5];
+      const sprint = segments[segments.length - 1];
+      if (!team || !sprint) return null;
+      return { organization: org, project, team, sprint };
+    }
+    if (typeKey === '_boards') {
+      // ['', org, project, '_boards', 'board', 't', team, ...]
+      const tIdx = segments.indexOf('t', 4);
+      if (tIdx === -1 || !segments[tIdx + 1]) return null;
+      const team   = segments[tIdx + 1];
+      const sprint = segments[segments.length - 1];
+      return { organization: org, project, team, sprint };
+    }
   }
 
-  if (typeKey === '_boards') {
-    // segments: ['', org, project, '_boards', 'board', 't', team, ...]
-    const tIdx = segments.indexOf('t', 4);
-    if (tIdx === -1 || !segments[tIdx + 1]) return null;
-    const team   = segments[tIdx + 1];
+  if (isVisualStudio) {
+    // {org}.visualstudio.com/{project}/_sprints/backlog/{team}/{project}/{iterationPath...}/{sprint}
+    // örnek: https://dtalm.visualstudio.com/VDF-FinanceWare/_sprints/backlog/Ninja%20Turtles%20Team/VDF-FinanceWare/Ninja%20Turtles%20Iteration/2026%20Ninja%20Turtles%20Sprints/Sprint_109
+    const org = url.hostname.split('.')[0];
+    // ['', project, '_sprints', 'backlog', team, ...iterationPath, sprint]
+    const project = segments[1];
+    const typeKey = segments[2];
+    const backlogKey = segments[3];
+    if (!org || !project || typeKey !== '_sprints' || backlogKey !== 'backlog') return null;
+    const team = segments[4];
     const sprint = segments[segments.length - 1];
+    if (!team || !sprint) return null;
     return { organization: org, project, team, sprint };
   }
 

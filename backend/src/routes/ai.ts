@@ -15,6 +15,7 @@ import {
   listSprints,
   getWorkItemsForIteration,
   patAuthHeader,
+  buildWorkItemUrl,
 } from '../services/azDevops';
 
 const router = Router();
@@ -220,8 +221,8 @@ router.post('/estimate', requireAuth, async (req, res) => {
           authHeader,
         );
 
-        const adoBase = `https://dev.azure.com/${encodeURIComponent(project.organization)}/${encodeURIComponent(project.name)}/_workitems/edit`;
-
+        // Hangi formatta link üretileceğini belirle
+        const isVisualStudio = req.headers['referer']?.includes('.visualstudio.com') || project.ado_url?.includes('.visualstudio.com');
         for (const item of prevItems) {
           if (item.storyPoints !== null) {
             previousSprintItems.push({
@@ -229,7 +230,12 @@ router.post('/estimate', requireAuth, async (req, res) => {
               title: item.title,
               description: item.description,
               storyPoints: item.storyPoints,
-              adoUrl: `${adoBase}/${item.id}`,
+              adoUrl: buildWorkItemUrl(
+                project.organization,
+                project.name,
+                item.id,
+                { visualStudio: !!isVisualStudio }
+              ),
             });
           }
         }

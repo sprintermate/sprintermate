@@ -297,7 +297,7 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                     <p className="text-white text-sm font-medium truncate">{room.project_name}</p>
                     <p className="text-slate-500 text-xs mt-0.5 truncate">{room.sprint_name}</p>
                     <p className="text-slate-600 text-xs mt-2">
-                      {new Date(room.created_at).toLocaleDateString()}
+                      {new Date(room.created_at).toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US')}
                     </p>
                   </a>
 
@@ -480,7 +480,7 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                           {project.hasPat ? ' · PAT configured' : ''}
                         </p>
                         <p className="text-slate-600 text-xs mt-1">
-                          Added {new Date(project.created_at).toLocaleDateString()}
+                          Added {new Date(project.created_at).toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US')}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">
