@@ -120,8 +120,8 @@ export default function WorkItemDetail({
         <div className="flex items-center gap-2 flex-wrap">
           {isModerator && onEstimateWithAI && (
             <button
-              onClick={onEstimateWithAI}
-              disabled={aiLoading}
+              onClick={scoringActive ? onEstimateWithAI : undefined}
+              disabled={aiLoading || !scoringActive}
               className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white border border-violet-400/30 shadow-lg shadow-violet-500/30 transition-all duration-200 hover:scale-105 hover:shadow-violet-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
             >
               {aiLoading ? (
