@@ -1,0 +1,156 @@
+{
+  "nav": {
+    "joinRoom": "Join Room",
+    "createRoom": "Create Room",
+    "language": "Language"
+  },
+  "hero": {
+    "badge": "AI-Powered Estimation",
+    "headline": "Sprint Planning,\nReinvented.",
+    "subheadline": "Real-time collaborative Scrum Poker with AI-assisted story point estimation and native Azure DevOps integration.",
+    "ctaJoin": "Join a Room",
+    "ctaCreate": "Create a Room",
+    "scroll": "Discover how it works"
+  },
+  "features": {
+    "sectionLabel": "Everything you need",
+    "sectionTitle": "Built for modern engineering teams",
+    "sectionSubtitle": "Stop arguing about estimates. Let data and AI guide the conversation.",
+    "items": {
+      "realtime": {
+        "title": "Real-Time Collaboration",
+        "description": "Everyone votes simultaneously. Cards flip on reveal. No more anchoring bias or social influence distorting your estimates."
+      },
+      "ai": {
+        "title": "AI Estimation Engine",
+        "description": "Our AI analyzes your last three sprints to suggest a Fibonacci story point estimate — with a confidence rating and similar-item references."
+      },
+      "devops": {
+        "title": "Azure DevOps Native",
+        "description": "Paste a sprint URL and connect with a Personal Access Token. Your backlog is instantly imported — no manual entry."
+      },
+      "fibonacci": {
+        "title": "Fibonacci Scale",
+        "description": "Estimates use the standard Fibonacci sequence (1, 2, 3, 5, 8, 13, 21, 34, 55) — the same scale your team already knows."
+      },
+      "history": {
+        "title": "Historical Context",
+        "description": "Past sprint data powers smarter estimations. The AI learns from items your team has already scored and explained."
+      },
+      "rooms": {
+        "title": "Instant Rooms",
+        "description": "Create a room in seconds. Share a 6-character code or QR code. Participants join without needing an account."
+      }
+    }
+  },
+  "howItWorks": {
+    "sectionLabel": "The Story",
+    "sectionTitle": "From zero to estimated in minutes",
+    "steps": {
+      "connect": {
+        "step": "01",
+        "title": "Connect Azure DevOps",
+        "description": "Paste your sprint board URL. Scrum Poker parses your organization, project, and current sprint automatically."
+      },
+      "calibrate": {
+        "step": "02",
+        "title": "Calibrate the AI",
+        "description": "Score a handful of reference items using the Fibonacci scale. This one-time calibration teaches the AI your team's sizing conventions."
+      },
+      "create": {
+        "step": "03",
+        "title": "Create a Room",
+        "description": "Hit 'Create Room'. A unique 6-character code is generated. Share it with your team via code or QR. Everyone joins in real time."
+      },
+      "vote": {
+        "step": "04",
+        "title": "Vote & Reveal",
+        "description": "Pick a work item. The AI suggests an estimate. The team votes. Cards flip simultaneously. The facilitator accepts or overrides the score."
+      }
+    }
+  },
+  "integrations": {
+    "sectionLabel": "Integrations",
+    "sectionTitle": "Plays well with your existing tools",
+    "azure": "Azure DevOps",
+    "ai": "AI Estimation",
+    "websocket": "Real-Time WebSocket"
+  },
+  "footer": {
+    "tagline": "Scrum Poker — smarter sprint planning.",
+    "rights": "All rights reserved."
+  },
+  "login": {
+    "title": "Welcome to Scrum Poker",
+    "description": "Sign in to access sprint planning rooms and AI-powered estimation.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Your password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "noAccount": "Don't have an account?",
+    "register": "Register",
+    "error": {
+      "invalid_credentials": "Invalid email or password.",
+      "network_error": "A network error occurred. Please check your connection.",
+      "unknown": "An unexpected error occurred."
+    }
+  },
+  "register": {
+    "title": "Create an account",
+    "description": "Join Scrum Poker and start planning sprints with your team.",
+    "displayNameLabel": "Display name",
+    "displayNamePlaceholder": "Your name",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Repeat your password",
+    "submit": "Create account",
+    "submitting": "Creating…",
+    "hasAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "error": {
+      "password_mismatch": "Passwords do not match.",
+      "email_taken": "This email is already registered.",
+      "weak_password": "Password must be at least 8 characters.",
+      "unknown": "An unexpected error occurred."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome, {name}!",
+    "signOut": "Sign out",
+    "rooms": "Your Rooms",
+    "noRooms": "No rooms yet. Create one to get started.",
+    "createRoom": "+ Create Room",
+    "joinByCode": "Join by Code"
+  },
+  "createRoom": {
+    "title": "Create a Room",
+    "stepProject": "Connect Azure DevOps",
+    "stepSprint": "Select Sprint",
+    "savedProjects": "Your saved projects",
+    "connectNew": "+ Connect a new project",
+    "urlLabel": "Azure DevOps sprint board URL",
+    "urlPlaceholder": "https://dev.azure.com/org/project/_sprints/backlog/Team/.../Sprint",
+    "parseButton": "Parse URL",
+    "parsing": "Parsing…",
+    "parsedPreview": "Parsed successfully",
+    "fieldOrg": "Organization",
+    "fieldProject": "Project",
+    "fieldTeam": "Team",
+    "fieldSprint": "Sprint",
+    "confirmProject": "Confirm & Select Sprint",
+    "loadingSprints": "Loading sprints…",
+    "sprintLabel": "Select a sprint",
+    "back": "Back",
+    "createButton": "Create Room",
+    "creating": "Creating…",
+    "errorParse": "Could not parse the URL. Please check it is a valid Azure DevOps sprint URL.",
+    "errorSprints": "Failed to load sprints. Make sure az CLI is logged in.",
+    "errorCreate": "Failed to create room. Please try again."
+  }
+}

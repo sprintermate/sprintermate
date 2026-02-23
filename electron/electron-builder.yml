@@ -1,0 +1,76 @@
+appId: com.scrumpoker.desktop
+productName: ScrumPoker
+
+directories:
+  output: dist-electron
+  buildResources: assets
+
+# Electron main process files
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - package.json
+
+# Extra resources bundled alongside the asar (backend + frontend builds)
+extraResources:
+  - from: ../backend/dist
+    to: backend/dist
+    filter:
+      - "**/*"
+  - from: ../backend/node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+  - from: ../frontend/.next/standalone
+    to: frontend/.next/standalone
+    filter:
+      - "**/*"
+  - from: ../frontend/.next/static
+    to: frontend/.next/static
+    filter:
+      - "**/*"
+  - from: ../frontend/public
+    to: frontend/public
+    filter:
+      - "**/*"
+
+# Native modules (sqlite3, better-sqlite3) are rebuilt by build-electron.sh
+# before packaging, so electron-builder should NOT rebuild them again.
+npmRebuild: false
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+
+dmg:
+  contents:
+    - x: 410
+      y: 150
+      type: link
+      path: /Applications
+    - x: 130
+      y: 150
+      type: file
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Office
