@@ -12,7 +12,7 @@
 - [ ] Havalı bir websitesi, daha detaylı bir şekilde geliştirilecek.
 - [ ] websitesi üzerinden çalışan versiyonda ücretli versiyon sunulacak.
 - [ ] Localization eksikleri giderilmeli
-- [ ] Discussion alanı yok olmalı (yorumlar) ve varsa gelsin madde detayında
+- [ !!! ] Takımid - workitem id bazlı bir ai önerdiği puan ve azure'a kaydedilen puan olarak metrik tutulması böylece ai önerisinin yüzde kaçı kabul ediliyor ve ai önerisinin takım kararı ile doğruluk standart sapması ne bunu ölçümlendirmek çok önemli. Burada projects tab'ında projeye tıkladığında buradaki verilerin analiz edilmiş standart sapmasının görüntülendiği bir ekran açılabilir böylece bu projeyi ekleyen kişiler bu bilgilerin analizi sonucunda ai önerisinin başarı metriğini ölçebilir. AI analiz kısmında da burada hesaplanan puan standart sapması ile takım puanlamasına daha uygun yatkın davranma özelliği de katılabir.
 ## Done
 
 - [x] Light mode / dark mode desteği yukarıdaki navbar üstündeki küçük bir sembölle yönetilir. aydınlık tema cyan / green bazlı olacak, karanlık tema indigo bazlı olacak. aydınlık tema canlı olacak.
