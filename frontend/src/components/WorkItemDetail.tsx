@@ -1,4 +1,44 @@
-'use client';
+function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
+  const scoreCounts: Record<number, number> = {};
+  FIBONACCI.forEach((n) => (scoreCounts[n] = 0));
+  votes.forEach((v) => {
+    if (typeof v.score === 'number' && scoreCounts.hasOwnProperty(v.score)) {
+      scoreCounts[v.score]! += 1;
+    }
+  });
+  const maxCount = Math.max(...Object.values(scoreCounts));
+  return (
+    <div className="flex flex-col gap-1 mt-2">
+      <div className="flex gap-1 justify-center">
+        {FIBONACCI.map((n) => (
+          <div key={n} className="flex flex-col items-center mx-0.5">
+            {/* Kart puanı üstte */}
+            <span className="text-[11px] font-bold text-gray-700 dark:text-slate-200 mb-1 font-mono">{n}</span>
+            {/* Bar ortada */}
+            <div
+              className="transition-all"
+              style={{
+                width: '22px',
+                height: `${maxCount > 0 ? (scoreCounts[n]! / maxCount) * 36 + 8 : 8}px`,
+                background: scoreCounts[n]! > 0 ? 'linear-gradient(180deg, #06b6d4 60%, #818cf8 100%)' : '#e5e7eb',
+                borderRadius: '6px 6px 4px 4px',
+                marginBottom: '2px',
+                border: scoreCounts[n]! > 0 ? '1.5px solid #06b6d4' : '1.5px solid #e5e7eb',
+                transition: 'height 0.2s',
+              }}
+              title={`${n} SP: ${scoreCounts[n]} kişi`}
+            />
+            {/* Kişi sayısı barın altında ve daha belirgin */}
+            {scoreCounts[n]! > 0 && (
+              <span className="text-[11px] text-cyan-700 dark:text-indigo-300 font-semibold mt-1">{scoreCounts[n]}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* Info text removed as requested */}
+    </div>
+  );
+}
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
@@ -78,6 +118,8 @@ export default function WorkItemDetail({
 }: Props) {
   const t = useTranslations('workItemDetail');
   const myVote = votes.find((v) => v.userId === userId);
+    // Show VoteDistributionBar after reveal
+    const showVoteDistribution = revealed && votes.length > 0;
   const votedCount = votes.filter((v) => v.hasVoted).length;
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -276,26 +318,30 @@ export default function WorkItemDetail({
                     </button>
                   ))}
                 </div>
-                {myScore !== null && (
-                  <p className="text-xs text-cyan-600 dark:text-indigo-400 mt-2 text-center">{t('youSelected', { score: myScore })}</p>
-                )}
               </div>
             )}
 
             {/* Stats – shown after reveal */}
+
             {revealed && stats && (
               <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionResults')}</p>
-                <div className="grid grid-cols-2 gap-2">
+                {/* Vote distribution chart */}
+                {showVoteDistribution && (
+                  <div className="mb-3">
+                    <VoteDistributionBar votes={votes} />
+                  </div>
+                )}
+                <div className="flex gap-2 justify-center mb-2">
                   {[
                     { label: t('statAverage'), val: stats.average },
                     { label: t('statMedian'),  val: stats.median },
                     { label: t('statHighest'), val: stats.highest },
                     { label: t('statLowest'),  val: stats.lowest },
                   ].map(({ label, val }) => (
-                    <div key={label} className="rounded-lg bg-gray-100/60 border border-gray-300 dark:bg-slate-800/60 dark:border-slate-700 p-3 text-center">
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">{val}</div>
-                      <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{label}</div>
+                    <div key={label} className="flex flex-col items-center justify-center w-20 h-20 rounded-md bg-gray-100/60 border border-gray-300 dark:bg-slate-800/60 dark:border-slate-700">
+                      <span className="text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-1">{val}</span>
+                      <span className="text-[12px] text-gray-400 dark:text-slate-500 text-center whitespace-nowrap">{label}</span>
                     </div>
                   ))}
                 </div>
