@@ -27,13 +27,13 @@ body {
 }
 
 /* ── ADO HTML content (work item descriptions, acceptance criteria) ── */
+/* Shared structural rules */
 .ado-content {
-  color: #cbd5e1; /* slate-300 */
   font-size: 0.875rem;
   line-height: 1.7;
 }
 /* Generic containers from ADO (span/div) carry inline light-theme colors —
-   force them to inherit so text is always visible on the dark background. */
+   force them to inherit so text is always visible on any background. */
 .ado-content span,
 .ado-content div,
 .ado-content p,
@@ -52,19 +52,82 @@ body {
 .ado-content ol  { list-style-type: decimal; }
 .ado-content li  { margin: 0.25em 0; }
 .ado-content li > p { margin: 0; }
-.ado-content strong, .ado-content b { color: #f1f5f9 !important; font-weight: 600; }
-.ado-content em, .ado-content i     { font-style: italic; }
-.ado-content a   { color: #818cf8 !important; text-decoration: underline; text-decoration-color: #818cf8 !important; }
-.ado-content a:hover { color: #a5b4fc !important; text-decoration-color: #a5b4fc !important; }
-.ado-content h1,
-.ado-content h2,
-.ado-content h3,
-.ado-content h4  { color: #f1f5f9 !important; font-weight: 600; margin: 0.75em 0 0.25em; }
-.ado-content h1  { font-size: 1.125rem !important; }
-.ado-content h2  { font-size: 1rem !important; }
-.ado-content h3  { font-size: 0.9375rem !important; }
-.ado-content h4  { font-size: 0.875rem !important; }
-.ado-content code {
+.ado-content em, .ado-content i { font-style: italic; }
+.ado-content h1  { font-size: 1.125rem !important; font-weight: 600; margin: 0.75em 0 0.25em; }
+.ado-content h2  { font-size: 1rem !important; font-weight: 600; margin: 0.75em 0 0.25em; }
+.ado-content h3  { font-size: 0.9375rem !important; font-weight: 600; margin: 0.75em 0 0.25em; }
+.ado-content h4  { font-size: 0.875rem !important; font-weight: 600; margin: 0.75em 0 0.25em; }
+.ado-content table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; margin: 0.5em 0; }
+.ado-content img { max-width: 100%; border-radius: 0.375rem; }
+
+/* ── Light mode (html without .dark class) ── */
+html:not(.dark) .ado-content {
+  color: #374151; /* gray-700 */
+}
+html:not(.dark) .ado-content strong,
+html:not(.dark) .ado-content b { color: #111827 !important; font-weight: 600; }
+html:not(.dark) .ado-content a { color: #0891b2 !important; text-decoration: underline; text-decoration-color: #0891b2 !important; }
+html:not(.dark) .ado-content a:hover { color: #0e7490 !important; text-decoration-color: #0e7490 !important; }
+html:not(.dark) .ado-content h1,
+html:not(.dark) .ado-content h2,
+html:not(.dark) .ado-content h3,
+html:not(.dark) .ado-content h4 { color: #111827 !important; }
+html:not(.dark) .ado-content code {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.8125rem !important;
+  font-family: ui-monospace, monospace !important;
+  color: #1f2937 !important;
+}
+html:not(.dark) .ado-content pre {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+html:not(.dark) .ado-content pre code { background: none; border: none; padding: 0; }
+html:not(.dark) .ado-content blockquote {
+  border-left: 3px solid #9ca3af;
+  padding-left: 0.75rem;
+  color: #6b7280 !important;
+  margin: 0.5em 0;
+}
+html:not(.dark) .ado-content th {
+  background: #f9fafb;
+  color: #6b7280 !important;
+  text-align: left;
+  padding: 0.4em 0.75em;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 0.75rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+html:not(.dark) .ado-content td {
+  padding: 0.4em 0.75em;
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+html:not(.dark) .ado-content tr:nth-child(even) td { background: #f9fafb; }
+html:not(.dark) .ado-content hr { border-color: #e5e7eb; margin: 0.75em 0; }
+
+/* ── Dark mode (.dark class on html) ── */
+.dark .ado-content {
+  color: #cbd5e1; /* slate-300 */
+}
+.dark .ado-content strong,
+.dark .ado-content b { color: #f1f5f9 !important; font-weight: 600; }
+.dark .ado-content a { color: #818cf8 !important; text-decoration: underline; text-decoration-color: #818cf8 !important; }
+.dark .ado-content a:hover { color: #a5b4fc !important; text-decoration-color: #a5b4fc !important; }
+.dark .ado-content h1,
+.dark .ado-content h2,
+.dark .ado-content h3,
+.dark .ado-content h4 { color: #f1f5f9 !important; }
+.dark .ado-content code {
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 0.25rem;
@@ -73,7 +136,7 @@ body {
   font-family: ui-monospace, monospace !important;
   color: #e2e8f0 !important;
 }
-.ado-content pre {
+.dark .ado-content pre {
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: 0.5rem;
@@ -81,20 +144,14 @@ body {
   overflow-x: auto;
   margin: 0.5em 0;
 }
-.ado-content pre code { background: none; border: none; padding: 0; }
-.ado-content blockquote {
+.dark .ado-content pre code { background: none; border: none; padding: 0; }
+.dark .ado-content blockquote {
   border-left: 3px solid #475569;
   padding-left: 0.75rem;
   color: #94a3b8 !important;
   margin: 0.5em 0;
 }
-.ado-content table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-  margin: 0.5em 0;
-}
-.ado-content th {
+.dark .ado-content th {
   background: #1e293b;
   color: #94a3b8 !important;
   text-align: left;
@@ -105,11 +162,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.ado-content td {
+.dark .ado-content td {
   padding: 0.4em 0.75em;
   border: 1px solid #1e293b;
   vertical-align: top;
 }
-.ado-content tr:nth-child(even) td { background: #0f172a; }
-.ado-content img { max-width: 100%; border-radius: 0.375rem; }
-.ado-content hr  { border-color: #334155; margin: 0.75em 0; }
+.dark .ado-content tr:nth-child(even) td { background: #0f172a; }
+.dark .ado-content hr { border-color: #334155; margin: 0.75em 0; }

@@ -5,6 +5,10 @@ const PROXY_PORT = 8080;
 const BACKEND_PORT = 4000;
 const FRONTEND_PORT = 3000;
 
+// Per-request store so the proxyRes handler can rewrite Location headers
+// using the correct public host/proto for that specific request.
+const reqMeta = new WeakMap<http.IncomingMessage, { host: string; proto: string }>();
+
 export function createProxy(): http.Server {
   const proxy = httpProxy.createProxyServer({});
 
@@ -13,6 +17,25 @@ export function createProxy(): http.Server {
     if (res instanceof http.ServerResponse && !res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'text/plain' });
       res.end('Bad Gateway — service is starting up, please retry.');
+    }
+  });
+
+  // Rewrite any localhost redirect Location headers that Next.js emits
+  // (e.g. next-intl locale redirect) back to the real public URL.
+  proxy.on('proxyRes', (proxyRes, req) => {
+    const location = proxyRes.headers['location'];
+    if (typeof location !== 'string') return;
+
+    const meta = reqMeta.get(req as http.IncomingMessage);
+    if (!meta?.host) return;
+
+    const fixed = location.replace(
+      /^https?:\/\/(localhost|127\.0\.0\.1):(3000|8080)\b/,
+      `${meta.proto}://${meta.host}`
+    );
+    if (fixed !== location) {
+      proxyRes.headers['location'] = fixed;
+      console.log(`[proxy] rewrote Location: ${location} → ${fixed}`);
     }
   });
 
@@ -34,6 +57,13 @@ export function createProxy(): http.Server {
       // and generates correct Location headers in redirects.
       req.headers['x-forwarded-host']  = forwardedHost;
       req.headers['x-forwarded-proto'] = forwardedProto;
+      // Explicitly set the host header to the public hostname so Next.js middleware
+      // constructs request.url with the correct origin (not localhost:3000).
+      if (forwardedHost) {
+        req.headers['host'] = forwardedHost;
+      }
+      // Store metadata for the proxyRes handler to use.
+      reqMeta.set(req, { host: forwardedHost, proto: forwardedProto });
       proxy.web(req, res, {
         target: `http://127.0.0.1:${FRONTEND_PORT}`,
         xfwd: false,

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import DashboardClient from '../../../components/DashboardClient';
 import LogoutButton from '../../../components/LogoutButton';
 import AISettingsButton from '../../../components/AISettingsButton';
+import { ThemeToggle } from '../../../components/ThemeProvider';
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -70,27 +71,28 @@ export default async function DashboardPage({ params }: Props) {
   ]);
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
       {/* Header */}
-      <header className="border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-md">
+      <header className="border-b border-gray-200/60 bg-white/80 dark:border-slate-800/60 dark:bg-slate-950/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-cyan-600 dark:bg-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">SP</span>
             </div>
-            <span className="font-semibold text-white">Scrum Poker</span>
+            <span className="font-semibold text-gray-900 dark:text-white">Scrum Poker</span>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center">
-                <span className="text-indigo-300 text-xs font-medium">
+              <div className="w-8 h-8 rounded-full bg-cyan-600/30 border border-cyan-500/40 dark:bg-indigo-600/30 dark:border-indigo-500/40 flex items-center justify-center">
+                <span className="text-cyan-700 dark:text-indigo-300 text-xs font-medium">
                   {user.displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="text-slate-300 text-sm hidden sm:block">{user.displayName}</span>
+              <span className="text-gray-700 dark:text-slate-300 text-sm hidden sm:block">{user.displayName}</span>
             </div>
 
+            <ThemeToggle />
             <AISettingsButton />
             <LogoutButton locale={locale} />
           </div>
@@ -101,10 +103,10 @@ export default async function DashboardPage({ params }: Props) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Welcome */}
         <div className="mb-10">
-          <h1 className="text-3xl font-bold text-white">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Welcome, {user.displayName}!
           </h1>
-          <p className="text-slate-400 mt-1 text-sm">{user.email}</p>
+          <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">{user.email}</p>
         </div>
 
         <DashboardClient

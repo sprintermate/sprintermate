@@ -4,6 +4,7 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -33,10 +34,12 @@ export default async function LocaleLayout({ children, params }: Props) {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className="scroll-smooth">
-      <body className={`${inter.className} bg-slate-950 text-white antialiased`}>
+    <html lang={locale} className="scroll-smooth dark" suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-50 text-gray-900 dark:bg-slate-950 dark:text-white antialiased`}>
         <NextIntlClientProvider messages={messages}>
-          {children}
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
         </NextIntlClientProvider>
       </body>
     </html>

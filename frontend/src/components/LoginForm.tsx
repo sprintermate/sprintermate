@@ -50,7 +50,7 @@ export default function LoginForm({ locale }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <label htmlFor="email" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-300">
           {t('emailLabel')}
         </label>
         <input
@@ -61,12 +61,12 @@ export default function LoginForm({ locale }: Props) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t('emailPlaceholder')}
-          className="w-full px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          className="w-full px-4 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-indigo-500 focus:border-transparent transition"
         />
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="password" className="block text-sm font-medium text-slate-300">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300">
           {t('passwordLabel')}
         </label>
         <input
@@ -77,12 +77,12 @@ export default function LoginForm({ locale }: Props) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={t('passwordPlaceholder')}
-          className="w-full px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+          className="w-full px-4 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-indigo-500 focus:border-transparent transition"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-4 py-2.5">
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800/40 rounded-lg px-4 py-2.5">
           {error}
         </p>
       )}
@@ -90,7 +90,7 @@ export default function LoginForm({ locale }: Props) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+        className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
       >
         {loading ? t('signingIn') : t('signIn')}
       </button>

@@ -105,7 +105,7 @@ export default function WorkItemDetail({
         {isModerator ? (
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -122,7 +122,7 @@ export default function WorkItemDetail({
             <button
               onClick={scoringActive ? onEstimateWithAI : undefined}
               disabled={aiLoading || !scoringActive}
-              className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white border border-violet-400/30 shadow-lg shadow-violet-500/30 transition-all duration-200 hover:scale-105 hover:shadow-violet-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+              className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-teal-600 via-green-600 to-cyan-600 hover:from-teal-500 hover:via-green-500 hover:to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-indigo-600 dark:hover:from-violet-500 dark:hover:via-purple-500 dark:hover:to-indigo-500 text-white border border-teal-400/30 dark:border-violet-400/30 shadow-lg shadow-teal-500/30 dark:shadow-violet-500/30 transition-all duration-200 hover:scale-105 hover:shadow-teal-500/50 dark:hover:shadow-violet-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
             >
               {aiLoading ? (
                 <>
@@ -140,7 +140,7 @@ export default function WorkItemDetail({
           {isModerator && !scoringActive && !revealed && (
             <button
               onClick={onStartScoring}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -152,7 +152,7 @@ export default function WorkItemDetail({
             <button
               onClick={onReveal}
               disabled={votedCount === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -166,7 +166,7 @@ export default function WorkItemDetail({
               {onUpdateWorkItem && (
                 <button
                   onClick={handleOpenUpdateModal}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -176,7 +176,7 @@ export default function WorkItemDetail({
               )}
               <button
                 onClick={onReset}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-white text-sm font-medium transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -195,25 +195,25 @@ export default function WorkItemDetail({
         <div className={`flex flex-col gap-5 overflow-y-auto min-h-0 ${scoringActive ? 'flex-1' : 'w-full'}`}>
 
           {/* Header */}
-          <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
             <div className="flex items-start gap-3 flex-wrap">
-              <span className="font-mono text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
+              <span className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-white leading-snug">{workItem.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-snug">{workItem.title}</h2>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="px-2 py-0.5 rounded-full text-xs border bg-slate-800/60 text-slate-300 border-slate-700">
+                  <span className="px-2 py-0.5 rounded-full text-xs border bg-gray-100/60 text-gray-600 border-gray-300 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700">
                     {workItem.workItemType}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs border bg-blue-500/10 text-blue-300 border-blue-500/20">
+                  <span className="px-2 py-0.5 rounded-full text-xs border bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20">
                     {workItem.state}
                   </span>
                   {workItem.assignedTo && (
-                    <span className="px-2 py-0.5 rounded-full text-xs border bg-slate-800/60 text-slate-400 border-slate-700">
+                    <span className="px-2 py-0.5 rounded-full text-xs border bg-gray-100/60 text-gray-500 border-gray-300 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700">
                       👤 {workItem.assignedTo}
                     </span>
                   )}
                   {workItem.storyPoints != null && (
-                    <span className="px-2 py-0.5 rounded-full text-xs border bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
+                    <span className="px-2 py-0.5 rounded-full text-xs border bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30">
                       {workItem.storyPoints} SP
                     </span>
                   )}
@@ -223,28 +223,28 @@ export default function WorkItemDetail({
           </div>
 
           {/* Description */}
-          <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Description</h3>
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Description</h3>
             {workItem.description ? (
               <div
                 className="ado-content"
                 dangerouslySetInnerHTML={{ __html: workItem.description }}
               />
             ) : (
-              <p className="text-slate-600 text-sm italic">Please give some content before planning.</p>
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">Please give some content before planning.</p>
             )}
           </div>
 
           {/* Acceptance Criteria */}
-          <div className="rounded-xl bg-slate-900 border border-slate-800 p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Acceptance Criteria</h3>
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Acceptance Criteria</h3>
             {workItem.acceptanceCriteria ? (
               <div
                 className="ado-content"
                 dangerouslySetInnerHTML={{ __html: workItem.acceptanceCriteria }}
               />
             ) : (
-              <p className="text-slate-600 text-sm italic">Please give some content before planning.</p>
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">Please give some content before planning.</p>
             )}
           </div>
         </div>
@@ -255,8 +255,8 @@ export default function WorkItemDetail({
 
             {/* Card selector – only shown before reveal */}
             {!revealed && (
-              <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+              <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
                   {myVote?.hasVoted ? 'Your vote ✓' : 'Pick your score'}
                 </p>
                 <div className="grid grid-cols-5 gap-2">
@@ -266,8 +266,8 @@ export default function WorkItemDetail({
                       onClick={() => onCastVote(n)}
                       className={`h-12 rounded-lg text-sm font-bold transition-all border ${
                         myScore === n
-                          ? 'bg-indigo-600 border-indigo-500 text-white scale-105 shadow-lg shadow-indigo-500/20'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white'
+                          ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
+                          : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
                       }`}
                     >
                       {n}
@@ -275,15 +275,15 @@ export default function WorkItemDetail({
                   ))}
                 </div>
                 {myScore !== null && (
-                  <p className="text-xs text-indigo-400 mt-2 text-center">You selected <strong>{myScore}</strong></p>
+                  <p className="text-xs text-cyan-600 dark:text-indigo-400 mt-2 text-center">You selected <strong>{myScore}</strong></p>
                 )}
               </div>
             )}
 
             {/* Stats – shown after reveal */}
             {revealed && stats && (
-              <div className="rounded-xl bg-slate-900 border border-slate-800 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Results</p>
+              <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Results</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'Average', val: stats.average },
@@ -291,9 +291,9 @@ export default function WorkItemDetail({
                     { label: 'Highest', val: stats.highest },
                     { label: 'Lowest',  val: stats.lowest },
                   ].map(({ label, val }) => (
-                    <div key={label} className="rounded-lg bg-slate-800/60 border border-slate-700 p-3 text-center">
-                      <div className="text-xl font-bold text-white">{val}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+                    <div key={label} className="rounded-lg bg-gray-100/60 border border-gray-300 dark:bg-slate-800/60 dark:border-slate-700 p-3 text-center">
+                      <div className="text-xl font-bold text-gray-900 dark:text-white">{val}</div>
+                      <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{label}</div>
                     </div>
                   ))}
                 </div>
@@ -302,29 +302,29 @@ export default function WorkItemDetail({
 
             {/* AI error */}
             {aiError && (
-              <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2">
-                <svg className="w-4 h-4 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="rounded-xl bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 p-3 flex items-start gap-2">
+                <svg className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-red-400 text-xs">{aiError}</p>
+                <p className="text-red-600 dark:text-red-400 text-xs">{aiError}</p>
               </div>
             )}
 
             {/* AI Estimate panel – shown to moderator before reveal, to all after reveal */}
             {aiEstimate && (
-              <div className="rounded-xl bg-gradient-to-br from-violet-900/40 to-indigo-900/20 border border-violet-500/30 p-4">
+              <div className="rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 dark:from-violet-900/40 dark:to-indigo-900/20 dark:border-violet-500/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-base leading-none">✨</span>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-violet-300">AI Estimate</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">AI Estimate</p>
                 </div>
                 <div className="flex items-baseline justify-center gap-1 mb-3">
-                  <span className="text-4xl font-bold text-white">{aiEstimate['story-point']}</span>
-                  <span className="text-sm text-violet-300 font-medium">SP</span>
+                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{aiEstimate['story-point']}</span>
+                  <span className="text-sm text-teal-700 dark:text-violet-300 font-medium">SP</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-3">{aiEstimate.reason}</p>
+                <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed mb-3">{aiEstimate.reason}</p>
                 {aiEstimate['similar-items'].length > 0 && (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Similar items</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">Similar items</p>
                     <ul className="space-y-1">
                       {aiEstimate['similar-items'].map((url, i) => (
                         <li key={i}>
@@ -332,7 +332,7 @@ export default function WorkItemDetail({
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-violet-400 hover:text-violet-300 underline underline-offset-2 line-clamp-1 block transition-colors"
+                            className="text-xs text-teal-600 hover:text-teal-500 dark:text-violet-400 dark:hover:text-violet-300 underline underline-offset-2 line-clamp-1 block transition-colors"
                           >
                             {url}
                           </a>
@@ -345,32 +345,32 @@ export default function WorkItemDetail({
             )}
 
             {/* Participant votes */}
-            <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 flex-1 overflow-y-auto">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                Votes {votedCount > 0 && <span className="text-indigo-400">({votedCount}/{votes.length})</span>}
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4 flex-1 overflow-y-auto">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
+                Votes {votedCount > 0 && <span className="text-cyan-600 dark:text-indigo-400">({votedCount}/{votes.length})</span>}
               </p>
               {votes.length === 0 ? (
-                <p className="text-slate-600 text-xs text-center py-4">No participants yet</p>
+                <p className="text-gray-400 dark:text-slate-600 text-xs text-center py-4">No participants yet</p>
               ) : (
                 <ul className="space-y-2">
                   {votes.map((v) => (
                     <li key={v.userId} className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold text-slate-300 shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 dark:bg-slate-700 dark:border-slate-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-slate-300 shrink-0">
                         {initials(v.displayName)}
                       </div>
-                      <span className="flex-1 text-sm text-slate-300 truncate">{v.displayName}</span>
+                      <span className="flex-1 text-sm text-gray-700 dark:text-slate-300 truncate">{v.displayName}</span>
                       {revealed && v.score !== null ? (
-                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-sm">
+                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300 font-bold text-sm">
                           {v.score}
                         </span>
                       ) : v.hasVoted ? (
-                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 border border-green-200 text-green-600 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         </span>
                       ) : (
-                        <span className="w-8 h-8 flex items-center justify-center text-slate-600 text-xs">…</span>
+                        <span className="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-slate-600 text-xs">…</span>
                       )}
                     </li>
                   ))}
@@ -383,18 +383,18 @@ export default function WorkItemDetail({
 
       {/* ── Update Work Item Modal ── */}
       {showUpdateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-white font-semibold text-base">Update Work Item</h3>
-                <p className="text-slate-400 text-xs mt-0.5 truncate max-w-[18rem]">
+                <h3 className="text-gray-900 dark:text-white font-semibold text-base">Update Work Item</h3>
+                <p className="text-gray-500 dark:text-slate-400 text-xs mt-0.5 truncate max-w-[18rem]">
                   #{workItem.id} · {workItem.title}
                 </p>
               </div>
               <button
                 onClick={() => setShowUpdateModal(false)}
-                className="text-slate-500 hover:text-white transition-colors ml-3 shrink-0"
+                className="text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white transition-colors ml-3 shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -402,7 +402,7 @@ export default function WorkItemDetail({
               </button>
             </div>
 
-            <p className="text-slate-400 text-sm mb-4">Select the final story points to save to Azure DevOps:</p>
+            <p className="text-gray-500 dark:text-slate-400 text-sm mb-4">Select the final story points to save to Azure DevOps:</p>
 
             <div className="grid grid-cols-5 gap-2 mb-5">
               {FIBONACCI.map((n) => (
@@ -411,8 +411,8 @@ export default function WorkItemDetail({
                   onClick={() => setUpdateScore(n)}
                   className={`h-12 rounded-lg text-sm font-bold transition-all border ${
                     updateScore === n
-                      ? 'bg-indigo-600 border-indigo-500 text-white scale-105 shadow-lg shadow-indigo-500/20'
-                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white'
+                      ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
+                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
                   }`}
                 >
                   {n}
@@ -421,7 +421,7 @@ export default function WorkItemDetail({
             </div>
 
             {updateScore !== null && (
-              <p className="text-xs text-indigo-400 text-center mb-4">
+              <p className="text-xs text-cyan-600 dark:text-indigo-400 text-center mb-4">
                 Selected: <strong>{updateScore}</strong> story points
               </p>
             )}
@@ -429,14 +429,14 @@ export default function WorkItemDetail({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowUpdateModal(false)}
-                className="flex-1 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-sm font-medium transition-colors"
+                className="flex-1 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => void handleConfirmUpdate()}
                 disabled={updateScore === null || updating}
-                className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+                className="flex-1 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
                 {updating ? 'Saving…' : 'Save to Azure DevOps'}
               </button>

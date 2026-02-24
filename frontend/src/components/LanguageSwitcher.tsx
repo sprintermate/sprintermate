@@ -17,7 +17,7 @@ export default function LanguageSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-full border border-slate-700 p-1">
+    <div className="flex items-center gap-1 rounded-full border border-gray-200 dark:border-slate-700 p-1">
       {(['en', 'tr'] as const).map((lang) => (
         <button
           key={lang}
@@ -25,8 +25,8 @@ export default function LanguageSwitcher() {
           disabled={isPending}
           className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
             locale === lang
-              ? 'bg-indigo-600 text-white'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-cyan-600 dark:bg-indigo-600 text-white'
+              : 'text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white'
           }`}
         >
           {lang.toUpperCase()}

@@ -24,7 +24,7 @@ Write-Host ""
 
 # ── 2. Backend production dependencies ───────────────────────────────────────
 Write-Host "▶ [2/6] Installing backend production dependencies…"
-npm install --omit=dev --ignore-scripts
+npm install
 Write-Host "  ✓ backend/node_modules/ trimmed to production"
 Write-Host ""
 
@@ -34,6 +34,7 @@ Set-Location $FRONTEND
 
 $env:NEXT_PUBLIC_BACKEND_URL = ""
 $env:BACKEND_URL              = "http://127.0.0.1:4000"
+npm install
 npm run build
 Remove-Item Env:\NEXT_PUBLIC_BACKEND_URL -ErrorAction SilentlyContinue
 Remove-Item Env:\BACKEND_URL             -ErrorAction SilentlyContinue
