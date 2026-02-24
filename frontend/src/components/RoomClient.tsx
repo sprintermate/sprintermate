@@ -464,6 +464,7 @@ export default function RoomClient({ room, user, locale }: Props) {
         ) : currentWorkItem ? (
           <WorkItemDetail
             workItem={currentWorkItem}
+            roomCode={room.code}
             isModerator={room.isModerator}
             userId={user.id}
             scoringActive={scoringActive}

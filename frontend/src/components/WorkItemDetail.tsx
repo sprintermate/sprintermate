@@ -1,3 +1,9 @@
+import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
+import { type WorkItem } from './WorkItemList';
+
+const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
+
 function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
   const scoreCounts: Record<number, number> = {};
   FIBONACCI.forEach((n) => (scoreCounts[n] = 0));
@@ -40,12 +46,12 @@ function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
   );
 }
 
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { type WorkItem } from './WorkItemList';
-
-const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
-
+interface WorkItemComment {
+  id: number;
+  text: string;
+  createdBy: string;
+  createdDate: string;
+}
 export interface VoteInfo {
   userId: string;
   displayName: string;
@@ -76,6 +82,7 @@ export interface AIEstimateResult {
 
 interface Props {
   workItem: WorkItem;
+  roomCode: string;
   isModerator: boolean;
   userId: string;
   scoringActive: boolean;
@@ -106,6 +113,7 @@ function initials(name: string): string {
 
 export default function WorkItemDetail({
   workItem,
+  roomCode,
   isModerator,
   userId,
   scoringActive,
@@ -133,6 +141,35 @@ export default function WorkItemDetail({
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateScore, setUpdateScore] = useState<number | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState<WorkItemComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+
+  // Fetch comments on mount
+  useEffect(() => {
+    async function fetchComments() {
+      setCommentsLoading(true);
+      setCommentsError(null);
+      try {
+        if (!roomCode || !workItem.id) return;
+        const res = await fetch(`/api/rooms/${roomCode}/workitem/${workItem.id}/comments`, {
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+        const data = await res.json();
+        setComments(data.comments ?? []);
+      } catch (err: unknown) {
+        setCommentsError(err instanceof Error ? err.message : 'Failed to load comments');
+      } finally {
+        setCommentsLoading(false);
+      }
+    }
+    fetchComments();
+  }, [workItem.id, roomCode]);
 
   function handleOpenUpdateModal() {
     setUpdateScore(null);
@@ -298,8 +335,32 @@ export default function WorkItemDetail({
             ) : (
               <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('emptyContent')}</p>
             )}
+            </div>
+
+            {/* Azure DevOps Comments */}
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionComments')}</h3>
+              {commentsLoading ? (
+                <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('loadingComments')}</p>
+              ) : commentsError ? (
+                <p className="text-red-500 dark:text-red-400 text-sm italic">{commentsError}</p>
+              ) : comments.length === 0 ? (
+                <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('noComments')}</p>
+              ) : (
+                <ul className="space-y-3">
+                  {comments.map((c) => (
+                    <li key={c.id} className="border-b border-gray-200 dark:border-slate-700 pb-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-cyan-700 dark:text-indigo-300">{c.createdBy}</span>
+                        <span className="text-xs text-gray-400 dark:text-slate-500">{new Date(c.createdDate).toLocaleString()}</span>
+                      </div>
+                      <div className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-line" dangerouslySetInnerHTML={{ __html: c.text }} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-        </div>
 
         {/* ── Right / Scoring Panel ────────────────────────────────────────── */}
         {scoringActive && (
@@ -520,7 +581,7 @@ export default function WorkItemDetail({
 
             {updateScore !== null && (
               <p className="text-xs text-cyan-600 dark:text-indigo-400 text-center mb-4">
-                {t('modalSelected', { score: updateScore })}
+                {t('modalSelected', { score: Number(updateScore) })}
               </p>
             )}
 
@@ -532,7 +593,7 @@ export default function WorkItemDetail({
                 {t('cancel')}
               </button>
               <button
-                onClick={() => void handleConfirmUpdate()}
+                onClick={() => handleConfirmUpdate()}
                 disabled={updateScore === null || updating}
                 className="flex-1 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >

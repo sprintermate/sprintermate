@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, Room } from '../db/schema';
-import { getWorkItemsForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
+import { getWorkItemComments, getWorkItemsForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -186,6 +186,57 @@ router.get('/:code/work-items', async (req, res) => {
     res.json(items);
   } catch (err: any) {
     res.status(502).json({ error: err.message ?? 'Failed to fetch work items from Azure DevOps' });
+  }
+});
+
+/** GET /api/rooms/:code/workitem/:workItemId/comments — fetch comments for a work item from ADO */
+router.get('/:code/workitem/:workItemId/comments', async (req, res) => {
+  const { code, workItemId } = req.params;
+
+  const room = await Room.findOne({ where: { code } });
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+
+  const project = await Project.findOne({ where: { id: room.project_id } });
+  if (!project) {
+    res.status(422).json({ error: 'Room has no associated project' });
+    return;
+  }
+
+  const projectPlain = project.get({ plain: true }) as any;
+
+  let authHeader: string;
+  if (projectPlain.encrypted_pat) {
+    try {
+      const pat = decrypt(projectPlain.encrypted_pat);
+      authHeader = patAuthHeader(pat);
+    } catch {
+      res.status(500).json({ error: 'Failed to decrypt project credentials' });
+      return;
+    }
+  } else {
+    res.status(401).json({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
+    return;
+  }
+
+  const parsedWorkItemId = Number(workItemId);
+  if (!Number.isFinite(parsedWorkItemId) || parsedWorkItemId <= 0) {
+    res.status(400).json({ error: 'Invalid work item id' });
+    return;
+  }
+
+  try {
+    const comments = await getWorkItemComments(
+      projectPlain.organization,
+      projectPlain.name,
+      parsedWorkItemId,
+      authHeader,
+    );
+    res.json({ comments });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message ?? 'Failed to fetch work item comments from Azure DevOps' });
   }
 });
 

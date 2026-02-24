@@ -190,6 +190,13 @@ export interface AdoWorkItem {
   acceptanceCriteria: string | null;
 }
 
+export interface AdoWorkItemComment {
+  id: number;
+  text: string;
+  createdBy: string;
+  createdDate: string;
+}
+
 /**
  * Strips inline color/background-color/font properties from ADO HTML so the
  * content renders correctly on a dark background without invisible text.
@@ -297,6 +304,46 @@ export async function getWorkItemsForIteration(
   }));
   mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
   return mapped;
+}
+
+/**
+ * Returns comments for a specific ADO work item.
+ */
+export async function getWorkItemComments(
+  organization: string,
+  project: string,
+  workItemId: number,
+  authHeader: string,
+): Promise<AdoWorkItemComment[]> {
+  const url =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/_apis/wit/workItems/${workItemId}/comments?api-version=7.1-preview.4`;
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: authHeader,
+      Accept: 'application/json',
+    },
+    redirect: 'error',
+  });
+
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 200);
+    throw new Error(`ADO work item comments error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json() as { comments?: any[] };
+  const comments = data.comments ?? [];
+
+  return comments
+    .filter((comment: any) => !comment?.isDeleted)
+    .map((comment: any): AdoWorkItemComment => ({
+      id: comment.id as number,
+      text: (comment.text as string) ?? '',
+      createdBy: (comment.createdBy?.displayName as string) ?? 'Unknown',
+      createdDate: (comment.createdDate as string) ?? '',
+    }));
 }
 
 /**
