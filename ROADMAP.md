@@ -19,3 +19,4 @@
 - [x] electron ile desktop uygulaması üzerinden docker bağımsız çalışabilen bir uygulama olacak.
 - [x] Puanlama ekranında hangi karta kaç puan gelmiş, kart bazlı kategorik şekilde puanlar gösterilecek.
 - [x] Son 10 sprintteki benzer işleri analiz eden ve AI kapsam değerlendirmesi + geçmiş benzer task ortalaması + anlık takım oylamasını (%60 / %25 / %15) ağırlıklandırarak otomatik Story Point önerisi üreten hibrit tahmin sistemi.AI otomatik tetiklensin veya maddeye girince ek olarak tahminle butonu YZ ile tahminle kısmı ekranda dursun tabiki de. Böylece manuel tahminle deme zahmeti ortadan kalkar ve ai sonuçlarını göster diyince gözüksün ki diğer kullanıcıları etkilemesin.
+- [x] Azure'da madde yorumlarının da alınıp madde detayına eklenmesi kısmı yapıldı
