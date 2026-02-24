@@ -12,6 +12,7 @@
 - [ ] Havalı bir websitesi, daha detaylı bir şekilde geliştirilecek.
 - [ ] websitesi üzerinden çalışan versiyonda ücretli versiyon sunulacak.
 - [ ] Localization eksikleri giderilmeli
+- [ ] Discussion alanı yok olmalı (yorumlar) ve varsa gelsin madde detayında
 ## Done
 
 - [x] Light mode / dark mode desteği yukarıdaki navbar üstündeki küçük bir sembölle yönetilir. aydınlık tema cyan / green bazlı olacak, karanlık tema indigo bazlı olacak. aydınlık tema canlı olacak.
