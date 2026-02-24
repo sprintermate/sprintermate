@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import RoomClient from './RoomClient';
 
 interface RoomInfo {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function GuestJoinClient({ room, locale }: Props) {
+  const t = useTranslations('guestJoin');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
@@ -28,11 +30,11 @@ export default function GuestJoinClient({ room, locale }: Props) {
     e.preventDefault();
     const trimmed = name.trim();
     if (trimmed.length < 2) {
-      setError('Name must be at least 2 characters.');
+      setError(t('errorTooShort'));
       return;
     }
     if (trimmed.length > 63) {
-      setError('Name must be less than 64 characters.');
+      setError(t('errorTooLong'));
       return;
     }
     // Generate a stable guest ID for this session
@@ -57,9 +59,9 @@ export default function GuestJoinClient({ room, locale }: Props) {
 
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-8">
           <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Join Room</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{t('title')}</h1>
             <p className="text-gray-500 dark:text-slate-400 text-sm">
-              Room{' '}
+              {t('roomLabel')}{' '}
               <span className="font-mono font-bold text-cyan-600 dark:text-indigo-400 tracking-widest">
                 {room.code}
               </span>
@@ -72,7 +74,7 @@ export default function GuestJoinClient({ room, locale }: Props) {
           <form onSubmit={handleJoin} className="space-y-4">
             <div>
               <label htmlFor="guest-name" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
-                Your name
+                {t('nameLabel')}
               </label>
               <input
                 id="guest-name"
@@ -82,7 +84,7 @@ export default function GuestJoinClient({ room, locale }: Props) {
                   setName(e.target.value);
                   setError(null);
                 }}
-                placeholder="Enter your display name"
+                placeholder={t('namePlaceholder')}
                 maxLength={63}
                 autoFocus
                 className="w-full px-4 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-indigo-500 focus:border-transparent text-sm transition"
@@ -96,15 +98,15 @@ export default function GuestJoinClient({ room, locale }: Props) {
               type="submit"
               className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-semibold text-sm transition focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900"
             >
-              Join Room
+              {t('joinButton')}
             </button>
           </form>
         </div>
 
         <p className="text-center text-gray-400 dark:text-slate-600 text-xs mt-6">
-          Are you the moderator?{' '}
+          {t('moderatorPrompt')}{' '}
           <a href={`/${locale}/login`} className="text-cyan-600 hover:text-cyan-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition">
-            Sign in with Azure DevOps
+            {t('signInLink')}
           </a>
         </p>
       </div>

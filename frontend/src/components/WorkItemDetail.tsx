@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { type WorkItem } from './WorkItemList';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
@@ -75,6 +76,7 @@ export default function WorkItemDetail({
   aiError,
   onEstimateWithAI,
 }: Props) {
+  const t = useTranslations('workItemDetail');
   const myVote = votes.find((v) => v.userId === userId);
   const votedCount = votes.filter((v) => v.hasVoted).length;
 
@@ -110,7 +112,7 @@ export default function WorkItemDetail({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to list
+            {t('backToList')}
           </button>
         ) : (
           <div />
@@ -127,12 +129,12 @@ export default function WorkItemDetail({
               {aiLoading ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
-                  <span>Analyzing…</span>
+                  <span>{t('analyzing')}</span>
                 </>
               ) : (
                 <>
                   <span className="text-base leading-none">✨</span>
-                  <span>Estimate with AI</span>
+                  <span>{t('estimateWithAI')}</span>
                 </>
               )}
             </button>
@@ -145,7 +147,7 @@ export default function WorkItemDetail({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Start Scoring
+              {t('startScoring')}
             </button>
           )}
           {isModerator && scoringActive && !revealed && (
@@ -158,7 +160,7 @@ export default function WorkItemDetail({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              Reveal Votes{votedCount > 0 ? ` (${votedCount})` : ''}
+              {votedCount > 0 ? t('revealVotesWithCount', { count: votedCount }) : t('revealVotes')}
             </button>
           )}
           {isModerator && revealed && (
@@ -171,8 +173,8 @@ export default function WorkItemDetail({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  Update Work Item
-                </button>
+                  {t('updateWorkItem')}
+                 </button>
               )}
               <button
                 onClick={onReset}
@@ -181,7 +183,7 @@ export default function WorkItemDetail({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Reset Round
+                {t('resetRound')}
               </button>
             </>
           )}
@@ -224,27 +226,27 @@ export default function WorkItemDetail({
 
           {/* Description */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Description</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionDescription')}</h3>
             {workItem.description ? (
               <div
                 className="ado-content"
                 dangerouslySetInnerHTML={{ __html: workItem.description }}
               />
             ) : (
-              <p className="text-gray-400 dark:text-slate-600 text-sm italic">Please give some content before planning.</p>
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('emptyContent')}</p>
             )}
           </div>
 
           {/* Acceptance Criteria */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Acceptance Criteria</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionAcceptanceCriteria')}</h3>
             {workItem.acceptanceCriteria ? (
               <div
                 className="ado-content"
                 dangerouslySetInnerHTML={{ __html: workItem.acceptanceCriteria }}
               />
             ) : (
-              <p className="text-gray-400 dark:text-slate-600 text-sm italic">Please give some content before planning.</p>
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('emptyContent')}</p>
             )}
           </div>
         </div>
@@ -257,7 +259,7 @@ export default function WorkItemDetail({
             {!revealed && (
               <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
-                  {myVote?.hasVoted ? 'Your vote ✓' : 'Pick your score'}
+                  {myVote?.hasVoted ? t('yourVote') : t('pickScore')}
                 </p>
                 <div className="grid grid-cols-5 gap-2">
                   {FIBONACCI.map((n) => (
@@ -275,7 +277,7 @@ export default function WorkItemDetail({
                   ))}
                 </div>
                 {myScore !== null && (
-                  <p className="text-xs text-cyan-600 dark:text-indigo-400 mt-2 text-center">You selected <strong>{myScore}</strong></p>
+                  <p className="text-xs text-cyan-600 dark:text-indigo-400 mt-2 text-center">{t('youSelected', { score: myScore })}</p>
                 )}
               </div>
             )}
@@ -283,13 +285,13 @@ export default function WorkItemDetail({
             {/* Stats – shown after reveal */}
             {revealed && stats && (
               <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">Results</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionResults')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Average', val: stats.average },
-                    { label: 'Median',  val: stats.median },
-                    { label: 'Highest', val: stats.highest },
-                    { label: 'Lowest',  val: stats.lowest },
+                    { label: t('statAverage'), val: stats.average },
+                    { label: t('statMedian'),  val: stats.median },
+                    { label: t('statHighest'), val: stats.highest },
+                    { label: t('statLowest'),  val: stats.lowest },
                   ].map(({ label, val }) => (
                     <div key={label} className="rounded-lg bg-gray-100/60 border border-gray-300 dark:bg-slate-800/60 dark:border-slate-700 p-3 text-center">
                       <div className="text-xl font-bold text-gray-900 dark:text-white">{val}</div>
@@ -315,7 +317,7 @@ export default function WorkItemDetail({
               <div className="rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 dark:from-violet-900/40 dark:to-indigo-900/20 dark:border-violet-500/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-base leading-none">✨</span>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">AI Estimate</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">{t('aiEstimate')}</p>
                 </div>
                 <div className="flex items-baseline justify-center gap-1 mb-3">
                   <span className="text-4xl font-bold text-gray-900 dark:text-white">{aiEstimate['story-point']}</span>
@@ -324,7 +326,7 @@ export default function WorkItemDetail({
                 <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed mb-3">{aiEstimate.reason}</p>
                 {aiEstimate['similar-items'].length > 0 && (
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">Similar items</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">{t('similarItems')}</p>
                     <ul className="space-y-1">
                       {aiEstimate['similar-items'].map((url, i) => (
                         <li key={i}>
@@ -347,10 +349,10 @@ export default function WorkItemDetail({
             {/* Participant votes */}
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4 flex-1 overflow-y-auto">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
-                Votes {votedCount > 0 && <span className="text-cyan-600 dark:text-indigo-400">({votedCount}/{votes.length})</span>}
+                {votedCount > 0 ? t('votesWithCount', { voted: votedCount, total: votes.length }) : t('votes')}
               </p>
               {votes.length === 0 ? (
-                <p className="text-gray-400 dark:text-slate-600 text-xs text-center py-4">No participants yet</p>
+                <p className="text-gray-400 dark:text-slate-600 text-xs text-center py-4">{t('noParticipants')}</p>
               ) : (
                 <ul className="space-y-2">
                   {votes.map((v) => (
@@ -387,7 +389,7 @@ export default function WorkItemDetail({
           <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-gray-900 dark:text-white font-semibold text-base">Update Work Item</h3>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-base">{t('modalTitle')}</h3>
                 <p className="text-gray-500 dark:text-slate-400 text-xs mt-0.5 truncate max-w-[18rem]">
                   #{workItem.id} · {workItem.title}
                 </p>
@@ -402,7 +404,7 @@ export default function WorkItemDetail({
               </button>
             </div>
 
-            <p className="text-gray-500 dark:text-slate-400 text-sm mb-4">Select the final story points to save to Azure DevOps:</p>
+            <p className="text-gray-500 dark:text-slate-400 text-sm mb-4">{t('modalDesc')}</p>
 
             <div className="grid grid-cols-5 gap-2 mb-5">
               {FIBONACCI.map((n) => (
@@ -422,7 +424,7 @@ export default function WorkItemDetail({
 
             {updateScore !== null && (
               <p className="text-xs text-cyan-600 dark:text-indigo-400 text-center mb-4">
-                Selected: <strong>{updateScore}</strong> story points
+                {t('modalSelected', { score: updateScore })}
               </p>
             )}
 
@@ -431,14 +433,14 @@ export default function WorkItemDetail({
                 onClick={() => setShowUpdateModal(false)}
                 className="flex-1 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={() => void handleConfirmUpdate()}
                 disabled={updateScore === null || updating}
                 className="flex-1 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
-                {updating ? 'Saving…' : 'Save to Azure DevOps'}
+                {updating ? t('savingToAdo') : t('saveToAdo')}
               </button>
             </div>
           </div>

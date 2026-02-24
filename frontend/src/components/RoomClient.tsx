@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useTranslations } from 'next-intl';
 import WorkItemList, { type WorkItem } from './WorkItemList';
 import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult } from './WorkItemDetail';
 import { ThemeToggle } from './ThemeProvider';
@@ -41,6 +42,7 @@ interface Props {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RoomClient({ room, user, locale }: Props) {
+  const t = useTranslations('room');
   const socketRef = useRef<Socket | null>(null);
 
   // Work items from backend REST
@@ -248,7 +250,7 @@ export default function RoomClient({ room, user, locale }: Props) {
     } finally {
       setAiLoading(false);
     }
-  }, [currentWorkItem, room.code]);
+  }, [currentWorkItem, room.code, locale]);
 
   const handleReset = useCallback(() => {
     socketRef.current?.emit('session:reset', { code: room.code });
@@ -296,13 +298,13 @@ export default function RoomClient({ room, user, locale }: Props) {
           <div className="w-12 h-12 rounded-full bg-amber-100 border border-amber-300 dark:bg-amber-500/20 dark:border-amber-500/40 flex items-center justify-center mx-auto">
             <span className="text-amber-500 dark:text-amber-400 text-xl">⚠</span>
           </div>
-          <h2 className="text-gray-900 dark:text-white font-semibold text-lg">Session Replaced</h2>
+          <h2 className="text-gray-900 dark:text-white font-semibold text-lg">{t('sessionReplaced')}</h2>
           <p className="text-gray-500 dark:text-slate-400 text-sm">{replacedMessage}</p>
           <a
             href={`/${locale}/dashboard`}
             className="inline-block mt-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
           >
-            Back to Dashboard
+            {t('backToDashboard')}
           </a>
         </div>
       </div>
@@ -338,7 +340,7 @@ export default function RoomClient({ room, user, locale }: Props) {
             {/* Room code + Copy URL (moderator only) */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 dark:bg-slate-900 dark:border-slate-800">
-                <span className="text-gray-400 dark:text-slate-500 text-xs hidden sm:inline">Room</span>
+                <span className="text-gray-400 dark:text-slate-500 text-xs hidden sm:inline">{t('roomLabel')}</span>
                 <span className="font-mono font-bold text-cyan-600 dark:text-indigo-400 tracking-widest text-sm">{room.code}</span>
               </div>
               {room.isModerator && (
@@ -350,7 +352,7 @@ export default function RoomClient({ room, user, locale }: Props) {
                       setTimeout(() => setUrlCopied(false), 2000);
                     });
                   }}
-                  title="Copy invite URL"
+                  title={t('copyInviteUrl')}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 hover:border-cyan-400 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:border-indigo-500/50 dark:hover:bg-slate-800 transition text-xs text-gray-500 hover:text-cyan-600 dark:text-slate-400 dark:hover:text-indigo-300 shrink-0"
                 >
                   {urlCopied ? (
@@ -358,14 +360,14 @@ export default function RoomClient({ room, user, locale }: Props) {
                       <svg className="w-3.5 h-3.5 text-green-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className="hidden sm:inline text-green-500 dark:text-emerald-400">Copied!</span>
+                      <span className="hidden sm:inline text-green-500 dark:text-emerald-400">{t('copied')}</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
-                      <span className="hidden sm:inline">Copy URL</span>
+                      <span className="hidden sm:inline">{t('copyUrl')}</span>
                     </>
                   )}
                 </button>
@@ -381,8 +383,8 @@ export default function RoomClient({ room, user, locale }: Props) {
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M9.664 1.319a.75.75 0 01.672 0 41.059 41.059 0 018.198 5.424.75.75 0 01-.254 1.285 31.372 31.372 0 00-7.86 3.83.75.75 0 01-.84 0 31.508 31.508 0 00-2.08-1.287V9.48a31.525 31.525 0 00-5.78-2.257.75.75 0 01-.254-1.285A41.059 41.059 0 019.664 1.319zM10 3.017L2.592 7.5c1.43.485 2.797 1.09 4.08 1.8A33.15 33.15 0 0110 7.655a33.15 33.15 0 013.328 1.645 29.944 29.944 0 014.08-1.8L10 3.017zM10 9.23a31.608 31.608 0 00-3.843 2.076 32.024 32.024 0 00-3.843-2.076V16.5A.5.5 0 003 17h14a.5.5 0 00.314-.9L10 9.23z" clipRule="evenodd" />
                 </svg>
-                Moderator
-              </span>
+                {t('moderator')}
+               </span>
             )}
           </div>
         </div>
@@ -392,7 +394,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       {participants.length > 0 && (
         <div className="border-b border-gray-200/40 bg-gray-100/30 dark:border-slate-800/40 dark:bg-slate-900/30">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2 overflow-x-auto">
-            <span className="text-gray-300 dark:text-slate-600 text-xs shrink-0">Online:</span>
+            <span className="text-gray-300 dark:text-slate-600 text-xs shrink-0">{t('online')}</span>
             {participants.map((p) => (
               <span
                 key={p.userId}
@@ -421,10 +423,10 @@ export default function RoomClient({ room, user, locale }: Props) {
                 <p className="text-gray-400 dark:text-slate-500 text-sm">{room.organization} · {room.projectName}</p>
               </div>
               {!room.isModerator && !user.isGuest && (
-                <span className="text-gray-400 dark:text-slate-500 text-xs">Click any item to view details</span>
+                <span className="text-gray-400 dark:text-slate-500 text-xs">{t('clickItemHint')}</span>
               )}
               {room.isModerator && (
-                <span className="text-gray-400 dark:text-slate-500 text-xs">Click an item to navigate everyone to it</span>
+                <span className="text-gray-400 dark:text-slate-500 text-xs">{t('clickItemModeratorHint')}</span>
               )}
             </div>
             {user.isGuest ? (
@@ -434,8 +436,8 @@ export default function RoomClient({ room, user, locale }: Props) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
                   </svg>
                 </div>
-                <p className="text-gray-600 dark:text-slate-400 font-medium">Waiting for moderator</p>
-                <p className="text-gray-400 dark:text-slate-600 text-sm mt-1">The moderator will select a work item to begin voting.</p>
+                <p className="text-gray-600 dark:text-slate-400 font-medium">{t('waitingForModerator')}</p>
+                <p className="text-gray-400 dark:text-slate-600 text-sm mt-1">{t('waitingForModeratorDesc')}</p>
               </div>
             ) : (
               <WorkItemList

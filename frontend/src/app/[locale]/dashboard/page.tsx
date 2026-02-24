@@ -1,4 +1,4 @@
-import { setRequestLocale } from 'next-intl/server';
+import { setRequestLocale, getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import DashboardClient from '../../../components/DashboardClient';
@@ -56,6 +56,7 @@ async function getRooms(cookieHeader: string) {
 export default async function DashboardPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations('dashboard');
 
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
@@ -104,7 +105,7 @@ export default async function DashboardPage({ params }: Props) {
         {/* Welcome */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome, {user.displayName}!
+            {t('welcome', { name: user.displayName })}
           </h1>
           <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">{user.email}</p>
         </div>

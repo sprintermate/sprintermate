@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -13,19 +14,22 @@ interface Provider {
   icon: string;
 }
 
-const PROVIDERS: Provider[] = [
-  { id: 'copilot', label: 'GitHub Copilot',  description: 'Uses the copilot CLI tool installed on the server (no API key needed)',         requiresKey: false, icon: '🐙' },
-  { id: 'claude',  label: 'Claude CLI',      description: 'Uses the claude CLI tool installed on the server (no API key needed)',          requiresKey: false, icon: '🤖' },
-  { id: 'codex',   label: 'Codex CLI',       description: 'Uses the OpenAI codex CLI tool installed on the server (no API key needed)',    requiresKey: false, icon: '⚡' },
-  { id: 'gemini',  label: 'Gemini',          description: 'Google Gemini API — enter your API key from Google AI Studio',                  requiresKey: true,  icon: '💎' },
-  { id: 'chatgpt', label: 'ChatGPT',         description: 'OpenAI GPT-4o-mini API — enter your OpenAI API key',                           requiresKey: true,  icon: '🧠' },
-];
 
 interface Props {
   onClose: () => void;
 }
 
 export default function AISettingsModal({ onClose }: Props) {
+  const t = useTranslations('aiSettings');
+
+  const PROVIDERS: Provider[] = [
+    { id: 'copilot', label: 'GitHub Copilot', description: t('providerCopilotDesc'), requiresKey: false, icon: '🐙' },
+    { id: 'claude',  label: 'Claude CLI',     description: t('providerClaudeDesc'),  requiresKey: false, icon: '🤖' },
+    { id: 'codex',   label: 'Codex CLI',      description: t('providerCodexDesc'),   requiresKey: false, icon: '⚡' },
+    { id: 'gemini',  label: 'Gemini',         description: t('providerGeminiDesc'),  requiresKey: true,  icon: '💎' },
+    { id: 'chatgpt', label: 'ChatGPT',        description: t('providerChatGPTDesc'), requiresKey: true,  icon: '🧠' },
+  ];
+
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [hasExistingKey, setHasExistingKey] = useState(false);
@@ -58,7 +62,7 @@ export default function AISettingsModal({ onClose }: Props) {
   async function handleSave() {
     if (!selectedProvider) return;
     if (needsKey && !apiKey && !hasExistingKey) {
-      setSaveError('Please enter an API key for this provider');
+      setSaveError(t('errorRequiresKey'));
       return;
     }
     setSaving(true);
@@ -90,7 +94,7 @@ export default function AISettingsModal({ onClose }: Props) {
   async function handleTest() {
     if (!selectedProvider) return;
     if (needsKey && !apiKey && !hasExistingKey) {
-      setTestError('Enter an API key to test');
+      setTestError(t('errorEnterKeyToTest'));
       setTestStatus('error');
       return;
     }
@@ -142,8 +146,8 @@ export default function AISettingsModal({ onClose }: Props) {
               <span className="text-base">✨</span>
             </div>
             <div>
-              <h2 className="text-gray-900 dark:text-white font-semibold text-base">AI Settings</h2>
-              <p className="text-gray-400 dark:text-slate-500 text-xs">Configure your AI provider for story point estimation</p>
+              <h2 className="text-gray-900 dark:text-white font-semibold text-base">{t('title')}</h2>
+              <p className="text-gray-400 dark:text-slate-500 text-xs">{t('subtitle')}</p>
             </div>
           </div>
           <button
@@ -164,7 +168,7 @@ export default function AISettingsModal({ onClose }: Props) {
             </div>
           ) : (
             <>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">Select AI Provider</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500">{t('selectProvider')}</p>
 
               <div className="space-y-2">
                 {PROVIDERS.map((provider) => (
@@ -186,12 +190,12 @@ export default function AISettingsModal({ onClose }: Props) {
                           </span>
                           {!provider.requiresKey && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 border border-green-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 font-medium">
-                              CLI
+                              {t('badgeCli')}
                             </span>
                           )}
                           {provider.requiresKey && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 font-medium">
-                              API Key
+                              {t('badgeApiKey')}
                             </span>
                           )}
                         </div>
@@ -215,13 +219,13 @@ export default function AISettingsModal({ onClose }: Props) {
               {selectedProvider && needsKey && (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
-                    API Key
+                    {t('apiKeyLabel')}
                   </label>
                   <input
                     type="password"
                     value={apiKey}
                     onChange={(e) => { setApiKey(e.target.value); setTestStatus('idle'); }}
-                    placeholder={hasExistingKey ? '••••••••• (saved — enter new key to replace)' : 'Enter your API key…'}
+                    placeholder={hasExistingKey ? t('apiKeyPlaceholderSaved') : t('apiKeyPlaceholder')}
                     className="w-full px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 dark:focus:border-violet-500 dark:focus:ring-violet-500/30 transition"
                   />
                 </div>
@@ -233,7 +237,7 @@ export default function AISettingsModal({ onClose }: Props) {
                   <svg className="w-4 h-4 text-green-600 dark:text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-green-700 dark:text-emerald-400 text-sm">Connection successful!</span>
+                  <span className="text-green-700 dark:text-emerald-400 text-sm">{t('connectionSuccessful')}</span>
                 </div>
               )}
               {testStatus === 'error' && testError && (
@@ -268,14 +272,14 @@ export default function AISettingsModal({ onClose }: Props) {
               {testing ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-gray-400 dark:border-slate-400 border-t-transparent rounded-full animate-spin" />
-                  Testing…
+                  {t('testing')}
                 </>
               ) : (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Test Connection
+                  {t('testConnection')}
                 </>
               )}
             </button>
@@ -286,7 +290,7 @@ export default function AISettingsModal({ onClose }: Props) {
               onClick={onClose}
               className="px-4 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-gray-600 dark:text-slate-300 text-sm font-medium transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               onClick={() => void handleSave()}
@@ -296,10 +300,10 @@ export default function AISettingsModal({ onClose }: Props) {
               {saving ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving…
+                  {t('saving')}
                 </>
               ) : (
-                'Save Settings'
+                t('saveSettings')
               )}
             </button>
           </div>

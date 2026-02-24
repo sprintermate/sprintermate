@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from '../i18n/navigation';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export default function CreateRoomModal({ initialProjects, onClose }: Props) {
+  const t = useTranslations('createRoom');
   const router = useRouter();
 
   // Step state
@@ -97,7 +99,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
           setStep('pat');
           return false;
         }
-        setSprintError(data.error ?? 'Failed to load sprints.');
+        setSprintError(data.error ?? t('errorSprints'));
         return false;
       }
       setSprints(data as Sprint[]);
@@ -105,7 +107,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
       setStep('sprint');
       return true;
     } catch {
-      setSprintError('Network error loading sprints.');
+      setSprintError(t('errorNetworkSprints'));
       return false;
     } finally {
       setLoadingSprints(false);
@@ -150,12 +152,12 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
       });
       const data = await res.json();
       if (!res.ok || !data.valid) {
-        setParseError(data.error ?? 'Could not parse URL.');
+        setParseError(data.error ?? t('errorParse'));
       } else {
         setParsed(data as ParsedUrl);
       }
     } catch {
-      setParseError('Network error. Please try again.');
+      setParseError(t('errorNetworkGeneral'));
     } finally {
       setParsing(false);
     }
@@ -188,7 +190,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
         setSavedProject(project);
         projectId = project.id;
       } catch {
-        setParseError('Failed to save project. Please try again.');
+        setParseError(t('errorSaveProject'));
         return;
       }
     }
@@ -216,12 +218,12 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
       });
       if (!res.ok) {
         const d = await res.json();
-        setPatError(d.error ?? 'Failed to save PAT.');
+        setPatError(d.error ?? t('errorSavePat'));
         return;
       }
       await fetchSprints(savedProject.id);
     } catch {
-      setPatError('Network error. Please try again.');
+      setPatError(t('errorNetworkGeneral'));
     } finally {
       setSavingPat(false);
     }
@@ -262,7 +264,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
     const invalidScore = scores.find(s => (s.title.trim() || s.story_points.trim()) && (!s.title.trim() || !s.story_points.trim() || isNaN(Number(s.story_points))));
 
     if (invalidScore) {
-      setScoresError('Each score entry needs a title and a valid numeric story point value.');
+      setScoresError(t('errorValidation'));
       setCreating(false);
       setSavingScores(false);
       return;
@@ -297,12 +299,12 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
       });
       const data = await res.json() as { code: string; error?: string };
       if (!res.ok) {
-        setCreateError(data.error ?? 'Failed to create room.');
+        setCreateError(data.error ?? t('errorCreate'));
         return;
       }
       router.push(`/room/${data.code}`);
     } catch {
-      setCreateError('Network error. Please try again.');
+      setCreateError(t('errorNetworkGeneral'));
     } finally {
       setCreating(false);
     }
@@ -311,16 +313,16 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const stepLabel =
-    step === 'project' ? 'Step 1 of 3'
-    : step === 'pat' ? 'Step 2 of 3'
-    : step === 'sprint' ? 'Step 2 of 3'
-    : 'Step 3 of 3';
+    step === 'project' ? t('step1of3')
+    : step === 'pat' ? t('step2of3')
+    : step === 'sprint' ? t('step2of3')
+    : t('step3of3');
 
   const stepTitle =
-    step === 'project' ? 'Connect Azure DevOps'
-    : step === 'pat' ? 'Azure DevOps Access'
-    : step === 'sprint' ? 'Select Sprint'
-    : 'Reference Story Points';
+    step === 'project' ? t('stepProject')
+    : step === 'pat' ? t('stepPat')
+    : step === 'sprint' ? t('stepSprint')
+    : t('stepScores');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-sm">
@@ -351,7 +353,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
             <>
               {initialProjects.length > 0 && !showUrlInput && (
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Your saved projects</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">{t('savedProjects')}</p>
                   {initialProjects.map(p => (
                     <label
                       key={p.id}
@@ -380,7 +382,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                     onClick={() => { setShowUrlInput(true); setParsed(null); setParseError(''); }}
                     className="text-cyan-600 hover:text-cyan-500 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium transition-colors"
                   >
-                    + Connect a new project
+                    {t('connectNew')}
                   </button>
                 </div>
               )}
@@ -395,20 +397,20 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
-                      Back to saved projects
+                      {t('backToSaved')}
                     </button>
                   )}
 
                   <div>
                     <label className="block text-sm text-gray-500 dark:text-slate-400 mb-1.5">
-                      Azure DevOps sprint board URL
+                      {t('urlLabel')}
                     </label>
                     <div className="flex gap-2">
                       <input
                         type="url"
                         value={url}
                         onChange={e => { setUrl(e.target.value); setParsed(null); setParseError(''); }}
-                        placeholder="https://dev.azure.com/org/project/_sprints/backlog/Team/.../Sprint"
+                        placeholder={t('urlPlaceholder')}
                         className="flex-1 bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500"
                       />
                       <button
@@ -416,7 +418,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                         disabled={parsing || !url.trim()}
                         className="px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                       >
-                        {parsing ? 'Parsing…' : 'Parse URL'}
+                        {parsing ? t('parsing') : t('parseButton')}
                       </button>
                     </div>
                   </div>
@@ -425,15 +427,15 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
 
                   {parsed && (
                     <div className="bg-gray-50 border border-gray-200 dark:bg-slate-800/60 dark:border-slate-700 rounded-xl p-4 space-y-2">
-                      <p className="text-cyan-600 dark:text-indigo-400 text-xs font-medium uppercase tracking-wider">Parsed successfully</p>
+                      <p className="text-cyan-600 dark:text-indigo-400 text-xs font-medium uppercase tracking-wider">{t('parsedPreview')}</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                        <span className="text-gray-500 dark:text-slate-500">Organization</span>
+                        <span className="text-gray-500 dark:text-slate-500">{t('fieldOrg')}</span>
                         <span className="text-gray-900 dark:text-white font-medium">{parsed.organization}</span>
-                        <span className="text-gray-500 dark:text-slate-500">Project</span>
+                        <span className="text-gray-500 dark:text-slate-500">{t('fieldProject')}</span>
                         <span className="text-gray-900 dark:text-white font-medium">{parsed.project}</span>
-                        <span className="text-gray-500 dark:text-slate-500">Team</span>
+                        <span className="text-gray-500 dark:text-slate-500">{t('fieldTeam')}</span>
                         <span className="text-gray-900 dark:text-white font-medium">{parsed.team}</span>
-                        <span className="text-gray-500 dark:text-slate-500">Sprint</span>
+                        <span className="text-gray-500 dark:text-slate-500">{t('fieldSprint')}</span>
                         <span className="text-gray-900 dark:text-white font-medium">{parsed.sprint}</span>
                       </div>
                     </div>
@@ -447,28 +449,26 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
           {step === 'pat' && (
             <div className="space-y-4">
               <div className="bg-amber-50 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 rounded-xl p-4">
-                <p className="text-amber-600 dark:text-amber-400 text-sm font-medium mb-1">⚠️ Azure DevOps access required</p>
+                <p className="text-amber-600 dark:text-amber-400 text-sm font-medium mb-1">⚠️ {t('patRequired')}</p>
                 <p className="text-gray-600 dark:text-slate-400 text-sm">
-                  Your account doesn&apos;t have direct Azure DevOps API access. Enter a Personal Access Token (PAT)
-                  with <span className="text-gray-900 dark:text-white font-medium">Work Items (Read)</span> scope to continue.
+                  {t.rich('patDesc', { scope: (chunks) => <span className="text-gray-900 dark:text-white font-medium">{chunks}</span> })}
                 </p>
               </div>
               <div>
-                <label className="block text-sm text-gray-500 dark:text-slate-400 mb-1.5">Personal Access Token</label>
+                <label className="block text-sm text-gray-500 dark:text-slate-400 mb-1.5">{t('patLabel')}</label>
                 <input
                   type="password"
                   value={pat}
                   onChange={e => { setPat(e.target.value); setPatError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleSavePat()}
-                  placeholder="Paste your PAT here"
+                  placeholder={t('patPlaceholder')}
                   className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500"
                 />
                 <p className="text-gray-500 dark:text-slate-500 text-xs mt-1.5">
-                  Generate a PAT at{' '}
-                  <a href="https://dev.azure.com/_usersSettings/tokens" target="_blank" rel="noreferrer" className="text-cyan-600 hover:text-cyan-500 dark:text-indigo-400 dark:hover:text-indigo-300 underline">
-                    dev.azure.com/_usersSettings/tokens
-                  </a>
-                  {' '}— enable <span className="text-gray-700 dark:text-slate-300">Work Items (Read)</span> scope.
+                  {t.rich('patGenerate', {
+                    link: (chunks) => <a href="https://dev.azure.com/_usersSettings/tokens" target="_blank" rel="noreferrer" className="text-cyan-600 hover:text-cyan-500 dark:text-indigo-400 dark:hover:text-indigo-300 underline">{chunks}</a>,
+                    scope: (chunks) => <span className="text-gray-700 dark:text-slate-300">{chunks}</span>,
+                  })}
                 </p>
               </div>
               {patError && <p className="text-red-500 dark:text-red-400 text-sm">{patError}</p>}
@@ -484,7 +484,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Loading sprints…
+                  {t('loadingSprints')}
                 </div>
               )}
 
@@ -492,7 +492,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
 
               {!loadingSprints && sprints.length > 0 && (
                 <>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">Select a sprint</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">{t('sprintLabel')}</p>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {sprints.map(s => (
                       <label
@@ -533,10 +533,9 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
           {step === 'scores' && (
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-800 dark:text-slate-300 font-medium mb-1">Reference story point examples</p>
+                <p className="text-sm text-gray-800 dark:text-slate-300 font-medium mb-1">{t('scoresTitle')}</p>
                 <p className="text-xs text-gray-500 dark:text-slate-500">
-                  Add example work items with known story points to help your team calibrate estimates.
-                  These are saved per project and pre-filled next time.
+                  {t('scoresDesc')}
                 </p>
               </div>
 
@@ -549,14 +548,14 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                           type="text"
                           value={score.title}
                           onChange={e => updateScoreEntry(score.tempId, 'title', e.target.value)}
-                          placeholder="Work item title (e.g. Add login button)"
+                          placeholder={t('workItemTitlePlaceholder')}
                           className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500"
                         />
                         <input
                           type="number"
                           value={score.story_points}
                           onChange={e => updateScoreEntry(score.tempId, 'story_points', e.target.value)}
-                          placeholder="SP"
+                          placeholder={t('spPlaceholder')}
                           min="0"
                           step="0.5"
                           className="w-20 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500 text-center"
@@ -564,7 +563,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                         <button
                           onClick={() => removeScoreEntry(score.tempId)}
                           className="text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors p-1 rounded"
-                          title="Remove"
+                          title={t('remove')}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -575,7 +574,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                         type="text"
                         value={score.description}
                         onChange={e => updateScoreEntry(score.tempId, 'description', e.target.value)}
-                        placeholder="Optional description"
+                        placeholder={t('optionalDescription')}
                         className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-500"
                       />
                     </div>
@@ -587,7 +586,7 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                 onClick={addScoreEntry}
                 className="w-full py-2 rounded-xl border border-dashed border-gray-300 hover:border-cyan-500 text-gray-500 hover:text-cyan-600 dark:border-slate-700 dark:hover:border-indigo-500 dark:text-slate-400 dark:hover:text-indigo-300 text-sm font-medium transition-colors"
               >
-                + Add reference item
+                {t('addReferenceItem')}
               </button>
 
               {scoresError && <p className="text-red-500 dark:text-red-400 text-sm">{scoresError}</p>}
@@ -604,14 +603,14 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400 dark:border-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:border-slate-600 text-sm transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={handleConfirmProject}
                 disabled={showUrlInput ? !parsed : !selectedProjectId}
                 className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Confirm & Select Sprint
+                {t('confirmProject')}
               </button>
             </>
           ) : step === 'pat' ? (
@@ -620,14 +619,14 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                 onClick={() => { setStep('project'); setPatError(''); setPat(''); }}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400 dark:border-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:border-slate-600 text-sm transition-colors"
               >
-                Back
+                {t('back')}
               </button>
               <button
                 onClick={handleSavePat}
                 disabled={savingPat || !pat.trim()}
                 className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {savingPat ? 'Saving…' : 'Save & Load Sprints'}
+                {savingPat ? t('saving') : t('saveLoadSprints')}
               </button>
             </>
           ) : step === 'sprint' ? (
@@ -636,14 +635,14 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                 onClick={() => { setStep('project'); setSprintError(''); }}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400 dark:border-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:border-slate-600 text-sm transition-colors"
               >
-                Back
+                {t('back')}
               </button>
               <button
                 onClick={handleGoToScores}
                 disabled={!selectedSprintId || loadingSprints}
                 className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Next: Reference Points
+                {t('nextReferencePoints')}
               </button>
             </>
           ) : (
@@ -652,14 +651,14 @@ export default function CreateRoomModal({ initialProjects, onClose }: Props) {
                 onClick={() => { setStep('sprint'); setScoresError(''); setCreateError(''); }}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400 dark:border-slate-700 dark:text-slate-400 dark:hover:text-white dark:hover:border-slate-600 text-sm transition-colors"
               >
-                Back
+                {t('back')}
               </button>
               <button
                 onClick={handleCreateRoom}
                 disabled={creating || savingScores}
                 className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {creating || savingScores ? 'Creating…' : 'Save & Create Room'}
+                {creating || savingScores ? t('creating') : t('saveCreateRoom')}
               </button>
             </>
           )}

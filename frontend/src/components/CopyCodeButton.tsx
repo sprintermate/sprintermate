@@ -1,15 +1,18 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface Props {
   code: string;
 }
 
 export default function CopyCodeButton({ code }: Props) {
+  const t = useTranslations('room');
   return (
     <button
       onClick={() => navigator.clipboard?.writeText(code)}
       className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-      title="Copy room code"
+      title={t('copyRoomCode')}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

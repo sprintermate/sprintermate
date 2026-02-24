@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export interface WorkItem {
   id: number;
@@ -39,6 +40,7 @@ function typeIcon(type: string): string {
 }
 
 export default function WorkItemList({ items, loading, error, onSelectItem }: Props) {
+  const t = useTranslations('workItemList');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'id' | 'title' | 'state' | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -75,7 +77,7 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
         </svg>
-        <span className="text-sm">Fetching work items from Azure DevOps…</span>
+        <span className="text-sm">{t('loading')}</span>
       </div>
     );
   }
@@ -94,7 +96,7 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
   if (items.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-slate-500 text-sm">
-        No work items found for this sprint.
+        {t('noItems')}
       </div>
     );
   }
@@ -109,13 +111,13 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
           </svg>
           <input
             type="text"
-            placeholder="Search by ID or title…"
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 dark:bg-slate-900 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 dark:focus:ring-indigo-500 dark:focus:border-indigo-500"
           />
         </div>
-        <span className="text-gray-400 dark:text-slate-500 text-xs whitespace-nowrap">{filtered.length} items</span>
+        <span className="text-gray-400 dark:text-slate-500 text-xs whitespace-nowrap">{t('itemsCount', { count: filtered.length })}</span>
       </div>
 
       {/* Table */}
@@ -125,24 +127,24 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
             <tr className="bg-gray-50/80 border-b border-gray-200 dark:bg-slate-900/80 dark:border-slate-800">
               <th className="px-4 py-3 text-left">
                 <button onClick={() => toggleSort('id')} className="flex items-center text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white font-medium text-xs uppercase tracking-wider">
-                  # ID <SortIcon col="id" />
+                  {t('colId')} <SortIcon col="id" />
                 </button>
               </th>
               <th className="px-4 py-3 text-left">
                 <button onClick={() => toggleSort('title')} className="flex items-center text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white font-medium text-xs uppercase tracking-wider">
-                  Title <SortIcon col="title" />
+                  {t('colTitle')} <SortIcon col="title" />
                 </button>
               </th>
               <th className="px-4 py-3 text-left hidden md:table-cell">
-                <span className="text-gray-500 dark:text-slate-400 font-medium text-xs uppercase tracking-wider">Type</span>
+                <span className="text-gray-500 dark:text-slate-400 font-medium text-xs uppercase tracking-wider">{t('colType')}</span>
               </th>
               <th className="px-4 py-3 text-left">
                 <button onClick={() => toggleSort('state')} className="flex items-center text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white font-medium text-xs uppercase tracking-wider">
-                  Status <SortIcon col="state" />
+                  {t('colStatus')} <SortIcon col="state" />
                 </button>
               </th>
               <th className="px-4 py-3 text-center">
-                <span className="text-gray-500 dark:text-slate-400 font-medium text-xs uppercase tracking-wider">SP</span>
+                <span className="text-gray-500 dark:text-slate-400 font-medium text-xs uppercase tracking-wider">{t('colSp')}</span>
               </th>
             </tr>
           </thead>
