@@ -60,10 +60,18 @@ export interface VoteStats {
   lowest: number;
 }
 
+export interface SimilarItemInfo {
+  url: string;
+  title: string;
+  storyPoints: number;
+  similarity: number;
+}
+
 export interface AIEstimateResult {
   'story-point': number;
-  reason: string;
-  'similar-items': string[];
+  confidence: 'high' | 'medium' | 'low';
+  analysis: string;
+  'similar-items': SimilarItemInfo[];
 }
 
 interface Props {
@@ -164,8 +172,8 @@ export default function WorkItemDetail({
         <div className="flex items-center gap-2 flex-wrap">
           {isModerator && onEstimateWithAI && (
             <button
-              onClick={scoringActive ? onEstimateWithAI : undefined}
-              disabled={aiLoading || !scoringActive}
+              onClick={onEstimateWithAI}
+              disabled={aiLoading}
               className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-teal-600 via-green-600 to-cyan-600 hover:from-teal-500 hover:via-green-500 hover:to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-indigo-600 dark:hover:from-violet-500 dark:hover:via-purple-500 dark:hover:to-indigo-500 text-white border border-teal-400/30 dark:border-violet-400/30 shadow-lg shadow-teal-500/30 dark:shadow-violet-500/30 transition-all duration-200 hover:scale-105 hover:shadow-teal-500/50 dark:hover:shadow-violet-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
             >
               {aiLoading ? (
@@ -358,32 +366,74 @@ export default function WorkItemDetail({
               </div>
             )}
 
-            {/* AI Estimate panel – shown to moderator before reveal, to all after reveal */}
+            {/* AI Estimate panel — shown only after reveal */}
             {aiEstimate && (
               <div className="rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 dark:from-violet-900/40 dark:to-indigo-900/20 dark:border-violet-500/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-base leading-none">✨</span>
                   <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">{t('aiEstimate')}</p>
                 </div>
+
+                {/* SP Value */}
                 <div className="flex items-baseline justify-center gap-1 mb-3">
                   <span className="text-4xl font-bold text-gray-900 dark:text-white">{aiEstimate['story-point']}</span>
                   <span className="text-sm text-teal-700 dark:text-violet-300 font-medium">SP</span>
                 </div>
-                <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed mb-3">{aiEstimate.reason}</p>
+
+                {/* Confidence Badge */}
+                <div className="flex justify-center mb-3">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                    aiEstimate.confidence === 'high'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
+                      : aiEstimate.confidence === 'medium'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
+                        : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      aiEstimate.confidence === 'high' ? 'bg-emerald-500 dark:bg-emerald-400'
+                        : aiEstimate.confidence === 'medium' ? 'bg-amber-500 dark:bg-amber-400'
+                          : 'bg-red-500 dark:bg-red-400'
+                    }`} />
+                    {t('confidence')}: {t(`confidence_${aiEstimate.confidence}`)}
+                  </span>
+                </div>
+
+                {/* Analysis */}
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">{t('aiAnalysis')}</p>
+                  <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">{aiEstimate.analysis}</p>
+                </div>
+
+                {/* Similar Items */}
                 {aiEstimate['similar-items'].length > 0 && (
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">{t('similarItems')}</p>
-                    <ul className="space-y-1">
-                      {aiEstimate['similar-items'].map((url, i) => (
-                        <li key={i}>
+                    <ul className="space-y-1.5">
+                      {aiEstimate['similar-items'].map((item, i) => (
+                        <li key={i} className="flex items-center gap-2">
                           <a
-                            href={url}
+                            href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-teal-600 hover:text-teal-500 dark:text-violet-400 dark:hover:text-violet-300 underline underline-offset-2 line-clamp-1 block transition-colors"
+                            className="text-xs text-teal-600 hover:text-teal-500 dark:text-violet-400 dark:hover:text-violet-300 underline underline-offset-2 truncate flex-1 transition-colors"
+                            title={item.title || item.url}
                           >
-                            {url}
+                            {item.title || item.url}
                           </a>
+                          <span className="shrink-0 text-[10px] font-bold text-gray-500 dark:text-slate-400">
+                            {item.storyPoints} SP
+                          </span>
+                          {item.similarity > 0 && (
+                            <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                              item.similarity >= 80
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                                : item.similarity >= 60
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                  : 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-slate-400'
+                            }`}>
+                              %{item.similarity}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

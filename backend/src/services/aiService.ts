@@ -6,10 +6,18 @@ import type { AdoWorkItem } from './azDevops';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface SimilarItem {
+  url: string;
+  title: string;
+  storyPoints: number;
+  similarity: number; // 0-100 percentage
+}
+
 export interface AIEstimateResult {
   'story-point': number;
-  reason: string;
-  'similar-items': string[];
+  confidence: 'high' | 'medium' | 'low';
+  analysis: string;
+  'similar-items': SimilarItem[];
 }
 
 export interface ReferenceScoreItem {
@@ -57,16 +65,33 @@ export function extractJSON(raw: string): AIEstimateResult {
   const parsed = JSON.parse(cleaned) as Record<string, unknown>;
 
   const storyPoint = Number(parsed['story-point'] ?? parsed['story_point'] ?? parsed['storyPoint'] ?? 0);
-  const reason = String(parsed['reason'] ?? '');
-  const similarItems = Array.isArray(parsed['similar-items'])
-    ? (parsed['similar-items'] as unknown[]).map(String)
-    : [];
+  const confidenceRaw = String(parsed['confidence'] ?? 'medium').toLowerCase();
+  const confidence: 'high' | 'medium' | 'low' = (['high', 'medium', 'low'].includes(confidenceRaw) ? confidenceRaw : 'medium') as 'high' | 'medium' | 'low';
+  const analysis = String(parsed['analysis'] ?? parsed['reason'] ?? '');
+
+  // Parse similar items — supports both new structured format and legacy string[]
+  let similarItems: SimilarItem[] = [];
+  const rawSimilar = parsed['similar-items'] ?? parsed['similar_items'] ?? parsed['similarItems'] ?? [];
+  if (Array.isArray(rawSimilar)) {
+    similarItems = (rawSimilar as unknown[]).map((item) => {
+      if (typeof item === 'string') {
+        return { url: item, title: '', storyPoints: 0, similarity: 0 };
+      }
+      const obj = item as Record<string, unknown>;
+      return {
+        url: String(obj.url ?? obj.adoUrl ?? ''),
+        title: String(obj.title ?? ''),
+        storyPoints: Number(obj.storyPoints ?? obj['story-points'] ?? obj.story_points ?? 0),
+        similarity: Math.min(100, Math.max(0, Number(obj.similarity ?? 0))),
+      };
+    }).filter(s => s.url);
+  }
 
   if (!Number.isFinite(storyPoint) || storyPoint <= 0) {
     throw new Error(`Invalid story-point value in AI response: ${storyPoint}`);
   }
 
-  return { 'story-point': storyPoint, reason, 'similar-items': similarItems };
+  return { 'story-point': storyPoint, confidence, analysis, 'similar-items': similarItems };
 }
 
 // ─── Prompt Builder ───────────────────────────────────────────────────────────
@@ -116,9 +141,24 @@ export function buildEstimationPrompt(
   const language = locale === 'tr' ? 'Turkish' : 'English';
   lines.push(
     'Based on the reference items and previous sprint context, estimate the story points for this work item.',
-    `Write the "reason" field in ${language}.`,
+    '',
+    '## Instructions',
+    `Write all text fields in ${language}.`,
+    'Analyze complexity, scope, affected services, DB changes, testing needs, and similarities to past items.',
+    'Provide a confidence level: "high" if you are very sure, "medium" if reasonably confident, "low" if uncertain.',
+    'Write an "analysis" field with 5-7 concise sentences explaining your reasoning (complexity, scope, risks, similarities).',
+    'In "similar-items", list up to 5 most similar work items from the previous sprint context, each with URL, title, story points, and a similarity score (0-100).',
+    'Only include items with similarity >= 60.',
+    '',
     'Respond ONLY with a valid JSON object — no explanation text outside the JSON:',
-    '{"story-point": <Fibonacci number>, "reason": "<brief explanation with similarities>", "similar-items": ["<url1>", "<url2>"]}',
+    '{',
+    '  "story-point": <Fibonacci number>,',
+    '  "confidence": "high" | "medium" | "low",',
+    '  "analysis": "<5-7 sentence detailed analysis>",',
+    '  "similar-items": [',
+    '    { "url": "<url>", "title": "<title>", "storyPoints": <number>, "similarity": <0-100> }',
+    '  ]',
+    '}',
   );
 
   return lines.join('\n');
@@ -211,17 +251,30 @@ const estimateSchema: Schema = {
       type: SchemaType.NUMBER,
       description: 'Fibonacci story point estimate (1, 2, 3, 5, 8, 13, 21, 34, or 55)',
     },
-    reason: {
+    confidence: {
       type: SchemaType.STRING,
-      description: 'Brief explanation of the estimate with similarities to reference items',
+      description: 'Confidence level: high, medium, or low',
+    },
+    analysis: {
+      type: SchemaType.STRING,
+      description: '5-7 sentence detailed analysis explaining complexity, scope, risks, and similarities',
     },
     'similar-items': {
       type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING },
-      description: 'URLs of similar work items from the previous sprint context',
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          url: { type: SchemaType.STRING, description: 'URL of the similar work item' },
+          title: { type: SchemaType.STRING, description: 'Title of the similar work item' },
+          storyPoints: { type: SchemaType.NUMBER, description: 'Story points of the similar work item' },
+          similarity: { type: SchemaType.NUMBER, description: 'Similarity score 0-100' },
+        },
+        required: ['url', 'title', 'storyPoints', 'similarity'],
+      },
+      description: 'Up to 5 most similar work items from previous sprint context with similarity >= 60',
     },
   },
-  required: ['story-point', 'reason', 'similar-items'],
+  required: ['story-point', 'confidence', 'analysis', 'similar-items'],
 };
 
 async function callGemini(prompt: string, apiKey: string): Promise<string> {

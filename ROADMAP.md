@@ -12,9 +12,9 @@
 - [ ] Havalı bir websitesi, daha detaylı bir şekilde geliştirilecek.
 - [ ] websitesi üzerinden çalışan versiyonda ücretli versiyon sunulacak.
 - [ ] Localization eksikleri giderilmeli
-- [ ] AI Tahmin edince direkt gözükmesin oyları göster diyince AI tahmini gözüksün bir de oyalama başlat diyince AI otomatik tetiklensin veya maddeye girince ek olarak tahminle butonu YZ ile tahminle kısmı ekranda dursun tabiki de. Böylece manuel tahminle deme zahmeti ortadan kalkar ve ai sonucçalrı göster diyince gözüksün ki diğer kullanıcıları etkilemesin.
 ## Done
 
 - [x] Light mode / dark mode desteği yukarıdaki navbar üstündeki küçük bir sembölle yönetilir. aydınlık tema cyan / green bazlı olacak, karanlık tema indigo bazlı olacak. aydınlık tema canlı olacak.
 - [x] electron ile desktop uygulaması üzerinden docker bağımsız çalışabilen bir uygulama olacak.
 - [x] Puanlama ekranında hangi karta kaç puan gelmiş, kart bazlı kategorik şekilde puanlar gösterilecek.
+- [x] Son 10 sprintteki benzer işleri analiz eden ve AI kapsam değerlendirmesi + geçmiş benzer task ortalaması + anlık takım oylamasını (%60 / %25 / %15) ağırlıklandırarak otomatik Story Point önerisi üreten hibrit tahmin sistemi.AI otomatik tetiklensin veya maddeye girince ek olarak tahminle butonu YZ ile tahminle kısmı ekranda dursun tabiki de. Böylece manuel tahminle deme zahmeti ortadan kalkar ve ai sonuçlarını göster diyince gözüksün ki diğer kullanıcıları etkilemesin.

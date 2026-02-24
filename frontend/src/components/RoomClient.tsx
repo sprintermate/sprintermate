@@ -64,6 +64,9 @@ export default function RoomClient({ room, user, locale }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  // Ref for AI estimation handler (used by handleStartScoring to avoid stale closure)
+  const handleAIEstimateRef = useRef<(() => Promise<void>) | null>(null);
+
   // Copy URL state (for moderator)
   const [urlCopied, setUrlCopied] = useState(false);
 
@@ -215,7 +218,14 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleStartScoring = useCallback(() => {
     socketRef.current?.emit('session:start_scoring', { code: room.code });
-  }, [room.code]);
+    // Auto-trigger AI estimation when scoring starts (moderator only)
+    if (room.isModerator && currentWorkItem) {
+      // Small delay to ensure scoring state is set before fetching
+      setTimeout(() => {
+        void handleAIEstimateRef.current?.();
+      }, 300);
+    }
+  }, [room.code, room.isModerator, currentWorkItem]);
 
   const handleCastVote = useCallback((score: number) => {
     setMyScore(score);
@@ -240,10 +250,10 @@ export default function RoomClient({ room, user, locale }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomCode: room.code, workItemId: currentWorkItem.id, locale }),
       });
-      const data = await res.json() as { 'story-point'?: number; reason?: string; 'similar-items'?: string[]; error?: string };
-      if (!res.ok) {
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
+      const data = await res.json() as AIEstimateResult & { error?: string };
+        if (!res.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : `HTTP ${res.status}`);
+        }
       setAiEstimate(data as AIEstimateResult);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'AI estimation failed');
@@ -251,6 +261,9 @@ export default function RoomClient({ room, user, locale }: Props) {
       setAiLoading(false);
     }
   }, [currentWorkItem, room.code, locale]);
+
+  // Keep ref in sync so handleStartScoring can call the latest handleAIEstimate
+  handleAIEstimateRef.current = handleAIEstimate;
 
   const handleReset = useCallback(() => {
     socketRef.current?.emit('session:reset', { code: room.code });
@@ -464,7 +477,7 @@ export default function RoomClient({ room, user, locale }: Props) {
             onReset={handleReset}
             onBack={handleBack}
             onUpdateWorkItem={room.isModerator ? handleUpdateWorkItem : undefined}
-            aiEstimate={room.isModerator ? aiEstimate : (revealed ? aiEstimate : null)}
+            aiEstimate={revealed ? aiEstimate : null}
             aiLoading={aiLoading}
             aiError={aiError}
             onEstimateWithAI={room.isModerator ? handleAIEstimate : undefined}
