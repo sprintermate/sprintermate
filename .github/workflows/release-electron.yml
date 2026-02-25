@@ -1,0 +1,318 @@
+name: Release Electron App
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 1: Create the Git tag and GitHub Release (empty, no artifacts yet).
+  # The build jobs upload their artifacts to this pre-created release.
+  # ─────────────────────────────────────────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute tag name
+        id: tag
+        run: echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release (and tag)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Scrum Poker Desktop ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ inputs.prerelease }}
+          draft: false
+          generate_release_notes: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 2: macOS — DMG (x64 + arm64)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-mac:
+    name: Build macOS
+    runs-on: macos-latest
+    needs: create-release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache backend node_modules
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: mac-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: mac-backend-
+
+      - name: Cache frontend node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: mac-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: mac-frontend-
+
+      - name: Cache electron node_modules
+        uses: actions/cache@v4
+        with:
+          path: electron/node_modules
+          key: mac-electron-${{ hashFiles('electron/package-lock.json') }}
+          restore-keys: mac-electron-
+
+      - name: Build backend TypeScript
+        working-directory: backend
+        run: npm install && npm run build
+
+      - name: Prune backend to production dependencies
+        working-directory: backend
+        run: npm install --omit=dev --ignore-scripts
+
+      - name: Build frontend (Next.js standalone)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_BACKEND_URL: ''
+          BACKEND_URL: 'http://127.0.0.1:4000'
+        run: npm install && npm run build
+
+      - name: Copy frontend static assets into standalone
+        run: |
+          cp -r frontend/public frontend/.next/standalone/public 2>/dev/null || true
+          mkdir -p frontend/.next/standalone/.next
+          cp -r frontend/.next/static frontend/.next/standalone/.next/static
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Rebuild native modules for Electron ABI
+        run: |
+          ELECTRON_VER=$(node -e "console.log(require('./electron/node_modules/electron/package.json').version)")
+          echo "Electron version: $ELECTRON_VER"
+          npx --prefix electron @electron/rebuild \
+            --version "$ELECTRON_VER" \
+            --module-dir backend \
+            --which-module "sqlite3,better-sqlite3"
+
+      - name: Set version in electron/package.json
+        working-directory: electron
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Package macOS DMG
+        working-directory: electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run dist:mac
+
+      - name: Upload macOS DMG to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: electron/dist-electron/*.dmg
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 3: Windows — NSIS installer (.exe)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: create-release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache backend node_modules
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: win-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: win-backend-
+
+      - name: Cache frontend node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: win-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: win-frontend-
+
+      - name: Cache electron node_modules
+        uses: actions/cache@v4
+        with:
+          path: electron/node_modules
+          key: win-electron-${{ hashFiles('electron/package-lock.json') }}
+          restore-keys: win-electron-
+
+      - name: Build backend TypeScript
+        working-directory: backend
+        run: npm install && npm run build
+
+      - name: Prune backend to production dependencies
+        working-directory: backend
+        run: npm install --omit=dev --ignore-scripts
+
+      - name: Build frontend (Next.js standalone)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_BACKEND_URL: ''
+          BACKEND_URL: 'http://127.0.0.1:4000'
+        run: npm install && npm run build
+
+      - name: Copy frontend static assets into standalone
+        shell: pwsh
+        run: |
+          if (Test-Path "frontend/public") {
+            Copy-Item -Recurse -Force "frontend/public" "frontend/.next/standalone/public"
+          }
+          New-Item -ItemType Directory -Force -Path "frontend/.next/standalone/.next" | Out-Null
+          Copy-Item -Recurse -Force "frontend/.next/static" "frontend/.next/standalone/.next/static"
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Rebuild native modules for Electron ABI
+        shell: pwsh
+        run: |
+          $ELECTRON_VER = node -e "console.log(require('./electron/node_modules/electron/package.json').version)"
+          Write-Host "Electron version: $ELECTRON_VER"
+          npx --prefix electron @electron/rebuild `
+            --version $ELECTRON_VER `
+            --module-dir backend `
+            --which-module "sqlite3,better-sqlite3"
+
+      - name: Set version in electron/package.json
+        working-directory: electron
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Package Windows NSIS installer
+        working-directory: electron
+        run: npm run dist:win
+
+      - name: Upload Windows installer to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: electron/dist-electron/*.exe
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 4: Linux — AppImage
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            fakeroot \
+            dpkg \
+            fuse \
+            libfuse2
+
+      - name: Cache backend node_modules
+        uses: actions/cache@v4
+        with:
+          path: backend/node_modules
+          key: linux-backend-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: linux-backend-
+
+      - name: Cache frontend node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: linux-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: linux-frontend-
+
+      - name: Cache electron node_modules
+        uses: actions/cache@v4
+        with:
+          path: electron/node_modules
+          key: linux-electron-${{ hashFiles('electron/package-lock.json') }}
+          restore-keys: linux-electron-
+
+      - name: Build backend TypeScript
+        working-directory: backend
+        run: npm install && npm run build
+
+      - name: Prune backend to production dependencies
+        working-directory: backend
+        run: npm install --omit=dev --ignore-scripts
+
+      - name: Build frontend (Next.js standalone)
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_BACKEND_URL: ''
+          BACKEND_URL: 'http://127.0.0.1:4000'
+        run: npm install && npm run build
+
+      - name: Copy frontend static assets into standalone
+        run: |
+          cp -r frontend/public frontend/.next/standalone/public 2>/dev/null || true
+          mkdir -p frontend/.next/standalone/.next
+          cp -r frontend/.next/static frontend/.next/standalone/.next/static
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Rebuild native modules for Electron ABI
+        run: |
+          ELECTRON_VER=$(node -e "console.log(require('./electron/node_modules/electron/package.json').version)")
+          echo "Electron version: $ELECTRON_VER"
+          npx --prefix electron @electron/rebuild \
+            --version "$ELECTRON_VER" \
+            --module-dir backend \
+            --which-module "sqlite3,better-sqlite3"
+
+      - name: Set version in electron/package.json
+        working-directory: electron
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Package Linux AppImage
+        working-directory: electron
+        run: npm run dist:linux
+
+      - name: Upload Linux AppImage to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag }}
+          files: electron/dist-electron/*.AppImage
