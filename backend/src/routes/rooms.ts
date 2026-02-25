@@ -60,7 +60,7 @@ router.get('/', requireAuth, async (req, res) => {
     where: { moderator_id: userId },
     include: [
       { model: Project, attributes: ['name', 'organization'] },
-      { model: Sprint, attributes: ['name'] },
+      { model: Sprint, as: 'sprint', attributes: ['name'] },
     ],
     order: [['created_at', 'DESC']],
   });

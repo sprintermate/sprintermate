@@ -13,8 +13,8 @@ Sprint.belongsTo(Project, { foreignKey: 'project_id' });
 Project.hasMany(Room, { foreignKey: 'project_id', onDelete: 'CASCADE' });
 Room.belongsTo(Project, { foreignKey: 'project_id' });
 
-Sprint.hasMany(Room, { foreignKey: 'sprint_id', onDelete: 'CASCADE' });
-Room.belongsTo(Sprint, { foreignKey: 'sprint_id' });
+Sprint.hasMany(Room, { foreignKey: 'sprint_id', as: 'rooms', onDelete: 'CASCADE' });
+Room.belongsTo(Sprint, { foreignKey: 'sprint_id', as: 'sprint' });
 
 Project.hasMany(ReferenceScore, { foreignKey: 'project_id', onDelete: 'CASCADE' });
 ReferenceScore.belongsTo(Project, { foreignKey: 'project_id' });
