@@ -6,12 +6,10 @@ import { useTranslations } from 'next-intl';
 export interface WorkItem {
   id: number;
   title: string;
-  description: string;
   state: string;
   storyPoints: number | null;
   workItemType: string;
   assignedTo: string | null;
-  acceptanceCriteria: string | null;
 }
 
 interface Props {

@@ -179,15 +179,22 @@ export async function listSprints(
 
 // ─── Work Items ──────────────────────────────────────────────────────────────
 
-export interface AdoWorkItem {
+export interface AdoWorkItemSummary {
   id: number;
   title: string;
-  description: string;
   state: string;
   storyPoints: number | null;
   workItemType: string;
   assignedTo: string | null;
+}
+
+export interface AdoWorkItem extends AdoWorkItemSummary {
+  description: string;
   acceptanceCriteria: string | null;
+}
+
+export interface AdoWorkItemDetail extends AdoWorkItem {
+  comments: AdoWorkItemComment[];
 }
 
 export interface AdoWorkItemComment {
@@ -304,6 +311,142 @@ export async function getWorkItemsForIteration(
   }));
   mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
   return mapped;
+}
+
+/**
+ * Returns lightweight work item summaries (no description/acceptanceCriteria) for a given
+ * team iteration (sprint). Faster and smaller payload than getWorkItemsForIteration().
+ */
+export async function getWorkItemListForIteration(
+  organization: string,
+  project: string,
+  team: string,
+  iterationId: string,
+  authHeader: string,
+): Promise<AdoWorkItemSummary[]> {
+  // Step 1: get work item IDs for the iteration
+  const iterUrl =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/${encodeURIComponent(team)}` +
+    `/_apis/work/teamsettings/iterations/${encodeURIComponent(iterationId)}/workitems?api-version=7.1`;
+
+  const iterRes = await fetch(iterUrl, {
+    headers: { Authorization: authHeader, Accept: 'application/json' },
+    redirect: 'error',
+  });
+
+  if (!iterRes.ok) {
+    const text = (await iterRes.text()).slice(0, 200);
+    throw new Error(`ADO iteration work items error ${iterRes.status}: ${text}`);
+  }
+
+  const iterData = await iterRes.json() as {
+    workItemRelations?: Array<{ target?: { id: number } }>;
+  };
+
+  const ids = (iterData.workItemRelations ?? [])
+    .map((r) => r.target?.id)
+    .filter((id): id is number => id !== undefined);
+
+  if (ids.length === 0) return [];
+
+  // Step 2: batch fetch lightweight fields only
+  const batchUrl =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/_apis/wit/workitemsbatch?api-version=7.1`;
+
+  const batchRes = await fetch(batchUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: authHeader,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      ids,
+      fields: [
+        'System.Id',
+        'System.Title',
+        'System.State',
+        'System.WorkItemType',
+        'System.AssignedTo',
+        'Microsoft.VSTS.Scheduling.StoryPoints',
+      ],
+    }),
+    redirect: 'error',
+  });
+
+  if (!batchRes.ok) {
+    const text = (await batchRes.text()).slice(0, 200);
+    throw new Error(`ADO batch work items error ${batchRes.status}: ${text}`);
+  }
+
+  const batchData = await batchRes.json() as { value?: any[] };
+  const idIndex = new Map(ids.map((id, i) => [id, i]));
+  const mapped = (batchData.value ?? []).map((wi: any): AdoWorkItemSummary => ({
+    id: wi.id as number,
+    title: (wi.fields?.['System.Title'] as string) ?? '',
+    state: (wi.fields?.['System.State'] as string) ?? '',
+    storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
+    workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
+    assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
+  }));
+  mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
+  return mapped;
+}
+
+/**
+ * Returns full details (description, acceptanceCriteria, comments) for a single ADO work item.
+ */
+export async function getWorkItemDetail(
+  organization: string,
+  project: string,
+  workItemId: number,
+  authHeader: string,
+): Promise<AdoWorkItemDetail> {
+  const fields = [
+    'System.Id',
+    'System.Title',
+    'System.Description',
+    'System.State',
+    'System.WorkItemType',
+    'System.AssignedTo',
+    'Microsoft.VSTS.Scheduling.StoryPoints',
+    'Microsoft.VSTS.Common.AcceptanceCriteria',
+  ].join(',');
+
+  const itemUrl =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/_apis/wit/workitems/${workItemId}?fields=${encodeURIComponent(fields)}&api-version=7.1`;
+
+  const [itemRes, comments] = await Promise.all([
+    fetch(itemUrl, {
+      headers: { Authorization: authHeader, Accept: 'application/json' },
+      redirect: 'error',
+    }),
+    getWorkItemComments(organization, project, workItemId, authHeader),
+  ]);
+
+  if (!itemRes.ok) {
+    const text = (await itemRes.text()).slice(0, 200);
+    throw new Error(`ADO work item detail error ${itemRes.status}: ${text}`);
+  }
+
+  const wi = await itemRes.json() as any;
+  return {
+    id: wi.id as number,
+    title: (wi.fields?.['System.Title'] as string) ?? '',
+    description: sanitizeAdoHtml(wi.fields?.['System.Description'] as string | null),
+    state: (wi.fields?.['System.State'] as string) ?? '',
+    storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
+    workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
+    assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
+    acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null) || null,
+    comments,
+  };
 }
 
 /**

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, Room } from '../db/schema';
-import { getWorkItemComments, getWorkItemsForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
+import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -176,7 +176,7 @@ router.get('/:code/work-items', async (req, res) => {
   }
 
   try {
-    const items = await getWorkItemsForIteration(
+    const items = await getWorkItemListForIteration(
       projectPlain.organization,
       projectPlain.name,
       projectPlain.team ?? projectPlain.name,
@@ -189,9 +189,15 @@ router.get('/:code/work-items', async (req, res) => {
   }
 });
 
-/** GET /api/rooms/:code/workitem/:workItemId/comments — fetch comments for a work item from ADO */
-router.get('/:code/workitem/:workItemId/comments', async (req, res) => {
+/** GET /api/rooms/:code/work-items/:workItemId — fetch full detail + comments for a single work item */
+router.get('/:code/work-items/:workItemId', async (req, res) => {
   const { code, workItemId } = req.params;
+
+  const parsedWorkItemId = Number(workItemId);
+  if (!Number.isFinite(parsedWorkItemId) || parsedWorkItemId <= 0) {
+    res.status(400).json({ error: 'Invalid work item id' });
+    return;
+  }
 
   const room = await Room.findOne({ where: { code } });
   if (!room) {
@@ -221,22 +227,16 @@ router.get('/:code/workitem/:workItemId/comments', async (req, res) => {
     return;
   }
 
-  const parsedWorkItemId = Number(workItemId);
-  if (!Number.isFinite(parsedWorkItemId) || parsedWorkItemId <= 0) {
-    res.status(400).json({ error: 'Invalid work item id' });
-    return;
-  }
-
   try {
-    const comments = await getWorkItemComments(
+    const detail = await getWorkItemDetail(
       projectPlain.organization,
       projectPlain.name,
       parsedWorkItemId,
       authHeader,
     );
-    res.json({ comments });
+    res.json(detail);
   } catch (err: any) {
-    res.status(502).json({ error: err.message ?? 'Failed to fetch work item comments from Azure DevOps' });
+    res.status(502).json({ error: err.message ?? 'Failed to fetch work item detail from Azure DevOps' });
   }
 });
 

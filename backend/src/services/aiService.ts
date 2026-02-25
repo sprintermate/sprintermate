@@ -244,40 +244,40 @@ async function callCodexCLI(prompt: string): Promise<string> {
 
 // ─── API Providers ────────────────────────────────────────────────────────────
 
-const estimateSchema: Schema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    'story-point': {
-      type: SchemaType.NUMBER,
-      description: 'Fibonacci story point estimate (1, 2, 3, 5, 8, 13, 21, 34, or 55)',
-    },
-    confidence: {
-      type: SchemaType.STRING,
-      description: 'Confidence level: high, medium, or low',
-    },
-    analysis: {
-      type: SchemaType.STRING,
-      description: '5-7 sentence detailed analysis explaining complexity, scope, risks, and similarities',
-    },
-    'similar-items': {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          url: { type: SchemaType.STRING, description: 'URL of the similar work item' },
-          title: { type: SchemaType.STRING, description: 'Title of the similar work item' },
-          storyPoints: { type: SchemaType.NUMBER, description: 'Story points of the similar work item' },
-          similarity: { type: SchemaType.NUMBER, description: 'Similarity score 0-100' },
-        },
-        required: ['url', 'title', 'storyPoints', 'similarity'],
-      },
-      description: 'Up to 5 most similar work items from previous sprint context with similarity >= 60',
-    },
-  },
-  required: ['story-point', 'confidence', 'analysis', 'similar-items'],
-};
-
 async function callGemini(prompt: string, apiKey: string): Promise<string> {
+  const estimateSchema: Schema = {
+    type: SchemaType.OBJECT,
+    properties: {
+      'story-point': {
+        type: SchemaType.NUMBER,
+        description: 'Fibonacci story point estimate (1, 2, 3, 5, 8, 13, 21, 34, or 55)',
+      },
+      confidence: {
+        type: SchemaType.STRING,
+        description: 'Confidence level: high, medium, or low',
+      },
+      analysis: {
+        type: SchemaType.STRING,
+        description: '5-7 sentence detailed analysis explaining complexity, scope, risks, and similarities',
+      },
+      'similar-items': {
+        type: SchemaType.ARRAY,
+        items: {
+          type: SchemaType.OBJECT,
+          properties: {
+            url: { type: SchemaType.STRING, description: 'URL of the similar work item' },
+            title: { type: SchemaType.STRING, description: 'Title of the similar work item' },
+            storyPoints: { type: SchemaType.NUMBER, description: 'Story points of the similar work item' },
+            similarity: { type: SchemaType.NUMBER, description: 'Similarity score 0-100' },
+          },
+          required: ['url', 'title', 'storyPoints', 'similarity'],
+        },
+        description: 'Up to 5 most similar work items from previous sprint context with similarity >= 60',
+      },
+    },
+    required: ['story-point', 'confidence', 'analysis', 'similar-items'],
+  };
+
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: 'gemini-flash-latest',

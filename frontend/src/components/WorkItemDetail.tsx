@@ -142,33 +142,37 @@ export default function WorkItemDetail({
   const [updateScore, setUpdateScore] = useState<number | null>(null);
   const [updating, setUpdating] = useState(false);
 
-  // Comments state
+  // Detail state (description, acceptanceCriteria, comments fetched together)
+  const [description, setDescription] = useState<string>('');
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState<string | null>(null);
   const [comments, setComments] = useState<WorkItemComment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
-  // Fetch comments on mount
+  // Fetch full work item detail on mount
   useEffect(() => {
-    async function fetchComments() {
-      setCommentsLoading(true);
-      setCommentsError(null);
+    async function fetchDetail() {
+      setDetailLoading(true);
+      setDetailError(null);
       try {
         if (!roomCode || !workItem.id) return;
-        const res = await fetch(`/api/rooms/${roomCode}/workitem/${workItem.id}/comments`, {
+        const res = await fetch(`/api/rooms/${roomCode}/work-items/${workItem.id}`, {
           credentials: 'include',
         });
         if (!res.ok) {
           throw new Error(await res.text());
         }
         const data = await res.json();
+        setDescription(data.description ?? '');
+        setAcceptanceCriteria(data.acceptanceCriteria ?? null);
         setComments(data.comments ?? []);
       } catch (err: unknown) {
-        setCommentsError(err instanceof Error ? err.message : 'Failed to load comments');
+        setDetailError(err instanceof Error ? err.message : 'Failed to load work item details');
       } finally {
-        setCommentsLoading(false);
+        setDetailLoading(false);
       }
     }
-    fetchComments();
+    fetchDetail();
   }, [workItem.id, roomCode]);
 
   function handleOpenUpdateModal() {
@@ -314,10 +318,12 @@ export default function WorkItemDetail({
           {/* Description */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionDescription')}</h3>
-            {workItem.description ? (
+            {detailLoading ? (
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('loadingComments')}</p>
+            ) : description ? (
               <div
                 className="ado-content"
-                dangerouslySetInnerHTML={{ __html: workItem.description }}
+                dangerouslySetInnerHTML={{ __html: description }}
               />
             ) : (
               <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('emptyContent')}</p>
@@ -327,10 +333,12 @@ export default function WorkItemDetail({
           {/* Acceptance Criteria */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionAcceptanceCriteria')}</h3>
-            {workItem.acceptanceCriteria ? (
+            {detailLoading ? (
+              <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('loadingComments')}</p>
+            ) : acceptanceCriteria ? (
               <div
                 className="ado-content"
-                dangerouslySetInnerHTML={{ __html: workItem.acceptanceCriteria }}
+                dangerouslySetInnerHTML={{ __html: acceptanceCriteria }}
               />
             ) : (
               <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('emptyContent')}</p>
@@ -340,10 +348,10 @@ export default function WorkItemDetail({
             {/* Azure DevOps Comments */}
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">{t('sectionComments')}</h3>
-              {commentsLoading ? (
+              {detailLoading ? (
                 <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('loadingComments')}</p>
-              ) : commentsError ? (
-                <p className="text-red-500 dark:text-red-400 text-sm italic">{commentsError}</p>
+              ) : detailError ? (
+                <p className="text-red-500 dark:text-red-400 text-sm italic">{detailError}</p>
               ) : comments.length === 0 ? (
                 <p className="text-gray-400 dark:text-slate-600 text-sm italic">{t('noComments')}</p>
               ) : (
