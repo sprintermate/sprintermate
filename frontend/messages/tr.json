@@ -262,13 +262,20 @@
     "colTitle": "Başlık",
     "colType": "Tür",
     "colStatus": "Durum",
-    "colSp": "HP"
+    "colSp": "HP",
+    "estimateAllWithAI": "Tümünü YZ ile Tahminle",
+    "estimatingAll": "Tahminleniyor…",
+    "cancelEstimateAll": "İptal Et",
+    "showAiEstimates": "Yapay zeka tahminlerini göster",
+    "hideAiEstimates": "Yapay zeka tahminlerini gizle",
+    "hasAIEstimate": "Yapay zeka tahmini mevcut (görmek için 👁 tıklayın)"
   },
   "workItemDetail": {
     "backToList": "Listeye dön",
     "analyzing": "Analiz ediliyor…",
     "estimateWithAI": "YZ ile Tahminle",
     "startScoring": "Puanlamayı Başlat",
+    "startScoringWithAI": "YZ ile Puanlamayı Başlat",
     "revealVotes": "Oyları Göster",
     "revealVotesWithCount": "Oyları Göster ({count})",
     "updateWorkItem": "İş Öğesini Güncelle",
