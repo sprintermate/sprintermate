@@ -12,14 +12,13 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue>({ theme: 'dark', toggle: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
-
-  useEffect(() => {
-    const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored === 'light' || stored === 'dark') {
-      setTheme(stored);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme') as Theme | null;
+      if (stored === 'light' || stored === 'dark') return stored;
     }
-  }, []);
+    return 'dark';
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -61,17 +60,20 @@ function MoonIcon() {
 
 export function ThemeToggle() {
   const { theme, toggle } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <button
       onClick={toggle}
-      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={!mounted ? 'Switch to light mode' : theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       className="p-2 rounded-lg border border-gray-200 dark:border-slate-700
                  bg-white dark:bg-slate-800 text-gray-600 dark:text-slate-400
                  hover:text-cyan-600 dark:hover:text-indigo-300
                  hover:border-cyan-300 dark:hover:border-indigo-500/50
                  transition-colors"
     >
-      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      {mounted ? (theme === 'dark' ? <SunIcon /> : <MoonIcon />) : <SunIcon />}
     </button>
   );
 }
