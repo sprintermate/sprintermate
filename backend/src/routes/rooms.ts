@@ -233,6 +233,7 @@ router.get('/:code/work-items/:workItemId', async (req, res) => {
       projectPlain.name,
       parsedWorkItemId,
       authHeader,
+      code, // Pass room code for image proxying
     );
     res.json(detail);
   } catch (err: any) {
@@ -297,6 +298,67 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err: any) {
     res.status(502).json({ error: err.message ?? 'Failed to update work item in Azure DevOps' });
+  }
+});
+
+/** GET /api/rooms/:code/ado-image-proxy — proxy Azure DevOps images with authentication */
+router.get('/:code/ado-image-proxy', async (req, res) => {
+  const { code } = req.params;
+  const { url } = req.query as { url?: string };
+
+  if (!url) {
+    res.status(400).json({ error: 'url query parameter is required' });
+    return;
+  }
+
+  const room = await Room.findOne({ where: { code } });
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+
+  const project = await Project.findOne({ where: { id: room.project_id } });
+  if (!project) {
+    res.status(422).json({ error: 'Room has no associated project' });
+    return;
+  }
+
+  const projectPlain = project.get({ plain: true }) as any;
+
+  let authHeader: string;
+  if (projectPlain.encrypted_pat) {
+    try {
+      const pat = decrypt(projectPlain.encrypted_pat);
+      authHeader = patAuthHeader(pat);
+    } catch {
+      res.status(500).json({ error: 'Failed to decrypt project credentials' });
+      return;
+    }
+  } else {
+    res.status(401).json({ error: 'No ADO credentials available' });
+    return;
+  }
+
+  try {
+    const imageRes = await fetch(url, {
+      headers: {
+        Authorization: authHeader,
+      },
+    });
+
+    if (!imageRes.ok) {
+      res.status(imageRes.status).json({ error: 'Failed to fetch image from Azure DevOps' });
+      return;
+    }
+
+    const contentType = imageRes.headers.get('content-type') || 'image/png';
+    const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    res.send(imageBuffer);
+  } catch (err: any) {
+    res.status(502).json({ error: err.message ?? 'Failed to proxy image from Azure DevOps' });
   }
 });
 

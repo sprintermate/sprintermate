@@ -179,6 +179,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
       project.team ?? project.name,
       sprint.ado_sprint_id,
       authHeader,
+      roomCode,
     );
 
     const workItem = currentSprintItems.find((wi) => wi.id === Number(workItemId));
@@ -225,6 +226,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
           project.team ?? project.name,
           prevSprint.id,
           authHeader,
+          roomCode,
         );
         for (const item of prevItems) {
           if (item.storyPoints !== null) {
