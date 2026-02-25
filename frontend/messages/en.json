@@ -263,13 +263,20 @@
     "colTitle": "Title",
     "colType": "Type",
     "colStatus": "Status",
-    "colSp": "SP"
+    "colSp": "SP",
+    "estimateAllWithAI": "Estimate All with AI",
+    "estimatingAll": "Estimating…",
+    "cancelEstimateAll": "Cancel",
+    "showAiEstimates": "Show AI estimates",
+    "hideAiEstimates": "Hide AI estimates",
+    "hasAIEstimate": "AI estimate available (click 👁 to reveal)"
   },
   "workItemDetail": {
     "backToList": "Back to list",
     "analyzing": "Analyzing…",
     "estimateWithAI": "Estimate with AI",
     "startScoring": "Start Scoring",
+    "startScoringWithAI": "Start Scoring with AI",
     "revealVotes": "Reveal Votes",
     "revealVotesWithCount": "Reveal Votes ({count})",
     "updateWorkItem": "Update Work Item",

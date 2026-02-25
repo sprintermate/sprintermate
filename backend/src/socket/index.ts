@@ -1,6 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { AIEstimateResult } from '../services/aiService';
+import { setIO } from './ioInstance';
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -101,6 +102,8 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       credentials: true,
     },
   });
+
+  setIO(io);
 
   io.on('connection', (socket: Socket) => {
     console.log(`[socket] client connected: ${socket.id}`);

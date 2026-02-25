@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import type { AIEstimateResult } from './WorkItemDetail';
 
 export interface WorkItem {
   id: number;
@@ -17,6 +18,12 @@ interface Props {
   loading: boolean;
   error: string | null;
   onSelectItem: (item: WorkItem) => void;
+  isModerator?: boolean;
+  onEstimateAll?: () => void;
+  onCancelEstimateAll?: () => void;
+  estimatingItems?: Set<number>;
+  isEstimatingAll?: boolean;
+  savedAiEstimates?: Map<number, AIEstimateResult>;
 }
 
 function stateColor(state: string): string {
@@ -37,11 +44,23 @@ function typeIcon(type: string): string {
   return '📋';
 }
 
-export default function WorkItemList({ items, loading, error, onSelectItem }: Props) {
+export default function WorkItemList({
+  items,
+  loading,
+  error,
+  onSelectItem,
+  isModerator,
+  onEstimateAll,
+  onCancelEstimateAll,
+  estimatingItems,
+  isEstimatingAll,
+  savedAiEstimates,
+}: Props) {
   const t = useTranslations('workItemList');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'id' | 'title' | 'state' | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+  const [showAiEstimates, setShowAiEstimates] = useState(false);
 
   function toggleSort(key: 'id' | 'title' | 'state') {
     if (sortKey === key) setSortAsc((v) => !v);
@@ -116,6 +135,45 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
           />
         </div>
         <span className="text-gray-400 dark:text-slate-500 text-xs whitespace-nowrap">{t('itemsCount', { count: filtered.length })}</span>
+        <div className="flex items-center gap-2">
+          {isModerator && (isEstimatingAll ? (
+            <button
+              onClick={onCancelEstimateAll}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white border border-red-400/30 shadow-lg shadow-red-500/30 transition-all duration-200 whitespace-nowrap"
+            >
+              <span className="text-base leading-none">✕</span>
+              <span>{t('cancelEstimateAll')}</span>
+            </button>
+          ) : onEstimateAll && (
+            <button
+              onClick={onEstimateAll}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-teal-600 via-green-600 to-cyan-600 hover:from-teal-500 hover:via-green-500 hover:to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-indigo-600 dark:hover:from-violet-500 dark:hover:via-purple-500 dark:hover:to-indigo-500 text-white border border-teal-400/30 dark:border-violet-400/30 shadow-lg shadow-teal-500/30 dark:shadow-violet-500/30 transition-all duration-200 whitespace-nowrap"
+            >
+              <span className="text-base leading-none">✨</span>
+              <span>{t('estimateAllWithAI')}</span>
+            </button>
+          ))}
+          {savedAiEstimates && savedAiEstimates.size > 0 && (
+            <button
+              onClick={() => setShowAiEstimates(v => !v)}
+              title={showAiEstimates ? t('hideAiEstimates') : t('showAiEstimates')}
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-sm font-medium border transition-all duration-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-violet-400 hover:text-violet-600 dark:hover:border-violet-500 dark:hover:text-violet-400 data-[active=true]:border-violet-500 data-[active=true]:text-violet-600 dark:data-[active=true]:border-violet-400 dark:data-[active=true]:text-violet-300"
+              data-active={showAiEstimates}
+            >
+              {showAiEstimates ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -173,7 +231,48 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  {item.storyPoints != null ? (
+                  {estimatingItems?.has(item.id) ? (
+                    <div className="inline-flex items-center justify-center w-7 h-7">
+                      <div className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-violet-400 rounded-full animate-spin" />
+                    </div>
+                  ) : showAiEstimates && savedAiEstimates?.has(item.id) ? (
+                    /* Eye ON + AI estimate: show ADO score badge (if any) + AI badge */
+                    <div className="inline-flex items-center gap-1">
+                      {item.storyPoints != null && (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-50 text-cyan-700 font-bold text-xs border border-cyan-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30">
+                          {item.storyPoints}
+                        </span>
+                      )}
+                      <span
+                        className="inline-flex items-center justify-center px-1.5 h-7 rounded-lg bg-violet-50 text-violet-700 font-bold text-xs border border-violet-200 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30"
+                        title={`AI: ${savedAiEstimates.get(item.id)!['story-point']} SP`}
+                      >
+                        {savedAiEstimates.get(item.id)!['story-point']}✨
+                      </span>
+                    </div>
+                  ) : savedAiEstimates?.has(item.id) ? (
+                    item.storyPoints != null ? (
+                      /* Eye OFF + AI + ADO: two separate badges */
+                      <div className="inline-flex items-center gap-1">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-50 text-cyan-700 font-bold text-xs border border-cyan-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30">
+                          {item.storyPoints}
+                        </span>
+                        <span
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 text-slate-400 font-bold text-xs border border-slate-200 dark:bg-slate-700/30 dark:text-slate-500 dark:border-slate-700/30"
+                          title={t('hasAIEstimate')}
+                        >
+                          ⭐
+                        </span>
+                      </div>
+                    ) : (
+                      <span
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 text-slate-400 font-bold text-xs border border-slate-200 dark:bg-slate-700/30 dark:text-slate-500 dark:border-slate-700/30"
+                        title={t('hasAIEstimate')}
+                      >
+                        ⭐
+                      </span>
+                    )
+                  ) : item.storyPoints != null ? (
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-50 text-cyan-700 font-bold text-xs border border-cyan-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30">
                       {item.storyPoints}
                     </span>
@@ -186,6 +285,7 @@ export default function WorkItemList({ items, loading, error, onSelectItem }: Pr
           </tbody>
         </table>
       </div>
+
     </div>
   );
 }

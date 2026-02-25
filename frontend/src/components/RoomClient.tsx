@@ -59,13 +59,15 @@ export default function RoomClient({ room, user, locale }: Props) {
   const [stats, setStats] = useState<VoteStats | null>(null);
   const [myScore, setMyScore] = useState<number | null>(null);
 
-  // AI estimation state
+  // AI estimation state (session-level, reset on navigate)
   const [aiEstimate, setAiEstimate] = useState<AIEstimateResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Ref for AI estimation handler (used by handleStartScoring to avoid stale closure)
-  const handleAIEstimateRef = useRef<(() => Promise<void>) | null>(null);
+  // Batch AI estimation state
+  const [estimatingItems, setEstimatingItems] = useState<Set<number>>(new Set());
+  const [savedAiEstimates, setSavedAiEstimates] = useState<Map<number, AIEstimateResult>>(new Map());
+  const [isEstimatingAll, setIsEstimatingAll] = useState(false);
 
   // Copy URL state (for moderator)
   const [urlCopied, setUrlCopied] = useState(false);
@@ -103,6 +105,24 @@ export default function RoomClient({ room, user, locale }: Props) {
       }
     }
     void load();
+  }, [room.code, user.isGuest]);
+
+  // ── Load persisted AI estimates ───────────────────────────────────────────
+  useEffect(() => {
+    if (user.isGuest) return;
+    async function loadSavedEstimates() {
+      try {
+        const res = await fetch(`${BACKEND}/api/ai/estimates?roomCode=${room.code}`, {
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+        const data = await res.json() as Array<{ workItemId: number; estimate: AIEstimateResult }>;
+        setSavedAiEstimates(new Map(data.map((d) => [d.workItemId, d.estimate])));
+      } catch {
+        // Estimates are optional — ignore errors
+      }
+    }
+    void loadSavedEstimates();
   }, [room.code, user.isGuest]);
 
   // ── Socket connection ──────────────────────────────────────────────────────
@@ -189,6 +209,33 @@ export default function RoomClient({ room, user, locale }: Props) {
       socket.disconnect();
     });
 
+    // Batch AI estimation events
+    socket.on('ai:estimate_start', (data: { workItemId: number }) => {
+      setEstimatingItems((prev) => new Set(prev).add(data.workItemId));
+    });
+
+    socket.on('ai:estimate_complete', (data: { workItemId: number; estimate: AIEstimateResult }) => {
+      setEstimatingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(data.workItemId);
+        return next;
+      });
+      setSavedAiEstimates((prev) => new Map(prev).set(data.workItemId, data.estimate));
+    });
+
+    socket.on('ai:estimate_error', (data: { workItemId: number }) => {
+      setEstimatingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(data.workItemId);
+        return next;
+      });
+    });
+
+    socket.on('ai:estimate_all_complete', () => {
+      setEstimatingItems(new Set());
+      setIsEstimatingAll(false);
+    });
+
     return () => {
       socket.emit('room:leave', { code: room.code });
       socket.disconnect();
@@ -216,29 +263,7 @@ export default function RoomClient({ room, user, locale }: Props) {
     });
   }, [room.isModerator, room.code]);
 
-  const handleStartScoring = useCallback(() => {
-    socketRef.current?.emit('session:start_scoring', { code: room.code });
-    // Auto-trigger AI estimation when scoring starts (moderator only)
-    if (room.isModerator && currentWorkItem) {
-      // Small delay to ensure scoring state is set before fetching
-      setTimeout(() => {
-        void handleAIEstimateRef.current?.();
-      }, 300);
-    }
-  }, [room.code, room.isModerator, currentWorkItem]);
-
-  const handleCastVote = useCallback((score: number) => {
-    setMyScore(score);
-    socketRef.current?.emit('vote:cast', { code: room.code, score });
-  }, [room.code]);
-
-  const handleReveal = useCallback(() => {
-    socketRef.current?.emit('vote:reveal', {
-      code: room.code,
-      ...(aiEstimate ? { aiEstimate } : {}),
-    });
-  }, [room.code, aiEstimate]);
-
+  // handleAIEstimate defined before handleStartScoring (which depends on it)
   const handleAIEstimate = useCallback(async () => {
     if (!currentWorkItem) return;
     setAiLoading(true);
@@ -254,7 +279,9 @@ export default function RoomClient({ room, user, locale }: Props) {
         if (!res.ok) {
           throw new Error(typeof data.error === 'string' ? data.error : `HTTP ${res.status}`);
         }
-      setAiEstimate(data as AIEstimateResult);
+      const result = data as AIEstimateResult;
+      setAiEstimate(result);
+      setSavedAiEstimates((prev) => new Map(prev).set(currentWorkItem.id, result));
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'AI estimation failed');
     } finally {
@@ -262,8 +289,66 @@ export default function RoomClient({ room, user, locale }: Props) {
     }
   }, [currentWorkItem, room.code, locale]);
 
-  // Keep ref in sync so handleStartScoring can call the latest handleAIEstimate
-  handleAIEstimateRef.current = handleAIEstimate;
+  const handleEstimateAll = useCallback(async () => {
+    setIsEstimatingAll(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/ai/estimate-all`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: room.code }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        console.error('estimate-all failed:', body.error);
+        setIsEstimatingAll(false);
+      }
+      // isEstimatingAll stays true until ai:estimate_all_complete fires
+    } catch {
+      setIsEstimatingAll(false);
+    }
+  }, [room.code]);
+
+  const handleCancelEstimateAll = useCallback(async () => {
+    // Immediately reset UI state for instant feedback
+    setIsEstimatingAll(false);
+    setEstimatingItems(new Set());
+    try {
+      await fetch(`${BACKEND}/api/ai/estimate-all/cancel`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode: room.code }),
+      });
+    } catch {
+      // fire-and-forget — UI is already reset
+    }
+  }, [room.code]);
+
+  const handleStartScoring = useCallback(() => {
+    socketRef.current?.emit('session:start_scoring', { code: room.code });
+    // Trigger AI estimation simultaneously when scoring starts (moderator only)
+    if (room.isModerator && currentWorkItem) {
+      const saved = savedAiEstimates.get(currentWorkItem.id);
+      if (saved) {
+        setAiEstimate(saved);
+      } else {
+        void handleAIEstimate();
+      }
+    }
+  }, [room.code, room.isModerator, currentWorkItem, handleAIEstimate, savedAiEstimates]);
+
+  const handleCastVote = useCallback((score: number) => {
+    setMyScore(score);
+    socketRef.current?.emit('vote:cast', { code: room.code, score });
+  }, [room.code]);
+
+  const handleReveal = useCallback(() => {
+    socketRef.current?.emit('vote:reveal', {
+      code: room.code,
+      ...(aiEstimate ? { aiEstimate } : {}),
+    });
+  }, [room.code, aiEstimate]);
 
   const handleReset = useCallback(() => {
     socketRef.current?.emit('session:reset', { code: room.code });
@@ -458,6 +543,12 @@ export default function RoomClient({ room, user, locale }: Props) {
                 loading={itemsLoading}
                 error={itemsError}
                 onSelectItem={handleSelectItem}
+                isModerator={room.isModerator}
+                onEstimateAll={room.isModerator ? handleEstimateAll : undefined}
+                onCancelEstimateAll={handleCancelEstimateAll}
+                estimatingItems={estimatingItems}
+                isEstimatingAll={isEstimatingAll}
+                savedAiEstimates={savedAiEstimates}
               />
             )}
           </>
@@ -481,7 +572,8 @@ export default function RoomClient({ room, user, locale }: Props) {
             aiEstimate={revealed ? aiEstimate : null}
             aiLoading={aiLoading}
             aiError={aiError}
-            onEstimateWithAI={room.isModerator ? handleAIEstimate : undefined}
+            savedAiEstimate={savedAiEstimates.get(currentWorkItem.id) ?? null}
+            isBeingBatchEstimated={estimatingItems.has(currentWorkItem.id)}
           />
         ) : null}
       </main>
