@@ -208,10 +208,12 @@ export interface AdoWorkItemComment {
  * Strips inline color/background-color/font properties from ADO HTML so the
  * content renders correctly on a dark background without invisible text.
  * Also removes empty style="" attributes left over after stripping.
+ * If roomCode is provided, proxies Azure DevOps image URLs through the backend.
  */
-function sanitizeAdoHtml(html: string | null): string {
+function sanitizeAdoHtml(html: string | null, roomCode?: string): string {
   if (!html) return '';
-  return html
+  
+  let sanitized = html
     // Remove color, background-color, background, font-family, font-size inline props
     .replace(/\bcolor\s*:[^;"]*(;|(?="))/gi, '')
     .replace(/\bbackground(?:-color)?\s*:[^;"]*(;|(?="))/gi, '')
@@ -219,6 +221,25 @@ function sanitizeAdoHtml(html: string | null): string {
     .replace(/\bfont-size\s*:[^;"]*(;|(?="))/gi, '')
     // Drop style="" or style=" " that are now empty after stripping
     .replace(/\sstyle="\s*"/gi, '');
+
+  // Proxy Azure DevOps images if roomCode is provided
+  if (roomCode) {
+    sanitized = sanitized.replace(
+      /<img([^>]+)src=["']([^"']+)["']([^>]*)>/gi,
+      (match, before, src, after) => {
+        // Check if the image URL is from Azure DevOps
+        if (src.includes('dev.azure.com') || src.includes('visualstudio.com')) {
+          const encodedUrl = encodeURIComponent(src);
+          // Use relative path so it works with any backend URL (Docker, ngrok, localhost, etc.)
+          const proxyUrl = `/api/rooms/${roomCode}/ado-image-proxy?url=${encodedUrl}`;
+          return `<img${before}src="${proxyUrl}"${after}>`;
+        }
+        return match;
+      }
+    );
+  }
+
+  return sanitized;
 }
 
 /**
@@ -234,6 +255,7 @@ export async function getWorkItemsForIteration(
   team: string,
   iterationId: string,
   authHeader: string,
+  roomCode?: string,
 ): Promise<AdoWorkItem[]> {
   // Step 1: get work item IDs for the iteration
   const iterUrl =
@@ -302,12 +324,12 @@ export async function getWorkItemsForIteration(
   const mapped = (batchData.value ?? []).map((wi: any): AdoWorkItem => ({
     id: wi.id as number,
     title: (wi.fields?.['System.Title'] as string) ?? '',
-    description: sanitizeAdoHtml(wi.fields?.['System.Description'] as string | null),
+    description: sanitizeAdoHtml(wi.fields?.['System.Description'] as string | null, roomCode),
     state: (wi.fields?.['System.State'] as string) ?? '',
     storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
     workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
     assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
-    acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null),
+    acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null, roomCode),
   }));
   mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
   return mapped;
@@ -405,6 +427,7 @@ export async function getWorkItemDetail(
   project: string,
   workItemId: number,
   authHeader: string,
+  roomCode?: string,
 ): Promise<AdoWorkItemDetail> {
   const fields = [
     'System.Id',
@@ -427,7 +450,7 @@ export async function getWorkItemDetail(
       headers: { Authorization: authHeader, Accept: 'application/json' },
       redirect: 'error',
     }),
-    getWorkItemComments(organization, project, workItemId, authHeader),
+    getWorkItemComments(organization, project, workItemId, authHeader, roomCode),
   ]);
 
   if (!itemRes.ok) {
@@ -439,12 +462,12 @@ export async function getWorkItemDetail(
   return {
     id: wi.id as number,
     title: (wi.fields?.['System.Title'] as string) ?? '',
-    description: sanitizeAdoHtml(wi.fields?.['System.Description'] as string | null),
+    description: sanitizeAdoHtml(wi.fields?.['System.Description'] as string | null, roomCode),
     state: (wi.fields?.['System.State'] as string) ?? '',
     storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
     workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
     assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
-    acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null) || null,
+    acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null, roomCode) || null,
     comments,
   };
 }
@@ -457,6 +480,7 @@ export async function getWorkItemComments(
   project: string,
   workItemId: number,
   authHeader: string,
+  roomCode?: string,
 ): Promise<AdoWorkItemComment[]> {
   const url =
     `https://dev.azure.com/${encodeURIComponent(organization)}` +
@@ -483,7 +507,7 @@ export async function getWorkItemComments(
     .filter((comment: any) => !comment?.isDeleted)
     .map((comment: any): AdoWorkItemComment => ({
       id: comment.id as number,
-      text: (comment.text as string) ?? '',
+      text: sanitizeAdoHtml((comment.text as string) ?? '', roomCode),
       createdBy: (comment.createdBy?.displayName as string) ?? 'Unknown',
       createdDate: (comment.createdDate as string) ?? '',
     }));
