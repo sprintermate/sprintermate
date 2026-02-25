@@ -108,12 +108,13 @@ jobs:
         run: npm install
 
       - name: Rebuild native modules for Electron ABI
+        working-directory: electron
         run: |
-          ELECTRON_VER=$(node -e "console.log(require('./electron/node_modules/electron/package.json').version)")
+          ELECTRON_VER=$(node -e "console.log(require('./node_modules/electron/package.json').version)")
           echo "Electron version: $ELECTRON_VER"
-          npx --prefix electron @electron/rebuild \
+          npx electron-rebuild \
             --version "$ELECTRON_VER" \
-            --module-dir backend \
+            --module-dir ../backend \
             --which-module "sqlite3,better-sqlite3"
 
       - name: Set version in electron/package.json
@@ -199,13 +200,14 @@ jobs:
         run: npm install
 
       - name: Rebuild native modules for Electron ABI
+        working-directory: electron
         shell: pwsh
         run: |
-          $ELECTRON_VER = node -e "console.log(require('./electron/node_modules/electron/package.json').version)"
+          $ELECTRON_VER = node -e "console.log(require('./node_modules/electron/package.json').version)"
           Write-Host "Electron version: $ELECTRON_VER"
-          npx --prefix electron @electron/rebuild `
+          npx electron-rebuild `
             --version $ELECTRON_VER `
-            --module-dir backend `
+            --module-dir ../backend `
             --which-module "sqlite3,better-sqlite3"
 
       - name: Set version in electron/package.json
@@ -295,12 +297,13 @@ jobs:
         run: npm install
 
       - name: Rebuild native modules for Electron ABI
+        working-directory: electron
         run: |
-          ELECTRON_VER=$(node -e "console.log(require('./electron/node_modules/electron/package.json').version)")
+          ELECTRON_VER=$(node -e "console.log(require('./node_modules/electron/package.json').version)")
           echo "Electron version: $ELECTRON_VER"
-          npx --prefix electron @electron/rebuild \
+          npx electron-rebuild \
             --version "$ELECTRON_VER" \
-            --module-dir backend \
+            --module-dir ../backend \
             --which-module "sqlite3,better-sqlite3"
 
       - name: Set version in electron/package.json
