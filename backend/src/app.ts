@@ -7,6 +7,7 @@ import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import roomsRouter from './routes/rooms';
 import aiRouter from './routes/ai';
+import metricsRouter from './routes/metrics';
 import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
 import './types/auth'; // register Express.User augmentation
@@ -73,6 +74,7 @@ export function createApp(): Application {
   app.use('/api/projects', projectsRouter);
   app.use('/api/rooms', roomsRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/metrics', metricsRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

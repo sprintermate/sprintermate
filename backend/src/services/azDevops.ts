@@ -551,6 +551,513 @@ export async function updateWorkItemStoryPoints(
   }
 }
 
+// ─── Sprint Metrics ───────────────────────────────────────────────────────────
+
+export interface SprintMetrics {
+  sprintId: string;
+  sprintName: string;
+  startDate: string;
+  endDate: string;
+  health: {
+    score: number; // 0-100
+    completionRate: number; // 0-100
+    velocity: number;
+    scopeChange: number; // percentage
+    riskLevel: 'low' | 'medium' | 'high';
+    bugCount: number;
+    bugTrend: 'increasing' | 'stable' | 'decreasing';
+  };
+  workItems: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    notStarted: number;
+    removed: number;
+    byType: Record<string, number>;
+    byState: Record<string, number>;
+    byTypePercentage: Record<string, number>;
+  };
+  velocity: {
+    planned: number;
+    completed: number;
+    carried: number;
+  };
+  flow: {
+    avgCycleTime: number; // days
+    avgLeadTime: number; // days
+    avgBlockedTime: number; // days
+    wipCount: number;
+    flowEfficiency: number; // 0-100
+  };
+  bugs: {
+    total: number;
+    active: number;
+    resolved: number;
+    closed: number;
+  };
+  stateMetrics: {
+    avgTimeInState: Record<string, number>;
+    stateTransitions: Record<string, number>;
+  };
+}
+
+export interface SprintTrend {
+  sprintId: string;
+  sprintName: string;
+  velocity: number;
+  completionRate: number;
+  scopeChange: number;
+  bugCount: number;
+  carryOver: number;
+  startDate: string;
+}
+
+/**
+ * Calculate comprehensive metrics for a sprint
+ */
+export async function calculateSprintMetrics(
+  organization: string,
+  project: string,
+  team: string,
+  iterationId: string,
+  authHeader: string,
+): Promise<SprintMetrics> {
+  // Fetch sprint info
+  const sprintsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}/_apis/work/teamsettings/iterations/${encodeURIComponent(iterationId)}?api-version=7.1`;
+  const sprintRes = await fetch(sprintsUrl, {
+    headers: { Authorization: authHeader, Accept: 'application/json' },
+    redirect: 'error',
+  });
+
+  if (!sprintRes.ok) {
+    throw new Error(`Failed to fetch sprint info: ${sprintRes.status}`);
+  }
+
+  const sprintData = await sprintRes.json() as any;
+  const sprintName = sprintData.name ?? 'Unknown Sprint';
+  const startDate = sprintData.attributes?.startDate ?? '';
+  const endDate = sprintData.attributes?.finishDate ?? '';
+
+  // Fetch work items for this sprint with revision history
+  const workItems = await getWorkItemsWithHistory(
+    organization,
+    project,
+    team,
+    iterationId,
+    authHeader,
+  );
+
+  // Calculate metrics
+  const total = workItems.length;
+  const completed = workItems.filter(w => isCompletedState(w.state)).length;
+  const inProgress = workItems.filter(w => isInProgressState(w.state)).length;
+  const notStarted = workItems.filter(w => isNotStartedState(w.state)).length;
+  const removed = workItems.filter(w => isRemovedState(w.state)).length;
+
+  const byType: Record<string, number> = {};
+  const byState: Record<string, number> = {};
+  
+  let totalPlannedPoints = 0;
+  let totalCompletedPoints = 0;
+  let totalCarriedPoints = 0;
+  let bugCount = 0;
+  let activeBugs = 0;
+  let resolvedBugs = 0;
+  let closedBugs = 0;
+
+  let totalCycleTime = 0;
+  let totalLeadTime = 0;
+  let totalBlockedTime = 0;
+  let itemsWithCycleTime = 0;
+  let itemsWithLeadTime = 0;
+  let itemsWithBlockedTime = 0;
+
+  workItems.forEach(wi => {
+    // Count by type
+    byType[wi.workItemType] = (byType[wi.workItemType] || 0) + 1;
+    byState[wi.state] = (byState[wi.state] || 0) + 1;
+
+    // Story points - only count non-removed items
+    const points = wi.storyPoints || 0;
+    if (!isRemovedState(wi.state)) {
+      totalPlannedPoints += points;
+    }
+    
+    if (isCompletedState(wi.state)) {
+      totalCompletedPoints += points;
+    } else if (!isRemovedState(wi.state)) {
+      // Not completed and not removed = carried over
+      totalCarriedPoints += points;
+    }
+
+    // Bugs
+    if (wi.workItemType === 'Bug') {
+      bugCount++;
+      if (wi.state === 'Active' || wi.state === 'New') activeBugs++;
+      else if (wi.state === 'Resolved') resolvedBugs++;
+      else if (wi.state === 'Closed') closedBugs++;
+    }
+
+    // Flow metrics from history (if available)
+    if (wi.history) {
+      if (wi.history.cycleTime !== null && wi.history.cycleTime !== undefined) {
+        totalCycleTime += wi.history.cycleTime;
+        itemsWithCycleTime++;
+      }
+      if (wi.history.leadTime !== null && wi.history.leadTime !== undefined) {
+        totalLeadTime += wi.history.leadTime;
+        itemsWithLeadTime++;
+      }
+      if (wi.history.blockedTime !== null && wi.history.blockedTime !== undefined) {
+        totalBlockedTime += wi.history.blockedTime;
+        itemsWithBlockedTime++;
+      }
+    }
+  });
+
+  const avgCycleTime = itemsWithCycleTime > 0 ? totalCycleTime / itemsWithCycleTime : 0;
+  const avgLeadTime = itemsWithLeadTime > 0 ? totalLeadTime / itemsWithLeadTime : 0;
+  const avgBlockedTime = itemsWithBlockedTime > 0 ? totalBlockedTime / itemsWithBlockedTime : 0;
+  
+  // Flow efficiency = (value-adding time / total lead time) * 100
+  // Value-adding time ≈ cycle time - blocked time
+  const valueAddingTime = Math.max(0, avgCycleTime - avgBlockedTime);
+  const flowEfficiency = avgLeadTime > 0 ? (valueAddingTime / avgLeadTime) * 100 : 
+    (avgCycleTime > 0 ? 100 : 0); // If no lead time but has cycle time, assume 100% efficiency
+
+  const completionRate = total > 0 ? (completed / total) * 100 : 0;
+  const velocity = totalCompletedPoints;
+
+  // Calculate scope change (simplified - would need sprint start snapshot in real implementation)
+  const scopeChange = 0; // Placeholder - requires historical data
+
+  // Calculate health score (weighted average)
+  const healthScore = Math.round(
+    completionRate * 0.4 +
+    (velocity / (totalPlannedPoints || 1)) * 100 * 0.3 +
+    (100 - Math.min(bugCount * 10, 100)) * 0.2 +
+    flowEfficiency * 0.1
+  );
+
+  // Determine risk level
+  let riskLevel: 'low' | 'medium' | 'high' = 'low';
+  if (healthScore < 50 || completionRate < 60) riskLevel = 'high';
+  else if (healthScore < 70 || completionRate < 75) riskLevel = 'medium';
+
+  // Calculate state duration metrics
+  const workItemIds = workItems.map(wi => wi.id);
+  const stateMetrics = await calculateStateDurations(
+    organization,
+    project,
+    workItemIds,
+    authHeader,
+  );
+
+  // Calculate percentage distribution by type
+  const byTypePercentage: Record<string, number> = {};
+  if (total > 0) {
+    for (const type in byType) {
+      byTypePercentage[type] = Math.round((byType[type] / total) * 1000) / 10; // Round to 1 decimal
+    }
+  }
+
+  return {
+    sprintId: iterationId,
+    sprintName,
+    startDate,
+    endDate,
+    health: {
+      score: healthScore,
+      completionRate: Math.round(completionRate * 10) / 10,
+      velocity,
+      scopeChange,
+      riskLevel,
+      bugCount,
+      bugTrend: 'stable', // Placeholder - requires historical comparison
+    },
+    workItems: {
+      total,
+      completed,
+      inProgress,
+      notStarted,
+      removed,
+      byType,
+      byState,
+      byTypePercentage,
+    },
+    velocity: {
+      planned: totalPlannedPoints,
+      completed: totalCompletedPoints,
+      carried: totalCarriedPoints,
+    },
+    flow: {
+      avgCycleTime: Math.round(avgCycleTime * 10) / 10,
+      avgLeadTime: Math.round(avgLeadTime * 10) / 10,
+      avgBlockedTime: Math.round(avgBlockedTime * 10) / 10,
+      wipCount: inProgress,
+      flowEfficiency: Math.round(flowEfficiency * 10) / 10,
+    },
+    bugs: {
+      total: bugCount,
+      active: activeBugs,
+      resolved: resolvedBugs,
+      closed: closedBugs,
+    },
+    stateMetrics,
+  };
+}
+
+/**
+ * Get work items with revision history for flow metrics
+ */
+async function getWorkItemsWithHistory(
+  organization: string,
+  project: string,
+  team: string,
+  iterationId: string,
+  authHeader: string,
+): Promise<any[]> {
+  // First get work item IDs
+  const iterUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/${encodeURIComponent(team)}/_apis/work/teamsettings/iterations/${encodeURIComponent(iterationId)}/workitems?api-version=7.1`;
+  
+  const iterRes = await fetch(iterUrl, {
+    headers: { Authorization: authHeader, Accept: 'application/json' },
+    redirect: 'error',
+  });
+
+  if (!iterRes.ok) {
+    throw new Error(`Failed to fetch work items: ${iterRes.status}`);
+  }
+
+  const iterData = await iterRes.json() as any;
+  const ids = (iterData.workItemRelations ?? [])
+    .map((r: any) => r.target?.id)
+    .filter((id: any): id is number => id !== undefined);
+
+  if (ids.length === 0) return [];
+
+  // Azure DevOps has a limit of 200 items per batch request - split into chunks
+  const BATCH_SIZE = 200;
+  const chunks: number[][] = [];
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    chunks.push(ids.slice(i, i + BATCH_SIZE));
+  }
+
+  const batchUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitemsbatch?api-version=7.1`;
+  const allItems: any[] = [];
+
+  // Fetch each chunk
+  for (const chunk of chunks) {
+    try {
+      const batchRes = await fetch(batchUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          ids: chunk,
+          fields: [
+            'System.Id',
+            'System.Title',
+            'System.State',
+            'System.WorkItemType',
+            'Microsoft.VSTS.Scheduling.StoryPoints',
+            'System.AssignedTo',
+            'System.CreatedDate',
+            'Microsoft.VSTS.Common.StateChangeDate',
+            'Microsoft.VSTS.Common.ActivatedDate',
+            'Microsoft.VSTS.Common.ResolvedDate',
+            'Microsoft.VSTS.Common.ClosedDate',
+          ],
+        }),
+      });
+
+      if (!batchRes.ok) {
+        const text = (await batchRes.text()).slice(0, 200);
+        console.error(`Failed to batch fetch work items chunk: ${batchRes.status} - ${text}`);
+        continue; // Skip this chunk but continue with others
+      }
+
+      const batchData = await batchRes.json() as any;
+      allItems.push(...(batchData.value ?? []));
+    } catch (err) {
+      console.error('Batch fetch work items chunk failed:', err);
+      // Continue with next chunk
+    }
+  }
+
+  const items = allItems;
+
+  return items.map((item: any) => {
+    const fields = item.fields ?? {};
+    const createdDate = fields['System.CreatedDate'];
+    const closedDate = fields['Microsoft.VSTS.Common.ClosedDate'] || fields['Microsoft.VSTS.Common.ResolvedDate'];
+    const activatedDate = fields['Microsoft.VSTS.Common.ActivatedDate'];
+    const state = fields['System.State'] ?? '';
+
+    let cycleTime: number | null = null;
+    let leadTime: number | null = null;
+    // Only calculate lead time for completed items
+    if (createdDate && closedDate) {
+      leadTime = daysBetween(createdDate, closedDate);
+    }
+    // Only calculate cycle time for items that were activated and completed
+    if (activatedDate && closedDate) {
+      cycleTime = daysBetween(activatedDate, closedDate);
+    }
+    return {
+      id: item.id,
+      title: fields['System.Title'] ?? '',
+      state,
+      workItemType: fields['System.WorkItemType'] ?? '',
+      storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? null,
+      assignedTo: fields['System.AssignedTo']?.displayName ?? null,
+      history: {
+        cycleTime,
+        leadTime,
+        blockedTime: 0, // Would require parsing state history
+      },
+    };
+  });
+}
+
+/**
+ * Get state duration metrics by fetching work item revisions
+ */
+async function calculateStateDurations(
+  organization: string,
+  project: string,
+  workItemIds: number[],
+  authHeader: string,
+): Promise<{ avgTimeInState: Record<string, number>; stateTransitions: Record<string, number> }> {
+  const stateWeightedDurations: Record<string, { totalWeighted: number; totalSP: number }> = {};
+  const stateTransitions: Record<string, number> = {};
+
+  // Limit to first 50 items to avoid too many API calls
+  const idsToProcess = workItemIds.slice(0, 50);
+
+  for (const id of idsToProcess) {
+    try {
+      const revisionsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitems/${id}/revisions?api-version=7.1`;
+      const itemUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitems/${id}?api-version=7.1`;
+
+      // Fetch work item to get story points
+      const itemRes = await fetch(itemUrl, {
+        headers: { Authorization: authHeader, Accept: 'application/json' },
+      });
+      const itemData = itemRes.ok ? (await itemRes.json() as { fields?: Record<string, any> }) : null;
+      const storyPoints = itemData?.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 1;
+
+      const res = await fetch(revisionsUrl, {
+        headers: { Authorization: authHeader, Accept: 'application/json' },
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json() as any;
+      const revisions = data.value ?? [];
+
+      // Track state transitions
+      for (let i = 0; i < revisions.length; i++) {
+        const current = revisions[i];
+        const next = revisions[i + 1];
+        const state = current.fields?.['System.State'];
+
+        if (!state) continue;
+
+        // Count state occurrences
+        stateTransitions[state] = (stateTransitions[state] || 0) + 1;
+
+        // Calculate time in this state
+        if (next) {
+          const currentDate = new Date(current.fields?.['System.ChangedDate']);
+          const nextDate = new Date(next.fields?.['System.ChangedDate']);
+          const duration = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
+
+          if (!stateWeightedDurations[state]) stateWeightedDurations[state] = { totalWeighted: 0, totalSP: 0 };
+          stateWeightedDurations[state].totalWeighted += duration * storyPoints;
+          stateWeightedDurations[state].totalSP += storyPoints;
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to fetch revisions for work item ${id}:`, err);
+    }
+  }
+
+  // Calculate weighted averages
+  const avgTimeInState: Record<string, number> = {};
+  for (const state in stateWeightedDurations) {
+    const { totalWeighted, totalSP } = stateWeightedDurations[state];
+    const avg = totalSP > 0 ? totalWeighted / totalSP : 0;
+    avgTimeInState[state] = Math.round(avg * 10) / 10;
+  }
+
+  return { avgTimeInState, stateTransitions };
+}
+
+/**
+ * Calculate trend data for multiple sprints
+ */
+export async function calculateSprintTrends(
+  organization: string,
+  project: string,
+  team: string,
+  sprintIds: string[],
+  authHeader: string,
+): Promise<SprintTrend[]> {
+  const trends: SprintTrend[] = [];
+
+  for (const sprintId of sprintIds) {
+    try {
+      const metrics = await calculateSprintMetrics(organization, project, team, sprintId, authHeader);
+      trends.push({
+        sprintId: metrics.sprintId,
+        sprintName: metrics.sprintName,
+        velocity: metrics.velocity.completed,
+        completionRate: metrics.health.completionRate,
+        scopeChange: metrics.health.scopeChange,
+        bugCount: metrics.health.bugCount,
+        carryOver: metrics.velocity.carried,
+        startDate: metrics.startDate,
+      });
+    } catch (err) {
+      console.error(`Failed to calculate metrics for sprint ${sprintId}:`, err);
+    }
+  }
+
+  return trends.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+}
+
+// Helper functions for state classification
+function isCompletedState(state: string): boolean {
+  const completed = ['Done', 'Closed', 'Resolved', 'Completed'];
+  return completed.includes(state);
+}
+
+function isInProgressState(state: string): boolean {
+  const inProgress = ['Active', 'In Progress', 'Committed', 'Doing'];
+  return inProgress.includes(state);
+}
+
+function isNotStartedState(state: string): boolean {
+  const notStarted = ['New', 'To Do', 'Proposed', 'Approved'];
+  return notStarted.includes(state);
+}
+
+function isRemovedState(state: string): boolean {
+  const removed = ['Removed', 'Cancelled', 'Cut'];
+  return removed.includes(state);
+}
+
+function daysBetween(start: string, end: string): number {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const diff = endDate.getTime() - startDate.getTime();
+  return Math.max(0, diff / (1000 * 60 * 60 * 24));
+}
+
 // ─── PAT Validation ───────────────────────────────────────────────────────────
 
 /**

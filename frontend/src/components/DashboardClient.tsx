@@ -489,6 +489,15 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">
+                        {project.hasPat && (
+                          <a
+                            href={`/${locale}/projects/${project.id}/metrics`}
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-medium transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
+                          >
+                            <span>📊</span>
+                            {t('viewMetrics')}
+                          </a>
+                        )}
                         <button
                           onClick={() => startEdit(project)}
                           className="px-3 py-1.5 rounded-lg border border-gray-300 hover:border-gray-400 text-gray-500 hover:text-gray-900 dark:border-slate-700 dark:hover:border-slate-600 dark:text-slate-400 dark:hover:text-white text-xs font-medium transition-colors"

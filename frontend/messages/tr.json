@@ -158,7 +158,8 @@
     "added": "Eklendi",
     "edit": "Düzenle",
     "delete": "Sil",
-    "validationError": "Her referans puanın bir başlığı ve geçerli sayısal bir hikaye puanı değeri olmalıdır."
+    "validationError": "Her referans puanın bir başlığı ve geçerli sayısal bir hikaye puanı değeri olmalıdır.",
+    "viewMetrics": "Metrikler"
   },
   "createRoom": {
     "title": "Oda Oluştur",
@@ -314,5 +315,43 @@
     "signInLink": "Azure DevOps ile giriş yapın",
     "errorTooShort": "Ad en az 2 karakter olmalıdır.",
     "errorTooLong": "Ad 64 karakterden kısa olmalıdır."
+  },
+  "metrics": {
+    "title": "Sprint Metrikleri",
+    "healthScore": "Sağlık Skoru",
+    "completionRate": "Tamamlanma Oranı",
+    "velocity": "Hız",
+    "riskLevel": "Risk Seviyesi",
+    "aiInsights": "YZ İçgörüleri",
+    "generateInsights": "YZ İçgörüleri Oluştur",
+    "generating": "Oluşturuluyor...",
+    "strengths": "Güçlü Yönler",
+    "risks": "Riskler",
+    "recommendations": "Öneriler",
+    "sprintTrends": "Sprint Trendleri",
+    "velocityTrend": "Hız Trendi",
+    "completionTrend": "Tamamlanma Oranı Trendi",
+    "bugTrend": "Hata Sayısı Trendi",
+    "scopeChangeTrend": "Kapsam Değişim Trendi",
+    "workItemsByState": "Duruma Göre İş Öğeleri",
+    "workItemsByType": "Türe Göre İş Öğeleri",
+    "bugStatus": "Hata Durumu",
+    "flowMetrics": "Akış ve Döngü Süresi Metrikleri",
+    "avgCycleTime": "Ort. Döngü Süresi",
+    "avgLeadTime": "Ort. Teslim Süresi",
+    "flowEfficiency": "Akış Verimliliği",
+    "wipCount": "Devam Eden İşler",
+    "days": "gün",
+    "completed": "Tamamlandı",
+    "inProgress": "Devam Ediyor",
+    "notStarted": "Başlamadı",
+    "removed": "Kaldırıldı",
+    "active": "Aktif",
+    "resolved": "Çözüldü",
+    "closed": "Kapatıldı",
+    "totalBugs": "Toplam Hata",
+    "loading": "Sprint metrikleri yükleniyor...",
+    "error": "Metrikler Yüklenirken Hata",
+    "noData": "Veri mevcut değil"
   }
 }

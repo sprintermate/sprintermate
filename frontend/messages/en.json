@@ -158,7 +158,8 @@
     "added": "Added",
     "edit": "Edit",
     "delete": "Delete",
-    "validationError": "Each reference score needs a title and a valid numeric story point value."
+    "validationError": "Each reference score needs a title and a valid numeric story point value.",
+    "viewMetrics": "Metrics"
   },
   "createRoom": {
     "title": "Create a Room",
@@ -314,5 +315,43 @@
     "signInLink": "Sign in with Azure DevOps",
     "errorTooShort": "Name must be at least 2 characters.",
     "errorTooLong": "Name must be less than 64 characters."
+  },
+  "metrics": {
+    "title": "Sprint Metrics",
+    "healthScore": "Health Score",
+    "completionRate": "Completion Rate",
+    "velocity": "Velocity",
+    "riskLevel": "Risk Level",
+    "aiInsights": "AI Insights",
+    "generateInsights": "Generate AI Insights",
+    "generating": "Generating...",
+    "strengths": "Strengths",
+    "risks": "Risks",
+    "recommendations": "Recommendations",
+    "sprintTrends": "Sprint Trends",
+    "velocityTrend": "Velocity Trend",
+    "completionTrend": "Completion Rate Trend",
+    "bugTrend": "Bug Count Trend",
+    "scopeChangeTrend": "Scope Change Trend",
+    "workItemsByState": "Work Items by State",
+    "workItemsByType": "Work Items by Type",
+    "bugStatus": "Bug Status",
+    "flowMetrics": "Flow & Cycle Time Metrics",
+    "avgCycleTime": "Avg Cycle Time",
+    "avgLeadTime": "Avg Lead Time",
+    "flowEfficiency": "Flow Efficiency",
+    "wipCount": "WIP Count",
+    "days": "days",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "notStarted": "Not Started",
+    "removed": "Removed",
+    "active": "Active",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "totalBugs": "Total Bugs",
+    "loading": "Loading sprint metrics...",
+    "error": "Error Loading Metrics",
+    "noData": "No data available"
   }
 }
