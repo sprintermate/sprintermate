@@ -95,7 +95,7 @@ interface Props {
   onReveal: () => void;
   onReset: () => void;
   onBack: () => void;
-  onUpdateWorkItem?: (score: number) => void;
+  onUpdateWorkItem?: (score: number, aiScore: number | null) => void;
   aiEstimate?: AIEstimateResult | null;
   aiLoading?: boolean;
   aiError?: string | null;
@@ -188,7 +188,7 @@ export default function WorkItemDetail({
     if (updateScore === null || !onUpdateWorkItem) return;
     setUpdating(true);
     try {
-      await onUpdateWorkItem(updateScore);
+      await onUpdateWorkItem(updateScore, displayEstimate?.['story-point'] ?? null);
       setShowUpdateModal(false);
     } finally {
       setUpdating(false);

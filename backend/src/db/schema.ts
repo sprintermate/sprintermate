@@ -6,6 +6,7 @@ import Room from './models/Room';
 import ReferenceScore from './models/ReferenceScore';
 import UserAISettings from './models/UserAISettings';
 import WorkItemAIEstimate from './models/WorkItemAIEstimate';
+import WorkItemScoreRecord from './models/WorkItemScoreRecord';
 
 // Define associations
 Project.hasMany(Sprint, { foreignKey: 'project_id', onDelete: 'CASCADE' });
@@ -26,9 +27,12 @@ UserAISettings.belongsTo(User, { foreignKey: 'user_id' });
 Project.hasMany(WorkItemAIEstimate, { foreignKey: 'project_id', onDelete: 'CASCADE' });
 WorkItemAIEstimate.belongsTo(Project, { foreignKey: 'project_id' });
 
+Project.hasMany(WorkItemScoreRecord, { foreignKey: 'project_id', onDelete: 'CASCADE' });
+WorkItemScoreRecord.belongsTo(Project, { foreignKey: 'project_id' });
+
 export async function initSchema(): Promise<void> {
   await sequelize.sync();
   console.log('[db] schema synced');
 }
 
-export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord };

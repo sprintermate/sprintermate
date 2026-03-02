@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
-import { Project, Sprint, Room } from '../db/schema';
+import { Project, Sprint, Room, WorkItemScoreRecord } from '../db/schema';
 import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 
@@ -244,7 +244,7 @@ router.get('/:code/work-items/:workItemId', async (req, res) => {
 /** PATCH /api/rooms/:code/work-items/:workItemId — update story points (moderator only) */
 router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
   const { code, workItemId } = req.params;
-  const { storyPoints } = req.body as { storyPoints?: number };
+  const { storyPoints, aiScore } = req.body as { storyPoints?: number; aiScore?: number | null };
 
   if (storyPoints == null || !Number.isFinite(storyPoints) || storyPoints <= 0) {
     res.status(400).json({ error: 'storyPoints must be a positive number' });
@@ -295,6 +295,34 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
       storyPoints,
       authHeader,
     );
+
+    // Upsert score record if AI score is available
+    if (aiScore != null && Number.isFinite(aiScore)) {
+      const now = new Date().toISOString();
+      const existing = await WorkItemScoreRecord.findOne({
+        where: { project_id: room.project_id, work_item_id: Number(workItemId) },
+      });
+      if (existing) {
+        await existing.update({
+          ai_score: aiScore,
+          user_avg_score: storyPoints,
+          sprint_id: room.sprint_id ?? null,
+          updated_at: now,
+        });
+      } else {
+        await WorkItemScoreRecord.create({
+          id: randomUUID(),
+          project_id: room.project_id,
+          work_item_id: Number(workItemId),
+          ai_score: aiScore,
+          user_avg_score: storyPoints,
+          sprint_id: room.sprint_id ?? null,
+          created_at: now,
+          updated_at: now,
+        });
+      }
+    }
+
     res.json({ ok: true });
   } catch (err: any) {
     res.status(502).json({ error: err.message ?? 'Failed to update work item in Azure DevOps' });

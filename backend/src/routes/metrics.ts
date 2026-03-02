@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth';
-import { Project, Sprint } from '../db/schema';
+import { Project, Sprint, WorkItemScoreRecord } from '../db/schema';
 import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { generateSprintInsights } from '../services/aiInsights';
@@ -223,6 +223,39 @@ router.post('/projects/:projectId/sprints/:sprintId/insights', async (req, res) 
   } catch (err: any) {
     console.error('Error generating sprint insights:', err);
     res.status(500).json({ error: err.message ?? 'Failed to generate insights' });
+  }
+});
+
+/**
+ * GET /api/metrics/projects/:projectId/sprints/:sprintId/score-records
+ * Get AI vs user score records for a sprint
+ */
+router.get('/projects/:projectId/sprints/:sprintId/score-records', async (req, res) => {
+  const { projectId, sprintId } = req.params;
+  const userId = req.user!.id;
+
+  try {
+    const project = await Project.findOne({ where: { id: projectId, user_id: userId } });
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const sprint = await Sprint.findOne({ where: { id: sprintId, project_id: projectId } });
+    if (!sprint) {
+      res.status(404).json({ error: 'Sprint not found' });
+      return;
+    }
+
+    const records = await WorkItemScoreRecord.findAll({
+      where: { project_id: projectId, sprint_id: sprintId },
+      attributes: ['work_item_id', 'ai_score', 'user_avg_score'],
+    });
+
+    res.json(records.map(r => r.get({ plain: true })));
+  } catch (err: any) {
+    console.error('Error fetching score records:', err);
+    res.status(500).json({ error: err.message ?? 'Failed to fetch score records' });
   }
 });
 

@@ -354,13 +354,13 @@ export default function RoomClient({ room, user, locale }: Props) {
     socketRef.current?.emit('session:reset', { code: room.code });
   }, [room.code]);
 
-  const handleUpdateWorkItem = useCallback(async (score: number) => {
+  const handleUpdateWorkItem = useCallback(async (score: number, aiScore: number | null) => {
     if (!currentWorkItem) return;
     const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items/${currentWorkItem.id}`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storyPoints: score }),
+      body: JSON.stringify({ storyPoints: score, aiScore }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
