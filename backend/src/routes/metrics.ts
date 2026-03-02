@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, WorkItemScoreRecord } from '../db/schema';
-import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend } from '../services/azDevops';
+import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend, getVelocityHistory } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { generateSprintInsights } from '../services/aiInsights';
 
@@ -134,6 +134,66 @@ router.get('/projects/:projectId/trends', async (req, res) => {
   } catch (err: any) {
     console.error('Error fetching sprint trends:', err);
     res.status(500).json({ error: err.message ?? 'Failed to fetch sprint trends' });
+  }
+});
+
+/**
+ * GET /api/metrics/projects/:projectId/sprints/:sprintId/velocity-history
+ * Get velocity history (last 5 sprints including current) from ADO
+ */
+router.get('/projects/:projectId/sprints/:sprintId/velocity-history', async (req, res) => {
+  const { projectId, sprintId } = req.params;
+  const userId = req.user!.id;
+
+  try {
+    const project = await Project.findOne({
+      where: { id: projectId, user_id: userId },
+    });
+
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const projectPlain = project.get({ plain: true });
+
+    if (!projectPlain.encrypted_pat) {
+      res.status(400).json({ error: 'Project does not have Azure DevOps credentials configured' });
+      return;
+    }
+
+    const pat = decrypt(projectPlain.encrypted_pat);
+    const authHeader = patAuthHeader(pat);
+
+    const sprint = await Sprint.findOne({
+      where: { id: sprintId, project_id: projectId },
+    });
+
+    if (!sprint) {
+      res.status(404).json({ error: 'Sprint not found' });
+      return;
+    }
+
+    const sprintPlain = sprint.get({ plain: true });
+
+    if (!sprintPlain.ado_sprint_id) {
+      res.status(400).json({ error: 'Sprint is not linked to Azure DevOps' });
+      return;
+    }
+
+    const history = await getVelocityHistory(
+      projectPlain.organization,
+      projectPlain.name,
+      projectPlain.team ?? projectPlain.name,
+      sprintPlain.ado_sprint_id,
+      authHeader,
+      5,
+    );
+
+    res.json(history);
+  } catch (err: any) {
+    console.error('Error fetching velocity history:', err);
+    res.status(500).json({ error: err.message ?? 'Failed to fetch velocity history' });
   }
 });
 

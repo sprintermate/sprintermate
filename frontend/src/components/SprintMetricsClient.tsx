@@ -31,6 +31,7 @@ interface SprintMetrics {
     removed: number;
     byType: Record<string, number>;
     byState: Record<string, number>;
+    byStateSP: Record<string, number>;
     byTypePercentage: Record<string, number>;
   };
   velocity: {
@@ -54,6 +55,7 @@ interface SprintMetrics {
   stateMetrics: {
     avgTimeInState: Record<string, number>;
     stateTransitions: Record<string, number>;
+    avgTransitionTimes: Record<string, number>;
   };
 }
 
@@ -87,6 +89,15 @@ interface ScoreRecord {
   user_avg_score: number;
 }
 
+interface VelocityHistoryItem {
+  sprintId: string;
+  sprintName: string;
+  velocity: number;
+  plannedSP: number;
+  startDate: string;
+  isCurrent: boolean;
+}
+
 const DEV_DONE_OR_LATER_STATES = [
   'Development Done', 'Test', 'in UAT', 'UAT', 'Done', 'Closed', 'Resolved', 'Completed',
 ];
@@ -100,6 +111,7 @@ export default function SprintMetricsClient({
   const [trends, setTrends] = useState<SprintTrend[]>([]);
   const [insights, setInsights] = useState<SprintInsights | null>(null);
   const [scoreRecords, setScoreRecords] = useState<ScoreRecord[]>([]);
+  const [velocityHistory, setVelocityHistory] = useState<VelocityHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +119,7 @@ export default function SprintMetricsClient({
   // Velocity & Capacity inputs
   const [teamSize, setTeamSize] = useState(3);
   const [sprintDays, setSprintDays] = useState(10);
+  const [leaveDays, setLeaveDays] = useState(0);
 
   const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -115,10 +128,11 @@ export default function SprintMetricsClient({
       setLoading(true);
       setError(null);
 
-      const [metricsRes, trendsRes, scoreRes] = await Promise.all([
+      const [metricsRes, trendsRes, scoreRes, velocityRes] = await Promise.all([
         fetch(`${BACKEND}/api/metrics/projects/${projectId}/sprints/${sprintId}`, { credentials: 'include' }),
         fetch(`${BACKEND}/api/metrics/projects/${projectId}/trends?limit=6`, { credentials: 'include' }),
         fetch(`${BACKEND}/api/metrics/projects/${projectId}/sprints/${sprintId}/score-records`, { credentials: 'include' }),
+        fetch(`${BACKEND}/api/metrics/projects/${projectId}/sprints/${sprintId}/velocity-history`, { credentials: 'include' }),
       ]);
 
       if (!metricsRes.ok) throw new Error('Failed to fetch sprint metrics');
@@ -128,6 +142,7 @@ export default function SprintMetricsClient({
 
       if (trendsRes.ok) setTrends(await trendsRes.json());
       if (scoreRes.ok) setScoreRecords(await scoreRes.json());
+      if (velocityRes.ok) setVelocityHistory(await velocityRes.json());
     } catch (err) {
       setError((err as Error).message || 'Failed to load metrics');
     } finally {
@@ -175,33 +190,35 @@ export default function SprintMetricsClient({
     );
   }
 
-  const healthScoreColor =
-    metrics.health.score >= 70 ? 'text-emerald-600 dark:text-emerald-400'
-    : metrics.health.score >= 50 ? 'text-yellow-600 dark:text-yellow-400'
-    : 'text-red-600 dark:text-red-400';
-
-  const riskColors = {
-    low: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    high: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  };
-
-  // Overall Completion Rate (Development Done or later)
+  // Overall Completion Rate (Development Done or later) - case-insensitive matching
+  const normalizedByState = Object.entries(metrics.workItems.byState).reduce<Record<string, number>>(
+    (acc, [state, count]) => { acc[state.toLowerCase()] = (acc[state.toLowerCase()] || 0) + count; return acc; }, {}
+  );
+  const normalizedByStateSP = Object.entries(metrics.workItems.byStateSP || {}).reduce<Record<string, number>>(
+    (acc, [state, sp]) => { acc[state.toLowerCase()] = (acc[state.toLowerCase()] || 0) + sp; return acc; }, {}
+  );
   const devDoneOrLaterCount = DEV_DONE_OR_LATER_STATES.reduce(
-    (acc, s) => acc + (metrics.workItems.byState[s] ?? 0), 0
+    (acc, s) => acc + (normalizedByState[s.toLowerCase()] ?? 0), 0
+  );
+  const devDoneOrLaterSP = DEV_DONE_OR_LATER_STATES.reduce(
+    (acc, s) => acc + (normalizedByStateSP[s.toLowerCase()] ?? 0), 0
   );
   const devDoneOrLaterRate = metrics.workItems.total > 0
     ? Math.round((devDoneOrLaterCount / metrics.workItems.total) * 100)
     : 0;
 
   // Velocity & Capacity
-  const capacity = teamSize * sprintDays;
-  const utilizationRate = capacity > 0
-    ? Math.min(Math.round((metrics.velocity.completed / capacity) * 100), 999)
+  const effectivePersonDays = Math.max(0, teamSize * sprintDays - leaveDays);
+  const utilizationRate = metrics.velocity.planned > 0
+    ? Math.min(Math.round((devDoneOrLaterSP / metrics.velocity.planned) * 100), 999)
     : 0;
-  const avgVelocityLast3 = trends.length > 0
-    ? Math.round(trends.slice(0, 3).reduce((s, t) => s + t.velocity, 0) / Math.min(trends.length, 3))
-    : metrics.velocity.completed;
+  // Average velocity from last 3 past sprints (from velocity history or trends)
+  const pastVelocities = velocityHistory.filter(v => !v.isCurrent);
+  const avgVelocityLast3 = pastVelocities.length > 0
+    ? Math.round(pastVelocities.slice(-3).reduce((s, v) => s + v.velocity, 0) / Math.min(pastVelocities.length, 3))
+    : (trends.length > 0
+      ? Math.round(trends.slice(0, 3).reduce((s, t) => s + t.velocity, 0) / Math.min(trends.length, 3))
+      : metrics.velocity.completed);
 
   // AI vs Team stats
   const n = scoreRecords.length;
@@ -240,14 +257,6 @@ export default function SprintMetricsClient({
         </div>
       </div>
 
-      {/* Executive Health Score */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Health Score" value={metrics.health.score} suffix="/100" icon="🎯" color={healthScoreColor} trend={metrics.health.score >= 70 ? 'up' : metrics.health.score >= 50 ? 'neutral' : 'down'} />
-        <MetricCard title="Completion Rate" value={metrics.health.completionRate.toFixed(1)} suffix="%" icon="📊" color="text-blue-600 dark:text-blue-400" trend={metrics.health.completionRate >= 75 ? 'up' : 'neutral'} />
-        <MetricCard title="Velocity" value={metrics.velocity.completed} suffix={` / ${metrics.velocity.planned} pts`} icon="⚡" color="text-indigo-600 dark:text-indigo-400" />
-        <MetricCard title="Risk Level" value={metrics.health.riskLevel.toUpperCase()} icon="❗" badge={true} badgeColor={riskColors[metrics.health.riskLevel]} />
-      </div>
-
       {/* AI Insights Panel */}
       {insights && (
         <div className="bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/20 dark:to-indigo-950/20 rounded-2xl shadow-sm border border-violet-200/60 dark:border-violet-800/60 p-6">
@@ -273,13 +282,10 @@ export default function SprintMetricsClient({
       )}
 
       {/* Trend Charts */}
-      {trends.length > 0 && (
+      {(velocityHistory.length > 0 || trends.length > 0) && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-slate-800/60 p-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">📈 Sprint Trends</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <TrendChart title="Velocity Trend" data={trends} dataKey="velocity" color="indigo" />
-            <TrendChart title="Completion Rate" data={trends} dataKey="completionRate" color="blue" suffix="%" />
-          </div>
+          <TrendChart title="Velocity Trend" data={velocityHistory.length > 0 ? velocityHistory : trends} dataKey="velocity" color="indigo" />
         </div>
       )}
 
@@ -335,16 +341,27 @@ export default function SprintMetricsClient({
               className="w-20 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-slate-300 whitespace-nowrap">Toplam İzin Günü:</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={leaveDays}
+              onChange={e => setLeaveDays(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-20 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
-            <VelocityCard label="Planlanan SP" value={metrics.velocity.planned} color="blue" />
+            <VelocityCard label="Planlan SP" value={metrics.velocity.planned} color="blue" />
             <VelocityCard label="Gerçekleşen SP" value={metrics.velocity.completed} color="emerald" />
             <VelocityCard label="Carry Over SP" value={metrics.velocity.carried} color="yellow" />
             <VelocityCard label="Ort. Velocity (son 3)" value={avgVelocityLast3} color="indigo" />
-            <VelocityCard label="Kapasite (kişi × gün)" value={capacity} color="purple" />
+            <VelocityCard label={`Efektif Kapasite (gün)`} value={effectivePersonDays} color="purple" />
             <VelocityCard label="Kapasite Kullanımı" value={utilizationRate} suffix="%" color={utilizationRate > 100 ? 'red' : utilizationRate > 80 ? 'emerald' : 'gray'} />
           </div>
 
@@ -437,21 +454,21 @@ export default function SprintMetricsClient({
           <FlowMetricCard title="Avg Lead Time" value={metrics.flow.avgLeadTime.toFixed(1)} suffix=" days" description="Created → Done" />
           <FlowMetricCard
             title="Dev → Dev Done"
-            value={(metrics.stateMetrics.avgTimeInState['Development'] ?? 0).toFixed(1)}
+            value={(metrics.stateMetrics.avgTransitionTimes?.['Development->Development Done'] ?? metrics.stateMetrics.avgTimeInState['Development'] ?? 0).toFixed(1)}
             suffix=" gün"
             description="Geçiş süresi"
             highlight
           />
           <FlowMetricCard
             title="Dev Done → Test"
-            value={(metrics.stateMetrics.avgTimeInState['Development Done'] ?? 0).toFixed(1)}
+            value={(metrics.stateMetrics.avgTransitionTimes?.['Development Done->Test'] ?? metrics.stateMetrics.avgTimeInState['Development Done'] ?? 0).toFixed(1)}
             suffix=" gün"
             description="Geçiş süresi"
             highlight
           />
           <FlowMetricCard
             title="Test → in UAT"
-            value={(metrics.stateMetrics.avgTimeInState['Test'] ?? 0).toFixed(1)}
+            value={(metrics.stateMetrics.avgTransitionTimes?.['Test->in UAT'] ?? metrics.stateMetrics.avgTimeInState['Test'] ?? 0).toFixed(1)}
             suffix=" gün"
             description="Geçiş süresi"
             highlight
@@ -463,37 +480,6 @@ export default function SprintMetricsClient({
 }
 
 // ── Helper Components ─────────────────────────────────────────────────────────
-
-function MetricCard({
-  title, value, suffix, icon, color, trend, badge, badgeColor,
-}: {
-  title: string; value: number | string; suffix?: string; icon: string;
-  color?: string; trend?: 'up' | 'down' | 'neutral'; badge?: boolean; badgeColor?: string;
-}) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-slate-800/60 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-600 dark:text-slate-400">{title}</span>
-        <span className="text-2xl">{icon}</span>
-      </div>
-      {badge ? (
-        <div className={`inline-block px-3 py-1 rounded-lg text-sm font-bold ${badgeColor}`}>{value}</div>
-      ) : (
-        <div className={`text-3xl font-bold ${color || 'text-gray-900 dark:text-white'}`}>
-          {value}
-          {suffix && <span className="text-lg text-gray-500 dark:text-slate-400">{suffix}</span>}
-        </div>
-      )}
-      {trend && (
-        <div className="mt-2">
-          {trend === 'up' && <span className="text-xs text-emerald-600 dark:text-emerald-400">↗ Trending up</span>}
-          {trend === 'down' && <span className="text-xs text-red-600 dark:text-red-400">↘ Needs attention</span>}
-          {trend === 'neutral' && <span className="text-xs text-gray-500 dark:text-slate-500">→ Stable</span>}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function InsightBox({ title, items, color }: { title: string; items: string[]; color: string }) {
   const colors: Record<string, string> = {
@@ -521,11 +507,16 @@ function AnalysisCard({ title, content }: { title: string; content: string }) {
 }
 
 function TrendChart({ title, data, dataKey, color, suffix = '' }: {
-  title: string; data: SprintTrend[]; dataKey: keyof SprintTrend; color: string; suffix?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  title: string; data: Record<string, any>[]; dataKey: string; color: string; suffix?: string;
 }) {
   const colors: Record<string, string> = {
     indigo: 'stroke-indigo-600 dark:stroke-indigo-400',
     blue: 'stroke-blue-600 dark:stroke-blue-400',
+  };
+  const fillColors: Record<string, string> = {
+    indigo: 'fill-indigo-600 dark:fill-indigo-400',
+    blue: 'fill-blue-600 dark:fill-blue-400',
   };
   const max = Math.max(...data.map(d => Number(d[dataKey]) || 0));
   const min = Math.min(...data.map(d => Number(d[dataKey]) || 0));
@@ -542,18 +533,22 @@ function TrendChart({ title, data, dataKey, color, suffix = '' }: {
             points={data.map((d, i) => {
               const x = (i / (data.length - 1 || 1)) * 380 + 10;
               const value = Number(d[dataKey]) || 0;
-              const y = 170 - ((value - min) / range) * 160;
+              const y = 160 - ((value - min) / range) * 140;
               return `${x},${y}`;
             }).join(' ')}
           />
           {data.map((d, i) => {
             const x = (i / (data.length - 1 || 1)) * 380 + 10;
             const value = Number(d[dataKey]) || 0;
-            const y = 170 - ((value - min) / range) * 160;
+            const y = 160 - ((value - min) / range) * 140;
+            const rawName = String(d.sprintName || '');
+            const match = rawName.match(/(\d+)$/);
+            const label = match ? `S${match[1]}` : `S${data.length - i}`;
             return (
               <g key={i}>
-                <circle cx={x} cy={y} r="4" fill="currentColor" className={colors[color]} />
-                <text x={x} y="175" fontSize="10" fill="currentColor" className="text-gray-600 dark:text-slate-400" textAnchor="middle">S{data.length - i}</text>
+                <circle cx={x} cy={y} r="4" fill="currentColor" className={fillColors[color] || colors[color]} />
+                <text x={x} y={y - 10} fontSize="10" fill="currentColor" className="text-gray-700 dark:text-slate-300" textAnchor="middle" fontWeight="bold">{value}</text>
+                <text x={x} y="175" fontSize="10" fill="currentColor" className="text-gray-600 dark:text-slate-400" textAnchor="middle">{label}</text>
               </g>
             );
           })}
@@ -561,6 +556,7 @@ function TrendChart({ title, data, dataKey, color, suffix = '' }: {
       </div>
       <div className="mt-2 text-sm text-gray-600 dark:text-slate-400 text-center">
         Latest: <span className="font-semibold">{data[data.length - 1]?.[dataKey]}{suffix}</span>
+        {data[data.length - 1]?.isCurrent && <span className="ml-2 text-xs text-indigo-500">(current sprint)</span>}
       </div>
     </div>
   );

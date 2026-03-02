@@ -575,6 +575,7 @@ export interface SprintMetrics {
     removed: number;
     byType: Record<string, number>;
     byState: Record<string, number>;
+    byStateSP: Record<string, number>;
     byTypePercentage: Record<string, number>;
   };
   velocity: {
@@ -598,6 +599,7 @@ export interface SprintMetrics {
   stateMetrics: {
     avgTimeInState: Record<string, number>;
     stateTransitions: Record<string, number>;
+    avgTransitionTimes: Record<string, number>;
   };
 }
 
@@ -656,6 +658,7 @@ export async function calculateSprintMetrics(
 
   const byType: Record<string, number> = {};
   const byState: Record<string, number> = {};
+  const byStateSP: Record<string, number> = {};
   
   let totalPlannedPoints = 0;
   let totalCompletedPoints = 0;
@@ -676,6 +679,7 @@ export async function calculateSprintMetrics(
     // Count by type
     byType[wi.workItemType] = (byType[wi.workItemType] || 0) + 1;
     byState[wi.state] = (byState[wi.state] || 0) + 1;
+    byStateSP[wi.state] = (byStateSP[wi.state] || 0) + (wi.storyPoints || 0);
 
     // Story points - only count non-removed items
     const points = wi.storyPoints || 0;
@@ -746,12 +750,16 @@ export async function calculateSprintMetrics(
 
   // Calculate state duration metrics
   const workItemIds = workItems.map(wi => wi.id);
-  const stateMetrics = await calculateStateDurations(
+  const stateMetricsResult = await calculateStateDurations(
     organization,
     project,
     workItemIds,
     authHeader,
   );
+
+  // Use revision-based cycle/lead times when available (more accurate)
+  const finalCycleTime = stateMetricsResult.revisedCycleTime > 0 ? stateMetricsResult.revisedCycleTime : avgCycleTime;
+  const finalLeadTime = stateMetricsResult.revisedLeadTime > 0 ? stateMetricsResult.revisedLeadTime : avgLeadTime;
 
   // Calculate percentage distribution by type
   const byTypePercentage: Record<string, number> = {};
@@ -783,6 +791,7 @@ export async function calculateSprintMetrics(
       removed,
       byType,
       byState,
+      byStateSP,
       byTypePercentage,
     },
     velocity: {
@@ -791,8 +800,8 @@ export async function calculateSprintMetrics(
       carried: totalCarriedPoints,
     },
     flow: {
-      avgCycleTime: Math.round(avgCycleTime * 10) / 10,
-      avgLeadTime: Math.round(avgLeadTime * 10) / 10,
+      avgCycleTime: Math.round(finalCycleTime * 10) / 10,
+      avgLeadTime: Math.round(finalLeadTime * 10) / 10,
       avgBlockedTime: Math.round(avgBlockedTime * 10) / 10,
       wipCount: inProgress,
       flowEfficiency: Math.round(flowEfficiency * 10) / 10,
@@ -803,7 +812,11 @@ export async function calculateSprintMetrics(
       resolved: resolvedBugs,
       closed: closedBugs,
     },
-    stateMetrics,
+    stateMetrics: {
+      avgTimeInState: stateMetricsResult.avgTimeInState,
+      stateTransitions: stateMetricsResult.stateTransitions,
+      avgTransitionTimes: stateMetricsResult.avgTransitionTimes,
+    },
   };
 }
 
@@ -924,16 +937,45 @@ async function getWorkItemsWithHistory(
 }
 
 /**
- * Get state duration metrics by fetching work item revisions
+ * Get state duration metrics by fetching work item revisions.
+ * Calculates:
+ * - Average time in each state
+ * - State transition counts
+ * - Average transition times between specific state pairs (e.g., Development → Development Done)
+ * - Revised cycle time (first active state → first done state) from revisions
+ * - Revised lead time (created → first done state) from revisions
  */
 async function calculateStateDurations(
   organization: string,
   project: string,
   workItemIds: number[],
   authHeader: string,
-): Promise<{ avgTimeInState: Record<string, number>; stateTransitions: Record<string, number> }> {
-  const stateWeightedDurations: Record<string, { totalWeighted: number; totalSP: number }> = {};
+): Promise<{
+  avgTimeInState: Record<string, number>;
+  stateTransitions: Record<string, number>;
+  avgTransitionTimes: Record<string, number>;
+  revisedCycleTime: number;
+  revisedLeadTime: number;
+}> {
+  // Target state pairs for transition time measurement
+  const targetTransitions: [string, string][] = [
+    ['Development', 'Development Done'],
+    ['Development Done', 'Test'],
+    ['Test', 'in UAT'],
+  ];
+
+  const transitionTimesMap: Record<string, number[]> = {};
+  for (const [from, to] of targetTransitions) {
+    transitionTimesMap[`${from}->${to}`] = [];
+  }
+
+  const stateDurationsMap: Record<string, number[]> = {};
   const stateTransitions: Record<string, number> = {};
+  const cycleTimesArr: number[] = [];
+  const leadTimesArr: number[] = [];
+
+  const ACTIVE_STATES = ['Active', 'Development', 'In Progress', 'Committed'];
+  const DONE_STATES = ['Done', 'Closed', 'Resolved', 'Completed'];
 
   // Limit to first 50 items to avoid too many API calls
   const idsToProcess = workItemIds.slice(0, 50);
@@ -941,15 +983,6 @@ async function calculateStateDurations(
   for (const id of idsToProcess) {
     try {
       const revisionsUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitems/${id}/revisions?api-version=7.1`;
-      const itemUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitems/${id}?api-version=7.1`;
-
-      // Fetch work item to get story points
-      const itemRes = await fetch(itemUrl, {
-        headers: { Authorization: authHeader, Accept: 'application/json' },
-      });
-      const itemData = itemRes.ok ? (await itemRes.json() as { fields?: Record<string, any> }) : null;
-      const storyPoints = itemData?.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] ?? 1;
-
       const res = await fetch(revisionsUrl, {
         headers: { Authorization: authHeader, Accept: 'application/json' },
       });
@@ -957,44 +990,121 @@ async function calculateStateDurations(
       if (!res.ok) continue;
 
       const data = await res.json() as any;
-      const revisions = data.value ?? [];
+      const revisions: any[] = data.value ?? [];
+      if (revisions.length === 0) continue;
 
-      // Track state transitions
+      // Extract state change events (deduplicate consecutive same-state revisions)
+      const stateEvents: Array<{ state: string; date: Date }> = [];
+      let createdDate: Date | null = null;
+
       for (let i = 0; i < revisions.length; i++) {
-        const current = revisions[i];
-        const next = revisions[i + 1];
-        const state = current.fields?.['System.State'];
+        const rev = revisions[i];
+        const state = rev.fields?.['System.State'];
+        const changedDate = rev.fields?.['System.ChangedDate'] || rev.fields?.['System.CreatedDate'];
 
-        if (!state) continue;
-
-        // Count state occurrences
-        stateTransitions[state] = (stateTransitions[state] || 0) + 1;
-
-        // Calculate time in this state
-        if (next) {
-          const currentDate = new Date(current.fields?.['System.ChangedDate']);
-          const nextDate = new Date(next.fields?.['System.ChangedDate']);
-          const duration = (nextDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24);
-
-          if (!stateWeightedDurations[state]) stateWeightedDurations[state] = { totalWeighted: 0, totalSP: 0 };
-          stateWeightedDurations[state].totalWeighted += duration * storyPoints;
-          stateWeightedDurations[state].totalSP += storyPoints;
+        if (i === 0 && rev.fields?.['System.CreatedDate']) {
+          createdDate = new Date(rev.fields['System.CreatedDate']);
         }
+
+        if (state && changedDate) {
+          const date = new Date(changedDate);
+          // Only add if this is a new state (different from the last one)
+          if (stateEvents.length === 0 || stateEvents[stateEvents.length - 1].state !== state) {
+            stateEvents.push({ state, date });
+          }
+        }
+      }
+
+      // Count state transitions
+      for (const event of stateEvents) {
+        stateTransitions[event.state] = (stateTransitions[event.state] || 0) + 1;
+      }
+
+      // Calculate time spent in each state
+      for (let i = 0; i < stateEvents.length; i++) {
+        const current = stateEvents[i];
+        const next = stateEvents[i + 1];
+        if (next) {
+          const durationDays = (next.date.getTime() - current.date.getTime()) / (1000 * 60 * 60 * 24);
+          if (!stateDurationsMap[current.state]) stateDurationsMap[current.state] = [];
+          stateDurationsMap[current.state].push(durationDays);
+        }
+      }
+
+      // For specific transitions, find the FIRST time the item entered each target state
+      const firstStateDate: Record<string, Date> = {};
+      for (const event of stateEvents) {
+        if (!firstStateDate[event.state]) {
+          firstStateDate[event.state] = event.date;
+        }
+      }
+
+      // Measure targeted transition times
+      for (const [from, to] of targetTransitions) {
+        const fromDate = firstStateDate[from];
+        const toDate = firstStateDate[to];
+        // Only include if both dates exist and toDate is after fromDate
+        if (fromDate && toDate && toDate.getTime() > fromDate.getTime()) {
+          const days = (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
+          transitionTimesMap[`${from}->${to}`].push(days);
+        }
+      }
+
+      // Cycle time: first active state → first done state
+      let firstActiveDate: Date | null = null;
+      for (const activeState of ACTIVE_STATES) {
+        const d = firstStateDate[activeState];
+        if (d && (!firstActiveDate || d < firstActiveDate)) {
+          firstActiveDate = d;
+        }
+      }
+
+      let firstDoneDate: Date | null = null;
+      for (const doneState of DONE_STATES) {
+        const d = firstStateDate[doneState];
+        if (d && (!firstDoneDate || d < firstDoneDate)) {
+          firstDoneDate = d;
+        }
+      }
+
+      if (firstActiveDate && firstDoneDate && firstDoneDate.getTime() > firstActiveDate.getTime()) {
+        cycleTimesArr.push((firstDoneDate.getTime() - firstActiveDate.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      // Lead time: created → first done state
+      if (createdDate && firstDoneDate && firstDoneDate.getTime() > createdDate.getTime()) {
+        leadTimesArr.push((firstDoneDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
       }
     } catch (err) {
       console.error(`Failed to fetch revisions for work item ${id}:`, err);
     }
   }
 
-  // Calculate weighted averages
+  // Calculate averages for time in state
   const avgTimeInState: Record<string, number> = {};
-  for (const state in stateWeightedDurations) {
-    const { totalWeighted, totalSP } = stateWeightedDurations[state];
-    const avg = totalSP > 0 ? totalWeighted / totalSP : 0;
-    avgTimeInState[state] = Math.round(avg * 10) / 10;
+  for (const [state, durations] of Object.entries(stateDurationsMap)) {
+    if (durations.length > 0) {
+      avgTimeInState[state] = Math.round((durations.reduce((s, d) => s + d, 0) / durations.length) * 10) / 10;
+    }
   }
 
-  return { avgTimeInState, stateTransitions };
+  // Calculate averages for targeted transitions
+  const avgTransitionTimes: Record<string, number> = {};
+  for (const [key, times] of Object.entries(transitionTimesMap)) {
+    if (times.length > 0) {
+      avgTransitionTimes[key] = Math.round((times.reduce((s, d) => s + d, 0) / times.length) * 10) / 10;
+    }
+  }
+
+  const revisedCycleTime = cycleTimesArr.length > 0
+    ? Math.round((cycleTimesArr.reduce((s, d) => s + d, 0) / cycleTimesArr.length) * 10) / 10
+    : 0;
+
+  const revisedLeadTime = leadTimesArr.length > 0
+    ? Math.round((leadTimesArr.reduce((s, d) => s + d, 0) / leadTimesArr.length) * 10) / 10
+    : 0;
+
+  return { avgTimeInState, stateTransitions, avgTransitionTimes, revisedCycleTime, revisedLeadTime };
 }
 
 /**
@@ -1032,18 +1142,27 @@ export async function calculateSprintTrends(
 
 // Helper functions for state classification
 function isCompletedState(state: string): boolean {
-  const completed = ['Done', 'Closed', 'Resolved', 'Completed'];
-  return completed.includes(state);
+  // Includes standard ADO states AND common custom workflow states
+  // (Development Done, Test, in UAT, UAT are treated as "done" for velocity purposes)
+  const completed = [
+    'Done', 'Closed', 'Resolved', 'Completed',
+    'Development Done', 'Test', 'in UAT', 'UAT',
+    'Deployed', 'Released', 'Accepted',
+  ];
+  return completed.some(s => s.toLowerCase() === state.toLowerCase());
 }
 
 function isInProgressState(state: string): boolean {
-  const inProgress = ['Active', 'In Progress', 'Committed', 'Doing'];
-  return inProgress.includes(state);
+  const inProgress = [
+    'Active', 'In Progress', 'Committed', 'Doing',
+    'Development', 'In Development', 'Code Review', 'Testing',
+  ];
+  return inProgress.some(s => s.toLowerCase() === state.toLowerCase());
 }
 
 function isNotStartedState(state: string): boolean {
-  const notStarted = ['New', 'To Do', 'Proposed', 'Approved'];
-  return notStarted.includes(state);
+  const notStarted = ['New', 'To Do', 'Proposed', 'Approved', 'Ready', 'Backlog', 'Open'];
+  return notStarted.some(s => s.toLowerCase() === state.toLowerCase());
 }
 
 function isRemovedState(state: string): boolean {
@@ -1056,6 +1175,65 @@ function daysBetween(start: string, end: string): number {
   const endDate = new Date(end);
   const diff = endDate.getTime() - startDate.getTime();
   return Math.max(0, diff / (1000 * 60 * 60 * 24));
+}
+
+// ─── Velocity History ─────────────────────────────────────────────────────────
+
+/**
+ * Get velocity (completed SP) history for the last N sprints up to and including
+ * the given iteration. Fetches data directly from ADO iterations.
+ */
+export async function getVelocityHistory(
+  organization: string,
+  project: string,
+  team: string,
+  currentIterationId: string,
+  authHeader: string,
+  count: number = 5,
+): Promise<Array<{ sprintId: string; sprintName: string; velocity: number; plannedSP: number; startDate: string; isCurrent: boolean }>> {
+  // List all iterations
+  const allSprints = await listSprints(organization, project, team, authHeader);
+
+  // Find the current sprint's index
+  const currentIndex = allSprints.findIndex(s => s.id === currentIterationId);
+  if (currentIndex === -1) return [];
+
+  // Get the previous (count-1) sprints + current
+  const start = Math.max(0, currentIndex - (count - 1));
+  const selectedSprints = allSprints.slice(start, currentIndex + 1);
+
+  const results: Array<{ sprintId: string; sprintName: string; velocity: number; plannedSP: number; startDate: string; isCurrent: boolean }> = [];
+
+  for (const sprint of selectedSprints) {
+    try {
+      const items = await getWorkItemListForIteration(organization, project, team, sprint.id, authHeader);
+      let plannedSP = 0;
+      let completedSP = 0;
+
+      for (const item of items) {
+        const sp = item.storyPoints || 0;
+        if (!isRemovedState(item.state)) {
+          plannedSP += sp;
+        }
+        if (isCompletedState(item.state)) {
+          completedSP += sp;
+        }
+      }
+
+      results.push({
+        sprintId: sprint.id,
+        sprintName: sprint.name,
+        velocity: completedSP,
+        plannedSP,
+        startDate: sprint.startDate || '',
+        isCurrent: sprint.id === currentIterationId,
+      });
+    } catch (err) {
+      console.error(`Failed to fetch velocity for sprint ${sprint.name}:`, err);
+    }
+  }
+
+  return results;
 }
 
 // ─── PAT Validation ───────────────────────────────────────────────────────────
