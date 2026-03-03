@@ -296,7 +296,7 @@ export default function RoomClient({ room, user, locale }: Props) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode: room.code }),
+        body: JSON.stringify({ roomCode: room.code, locale }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: string };
@@ -307,7 +307,7 @@ export default function RoomClient({ room, user, locale }: Props) {
     } catch {
       setIsEstimatingAll(false);
     }
-  }, [room.code]);
+  }, [room.code, locale]);
 
   const handleCancelEstimateAll = useCallback(async () => {
     // Immediately reset UI state for instant feedback

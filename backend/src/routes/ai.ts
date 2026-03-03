@@ -368,7 +368,7 @@ router.get('/estimates', requireAuth, async (req, res) => {
 router.post('/estimate-all', requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
-    const { roomCode } = req.body as { roomCode?: string };
+    const { roomCode, locale } = req.body as { roomCode?: string; locale?: string };
 
     if (!roomCode) {
       res.status(400).json({ error: 'roomCode is required' });
@@ -463,6 +463,7 @@ router.post('/estimate-all', requireAuth, async (req, res) => {
         aiSettings,
         apiKey,
         authHeader,
+        locale,
       });
     } else {
       // Nothing to do — emit complete immediately
@@ -500,10 +501,11 @@ interface BatchEstimationOpts {
   aiSettings: any;
   apiKey: string | null;
   authHeader: string;
+  locale?: string;
 }
 
 async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
-  const { items, project, sprint, roomCode, aiSettings, apiKey, authHeader } = opts;
+  const { items, project, sprint, roomCode, aiSettings, apiKey, authHeader, locale } = opts;
   const io = getIO();
   const BATCH_SIZE = 3;
 
@@ -576,7 +578,7 @@ async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
       io.to(roomCode).emit('ai:estimate_start', { workItemId: workItem.id });
 
       try {
-        const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems);
+        const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems, locale);
         const raw = await callAI(aiSettings.provider, apiKey, prompt);
         const result = extractJSON(raw);
 
