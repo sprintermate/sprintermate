@@ -61,12 +61,18 @@ win:
     - target: nsis
       arch:
         - x64
+    - target: portable
+      arch:
+        - x64
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+
+portable:
+  artifactName: "${productName}-${version}-portable.exe"
 
 linux:
   target:
