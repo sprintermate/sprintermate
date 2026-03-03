@@ -234,7 +234,7 @@ async function callClaudeCLI(prompt: string): Promise<string> {
 
 async function callCopilotCLI(prompt: string): Promise<string> {
   // Pipe prompt via stdin to avoid Windows cmd.exe argument length limits
-  return callCLI('copilot', [], { stdinData: prompt });
+  return callCLI('copilot', ['--model', 'gpt-4.1'], { stdinData: prompt });
 }
 
 async function callCodexCLI(prompt: string): Promise<string> {
