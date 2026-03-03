@@ -7,6 +7,9 @@
 - [ ] Login github hesabıyla yapılacak ve token kullanımı buradan olacak.
 - [ ] exe indirilince localde çalıştırmak için security izni gerekmektedir !!! yöneticiyle konuşulmalı (genel kullanım için)
 - [ ] Projeleriniz altındaki projeye tıklandığın açılacak olan ekranda sprint metrikleri ölçülmüş bir grafik gelicek ve seçilen sprint'in metriklere gelecek. Dashboard ekranında neler olacak ?
+- [ ] Oylar göster dedikten sonra kişiler oylarını güncelleyebilsin
+- [ ] Moderatörlüğü devretme özelliği olsun ve aynı aı tahminleri birebir tüm moderatörlük devredilen kişiye verilsin (kişi üstüne tıklayıp moderatörlük devret denilebilir!) veya herkes moderatör olur
+- [ ]
 
 ## Done
 - [x] Localization eksikleri giderilmeli
