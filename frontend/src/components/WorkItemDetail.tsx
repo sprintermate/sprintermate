@@ -3,19 +3,24 @@ import { useTranslations } from 'next-intl';
 import { type WorkItem } from './WorkItemList';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
+export const SCORE_UNDECIDED = -1; // ?
+export const SCORE_COFFEE    = -2; // ☕
 
 function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
   const scoreCounts: Record<number, number> = {};
   FIBONACCI.forEach((n) => (scoreCounts[n] = 0));
+  let undecidedCount = 0;
   votes.forEach((v) => {
-    if (typeof v.score === 'number' && scoreCounts.hasOwnProperty(v.score)) {
+    if (v.score === SCORE_UNDECIDED) {
+      undecidedCount++;
+    } else if (typeof v.score === 'number' && v.score > 0 && scoreCounts.hasOwnProperty(v.score)) {
       scoreCounts[v.score]! += 1;
     }
   });
   const maxCount = Math.max(...Object.values(scoreCounts));
   return (
     <div className="flex flex-col gap-1 mt-2">
-      <div className="flex gap-1 justify-center">
+      <div className="flex gap-1 justify-center flex-wrap">
         {FIBONACCI.map((n) => (
           <div key={n} className="flex flex-col items-center mx-0.5">
             {/* Kart puanı üstte */}
@@ -40,8 +45,17 @@ function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
             )}
           </div>
         ))}
+        {/* Undecided (?) column */}
+        {undecidedCount > 0 && (
+          <div className="flex flex-col items-center mx-0.5 ml-3">
+            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mb-1">?</span>
+            <div
+              style={{ width: '22px', height: '8px', background: '#e5e7eb', borderRadius: '6px 6px 4px 4px', marginBottom: '2px', border: '1.5px solid #e5e7eb' }}
+            />
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-1">{undecidedCount}</span>
+          </div>
+        )}
       </div>
-      {/* Info text removed as requested */}
     </div>
   );
 }
@@ -431,6 +445,31 @@ export default function WorkItemDetail({
                   </button>
                 ))}
               </div>
+              {/* Special vote options: Undecided and Coffee Break */}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => onCastVote(SCORE_UNDECIDED)}
+                  title={t('voteUndecidedHint')}
+                  className={`flex-1 h-10 rounded-lg text-sm font-bold transition-all border ${
+                    myScore === SCORE_UNDECIDED
+                      ? 'bg-amber-500 border-amber-400 text-white scale-105 shadow-lg shadow-amber-500/20'
+                      : 'bg-gray-100 border-gray-300 text-amber-600 hover:bg-amber-50 hover:border-amber-300 dark:bg-slate-800 dark:border-slate-700 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:border-amber-500/40'
+                  }`}
+                >
+                  ? <span className="text-xs font-normal ml-1 opacity-70">{t('voteUndecided')}</span>
+                </button>
+                <button
+                  onClick={() => onCastVote(SCORE_COFFEE)}
+                  title={t('voteCoffeeHint')}
+                  className={`flex-1 h-10 rounded-lg text-sm font-bold transition-all border ${
+                    myScore === SCORE_COFFEE
+                      ? 'bg-orange-500 border-orange-400 text-white scale-105 shadow-lg shadow-orange-500/20'
+                      : 'bg-gray-100 border-gray-300 text-orange-600 hover:bg-orange-50 hover:border-orange-300 dark:bg-slate-800 dark:border-slate-700 dark:text-orange-400 dark:hover:bg-orange-500/10 dark:hover:border-orange-500/40'
+                  }`}
+                >
+                  ☕ <span className="text-xs font-normal ml-1 opacity-70">{t('voteCoffee')}</span>
+                </button>
+              </div>
             </div>
 
             {/* Stats – shown after reveal */}
@@ -572,7 +611,7 @@ export default function WorkItemDetail({
                       <span className="flex-1 text-sm text-gray-700 dark:text-slate-300 truncate">{v.displayName}</span>
                       {revealed && v.score !== null ? (
                         <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300 font-bold text-sm">
-                          {v.score}
+                          {v.score === SCORE_UNDECIDED ? '?' : v.score === SCORE_COFFEE ? '☕' : v.score}
                         </span>
                       ) : v.hasVoted ? (
                         <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 border border-green-200 text-green-600 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400">

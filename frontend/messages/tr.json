@@ -313,7 +313,11 @@
     "saveToAdo": "Azure DevOps'a Kaydet",
     "savingToAdo": "Kaydediliyor…",
     "prevItem": "Önceki",
-    "nextItem": "Sonraki"
+    "nextItem": "Sonraki",
+    "voteUndecided": "Kararsız",
+    "voteUndecidedHint": "Henüz emin değilim",
+    "voteCoffee": "Mola",
+    "voteCoffeeHint": "Kahve molası — tekrar oy verene kadar molada kalırım"
   },
   "guestJoin": {
     "title": "Odaya Katıl",

@@ -313,7 +313,11 @@
     "saveToAdo": "Save to Azure DevOps",
     "savingToAdo": "Saving…",
     "prevItem": "Previous",
-    "nextItem": "Next"
+    "nextItem": "Next",
+    "voteUndecided": "Undecided",
+    "voteUndecidedHint": "I'm not sure yet",
+    "voteCoffee": "Break",
+    "voteCoffeeHint": "Coffee break — I'll stay on break until I vote again"
   },
   "guestJoin": {
     "title": "Join Room",

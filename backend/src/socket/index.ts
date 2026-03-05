@@ -3,6 +3,10 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { AIEstimateResult } from '../services/aiService';
 import { setIO } from './ioInstance';
 
+// ─── Special vote sentinels ─────────────────────────────────────────────────────
+const SCORE_UNDECIDED = -1; // ?
+const SCORE_COFFEE    = -2; // ☕
+
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 export interface AdoWorkItemSnapshot {
@@ -39,6 +43,8 @@ interface RoomState {
   votes: Map<string, Vote>;
   revealed: boolean;
   aiEstimate: AIEstimateResult | null;
+  /** userIds of participants currently on coffee break — persists across resets/navigations */
+  coffeeBreaks: Set<string>;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -57,6 +63,7 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       votes: new Map(),
       revealed: false,
       aiEstimate: null,
+      coffeeBreaks: new Set(),
     };
     rooms.set(code, state);
   }
@@ -161,6 +168,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes           = new Map();
       room.revealed        = false;
       room.aiEstimate      = null;
+      // coffeeBreaks intentionally preserved across navigations
 
       io.to(code).emit('session:navigate', { workItem });
     });
@@ -179,9 +187,21 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes         = new Map();
       room.revealed      = false;
 
+      // Restore coffee-break votes before broadcasting
+      for (const [sid, p] of room.participants) {
+        if (room.coffeeBreaks.has(p.userId)) {
+          room.votes.set(p.userId, { userId: p.userId, displayName: p.displayName, score: SCORE_COFFEE });
+        }
+      }
+
       io.to(code).emit('session:start_scoring', {
         workItem: room.currentWorkItem,
       });
+
+      // If any coffee-break votes were restored, broadcast the updated vote list
+      if (room.coffeeBreaks.size > 0) {
+        io.to(code).emit('vote:update', { votes: serializeVotes(room, false) });
+      }
     });
 
     // ── vote:cast ─────────────────────────────────────────────────────────────
@@ -201,12 +221,22 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         score,
       });
 
+      // Track / clear coffee-break status
+      if (score === SCORE_COFFEE) {
+        room.coffeeBreaks.add(participant.userId);
+      } else {
+        room.coffeeBreaks.delete(participant.userId);
+      }
+
       if (room.revealed) {
         // Re-broadcast the full revealed state with updated vote & recalculated stats
         const votes = serializeVotes(room, true);
-        const scores = votes.map((v) => v.score as number);
-        const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-        const sorted = [...scores].sort((a, b) => a - b);
+        // Exclude special sentinels (? and ☕) from numeric stats
+        const numericScores = votes
+          .map((v) => v.score as number)
+          .filter((s) => s > 0);
+        const avg = numericScores.length ? numericScores.reduce((a, b) => a + b, 0) / numericScores.length : 0;
+        const sorted = [...numericScores].sort((a, b) => a - b);
 
         io.to(code).emit('vote:revealed', {
           votes,
@@ -242,9 +272,12 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       }
 
       const votes = serializeVotes(room, true);
-      const scores = votes.map((v) => v.score as number);
-      const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-      const sorted = [...scores].sort((a, b) => a - b);
+      // Exclude special sentinels (? and ☕) from numeric stats
+      const numericScores = votes
+        .map((v) => v.score as number)
+        .filter((s) => s > 0);
+      const avg = numericScores.length ? numericScores.reduce((a, b) => a + b, 0) / numericScores.length : 0;
+      const sorted = [...numericScores].sort((a, b) => a - b);
 
       io.to(code).emit('vote:revealed', {
         votes,
@@ -273,6 +306,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes           = new Map();
       room.revealed        = false;
       room.aiEstimate      = null;
+      // coffeeBreaks intentionally preserved across resets
 
       io.to(code).emit('session:reset', {});
     });
