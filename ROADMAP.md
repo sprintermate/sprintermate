@@ -30,3 +30,4 @@
 - [ ] Havalı bir websitesi, daha detaylı bir şekilde geliştirilecek.
 - [ ] websitesi üzerinden çalışan versiyonda ücretli versiyon sunulacak.
 - [ ] Retro ekranı olacak geçmiş notlar mevcuttakini analiz edip aksiyonlar önerecek !
+- [ ] mobilde sadece bu ekran gibi gözükecek çalışacak bir hal ekranda moderatörü izlerken mobilden puanını verebilecek katılımcı (yani puan verme, grafik görme, ai analizi ve verilen oylar kısmını görecek mobilde sadece)
