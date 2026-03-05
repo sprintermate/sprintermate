@@ -7,6 +7,7 @@ export default function Integrations() {
     { label: t('azure'), icon: '☁️' },
     { label: t('ai'), icon: '🤖' },
     { label: t('websocket'), icon: '⚡' },
+    { label: t('retro'), icon: '📝' },
   ];
 
   return (

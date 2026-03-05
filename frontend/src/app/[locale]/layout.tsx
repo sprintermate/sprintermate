@@ -10,8 +10,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Scrum Poker — AI-Powered Sprint Planning',
-  description: 'Real-time Scrum Poker with AI estimation and Azure DevOps integration.',
+  title: 'Scrum AI — AI-Powered Agile',
+  description: 'Real-time Scrum Poker, AI story-point estimation, Azure DevOps integration, and AI-powered retrospectives.',
 };
 
 export function generateStaticParams() {

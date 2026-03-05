@@ -50,6 +50,8 @@ interface RoomState {
 // ─── In-memory state ──────────────────────────────────────────────────────────
 
 const rooms = new Map<string, RoomState>();
+// socketId -> displayName per retro room code
+const retroRooms = new Map<string, Map<string, string>>();
 
 function getOrCreateRoom(code: string, moderatorId: string): RoomState {
   let state = rooms.get(code);
@@ -311,6 +313,35 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       io.to(code).emit('session:reset', {});
     });
 
+    // ── retro:join ────────────────────────────────────────────────────────────
+    // Any participant (authenticated or future guest) joins a retro socket room.
+    socket.on('retro:join', (data: { code: string; displayName?: string }) => {
+      const { code, displayName } = data;
+      if (!code) return;
+      socket.join(`retro:${code}`);
+      // Track participant
+      if (!retroRooms.has(code)) retroRooms.set(code, new Map());
+      retroRooms.get(code)!.set(socket.id, displayName ?? 'Guest');
+      io.to(`retro:${code}`).emit('retro:participants_changed', {
+        participants: Array.from(retroRooms.get(code)!.values()),
+      });
+      console.log(`[socket] socket ${socket.id} joined retro room ${code}`);
+    });
+
+    // ── retro:leave ───────────────────────────────────────────────────────────
+    socket.on('retro:leave', (data: { code: string }) => {
+      const { code } = data;
+      if (!code) return;
+      socket.leave(`retro:${code}`);
+      retroRooms.get(code)?.delete(socket.id);
+      if (retroRooms.get(code)?.size === 0) retroRooms.delete(code);
+      else {
+        io.to(`retro:${code}`).emit('retro:participants_changed', {
+          participants: Array.from(retroRooms.get(code)!.values()),
+        });
+      }
+    });
+
     // ── disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       handleLeave(socket, io);
@@ -332,6 +363,20 @@ function handleLeave(socket: Socket, io: SocketIOServer) {
         participants: serializeParticipants(room),
       });
       // Clean up empty rooms (keep if moderator may rejoin)
+      break;
+    }
+  }
+  // Clean up retro rooms
+  for (const [code, participants] of retroRooms) {
+    if (participants.has(socket.id)) {
+      participants.delete(socket.id);
+      if (participants.size === 0) {
+        retroRooms.delete(code);
+      } else {
+        io.to(`retro:${code}`).emit('retro:participants_changed', {
+          participants: Array.from(participants.values()),
+        });
+      }
       break;
     }
   }
