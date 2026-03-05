@@ -387,6 +387,22 @@ export default function RoomClient({ room, user, locale }: Props) {
     }
   }, [room.isModerator, room.code]);
 
+  const handleNextItem = useCallback(() => {
+    if (!currentWorkItem) return;
+    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx >= 0 && idx < workItems.length - 1) {
+      handleSelectItem(workItems[idx + 1]!);
+    }
+  }, [currentWorkItem, workItems, handleSelectItem]);
+
+  const handlePrevItem = useCallback(() => {
+    if (!currentWorkItem) return;
+    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx > 0) {
+      handleSelectItem(workItems[idx - 1]!);
+    }
+  }, [currentWorkItem, workItems, handleSelectItem]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (replacedMessage) {
@@ -568,6 +584,10 @@ export default function RoomClient({ room, user, locale }: Props) {
             onReveal={handleReveal}
             onReset={handleReset}
             onBack={handleBack}
+            onNextItem={room.isModerator ? handleNextItem : undefined}
+            onPrevItem={room.isModerator ? handlePrevItem : undefined}
+            hasNext={room.isModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) < workItems.length - 1 && workItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
+            hasPrev={room.isModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
             onUpdateWorkItem={room.isModerator ? handleUpdateWorkItem : undefined}
             aiEstimate={revealed ? aiEstimate : null}
             aiLoading={aiLoading}

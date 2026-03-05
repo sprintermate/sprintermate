@@ -289,6 +289,7 @@
     "emptyContent": "Please give some content before planning.",
     "yourVote": "Your vote ✓",
     "pickScore": "Pick your score",
+    "updateVote": "Update your vote",
     "youSelected": "You selected {score}",
     "sectionResults": "Results",
     "statAverage": "Average",
@@ -310,7 +311,9 @@
     "modalSelected": "Selected: {score} story points",
     "cancel": "Cancel",
     "saveToAdo": "Save to Azure DevOps",
-    "savingToAdo": "Saving…"
+    "savingToAdo": "Saving…",
+    "prevItem": "Previous",
+    "nextItem": "Next"
   },
   "guestJoin": {
     "title": "Join Room",

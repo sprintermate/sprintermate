@@ -95,6 +95,10 @@ interface Props {
   onReveal: () => void;
   onReset: () => void;
   onBack: () => void;
+  onNextItem?: () => void;
+  onPrevItem?: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
   onUpdateWorkItem?: (score: number, aiScore: number | null) => void;
   aiEstimate?: AIEstimateResult | null;
   aiLoading?: boolean;
@@ -127,6 +131,10 @@ export default function WorkItemDetail({
   onReveal,
   onReset,
   onBack,
+  onNextItem,
+  onPrevItem,
+  hasNext,
+  hasPrev,
   onUpdateWorkItem,
   aiEstimate,
   aiLoading,
@@ -200,15 +208,42 @@ export default function WorkItemDetail({
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4">
         {isModerator ? (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white transition-colors text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            {t('backToList')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {t('backToList')}
+            </button>
+            {(hasPrev !== undefined || hasNext !== undefined) && (
+              <>
+                <span className="text-gray-300 dark:text-slate-700 text-sm">|</span>
+                <button
+                  onClick={onPrevItem}
+                  disabled={!hasPrev}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {t('prevItem')}
+                </button>
+                <button
+                  onClick={onNextItem}
+                  disabled={!hasNext}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('nextItem')}
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
         ) : (
           <div />
         )}
@@ -376,29 +411,27 @@ export default function WorkItemDetail({
         {scoringActive && (
           <div className="w-72 xl:w-80 flex flex-col gap-4 shrink-0">
 
-            {/* Card selector – only shown before reveal */}
-            {!revealed && (
-              <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
-                  {myVote?.hasVoted ? t('yourVote') : t('pickScore')}
-                </p>
-                <div className="grid grid-cols-5 gap-2">
-                  {FIBONACCI.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => onCastVote(n)}
-                      className={`h-12 rounded-lg text-sm font-bold transition-all border ${
-                        myScore === n
-                          ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
-                          : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+            {/* Card selector – shown before AND after reveal so users can update their vote */}
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
+                {revealed ? t('updateVote') : (myVote?.hasVoted ? t('yourVote') : t('pickScore'))}
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {FIBONACCI.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => onCastVote(n)}
+                    className={`h-12 rounded-lg text-sm font-bold transition-all border ${
+                      myScore === n
+                        ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
+                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Stats – shown after reveal */}
 

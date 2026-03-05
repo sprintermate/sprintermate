@@ -9,7 +9,6 @@
 - [ ] Projeleriniz altındaki projeye tıklandığın açılacak olan ekranda sprint metrikleri ölçülmüş bir grafik gelicek ve seçilen sprint'in metriklere gelecek. Dashboard ekranında neler olacak ?
 - [ ] Oylar göster dedikten sonra kişiler oylarını güncelleyebilsin
 - [ ] Moderatörlüğü devretme özelliği olsun ve aynı aı tahminleri birebir tüm moderatörlük devredilen kişiye verilsin (kişi üstüne tıklayıp moderatörlük devret denilebilir!) veya herkes moderatör olur
-- [ ]
 
 ## Done
 - [x] Localization eksikleri giderilmeli
@@ -20,6 +19,8 @@
 - [x] Azure'da madde yorumlarının da alınıp madde detayına eklenmesi kısmı yapıldı
 - [x] Madde detayda proxy ile görsel getirme eklendi.
 - [x] Desktop uygulaması Github action üzerinen build edilebilir olacak.
+- [x] Oylar göster dedikten sonra kişiler oylarını güncelleyebilsin oyları göster diyince güncelleyebilsin kullanıcılar
+- [x] Work item oylaması yapıldıktan sonra sonraki madde butonu olsun önceki madde butonu da olsun listeye dön demeden ileri ve geri gidebilinsin daha akıcı hale gelmiş olur ekran deneyimi.
 
 
 ## MVP 2

@@ -185,11 +185,12 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     });
 
     // ── vote:cast ─────────────────────────────────────────────────────────────
-    // User submits a score; other participants see only that they voted (no value)
+    // User submits a score; other participants see only that they voted (no value).
+    // Also allowed after reveal so users can update their vote.
     socket.on('vote:cast', (data: { code: string; score: number }) => {
       const { code, score } = data;
       const room = rooms.get(code);
-      if (!room || !room.scoringActive || room.revealed) return;
+      if (!room || !room.scoringActive) return;
 
       const participant = room.participants.get(socket.id);
       if (!participant) return;
@@ -200,10 +201,29 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         score,
       });
 
-      // Send hidden vote list (no scores) to all participants
-      io.to(code).emit('vote:update', {
-        votes: serializeVotes(room, false),
-      });
+      if (room.revealed) {
+        // Re-broadcast the full revealed state with updated vote & recalculated stats
+        const votes = serializeVotes(room, true);
+        const scores = votes.map((v) => v.score as number);
+        const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+        const sorted = [...scores].sort((a, b) => a - b);
+
+        io.to(code).emit('vote:revealed', {
+          votes,
+          stats: {
+            average: Math.round(avg * 10) / 10,
+            median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+            highest: sorted[sorted.length - 1] ?? 0,
+            lowest: sorted[0] ?? 0,
+          },
+          aiEstimate: room.aiEstimate,
+        });
+      } else {
+        // Send hidden vote list (no scores) to all participants
+        io.to(code).emit('vote:update', {
+          votes: serializeVotes(room, false),
+        });
+      }
     });
 
     // ── vote:reveal ───────────────────────────────────────────────────────────

@@ -289,6 +289,7 @@
     "emptyContent": "Planlamadan önce içerik ekleyin.",
     "yourVote": "Oyunuz ✓",
     "pickScore": "Puanınızı seçin",
+    "updateVote": "Oyunuzu güncelleyin",
     "youSelected": "{score} seçtiniz",
     "sectionResults": "Sonuçlar",
     "statAverage": "Ortalama",
@@ -310,7 +311,9 @@
     "modalSelected": "Seçilen: {score} hikaye puanı",
     "cancel": "İptal",
     "saveToAdo": "Azure DevOps'a Kaydet",
-    "savingToAdo": "Kaydediliyor…"
+    "savingToAdo": "Kaydediliyor…",
+    "prevItem": "Önceki",
+    "nextItem": "Sonraki"
   },
   "guestJoin": {
     "title": "Odaya Katıl",
