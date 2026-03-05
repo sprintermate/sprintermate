@@ -5,7 +5,7 @@
 - [ ] Moderatör 1 kişi ancak moderatörlük yetkisi birden çok kişiye verilebilir. Online kısmındaki kişilerden dilediğine sağ tıklayıp moderatörlük verebilir. Bu kişinin rölü self-moderator olarak değiştirilebilir. Ana moderatör, moderatörlük yetkisi verdiğinde online şeridinde "Moderatörlüğü geri al" butonu ortaya çıkacaktır ve dilediğinde geri alıp başkasına verebilir veya kendi devam edebilir.
 - [ ] Login github hesabıyla yapılacak ve token kullanımı buradan olacak.
 - [ ] exe indirilince localde çalıştırmak için security izni gerekmektedir !!! yöneticiyle konuşulmalı (genel kullanım için)
-- [ ] Projeleriniz altındaki projeye tıklandığın açılacak olan ekranda sprint metrikleri ölçülmüş bir grafik gelicek ve seçilen sprint'in metriklere gelecek. Dashboard ekranında neler olacak ?
+- [ ] Projeler altındaki metrik ekranı için doğru datalarla çalışacak ve isterlere karşılık verecek şekilde metrikler ekranının düzeltilmesi.
 - [ ] Moderatörlüğü devretme özelliği olsun ve aynı aı tahminleri birebir tüm moderatörlük devredilen kişiye verilsin (kişi üstüne tıklayıp moderatörlük devret denilebilir!) veya herkes moderatör olur
 
 ## Done
