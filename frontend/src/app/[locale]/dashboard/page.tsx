@@ -78,9 +78,9 @@ export default async function DashboardPage({ params }: Props) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-cyan-600 dark:bg-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">SP</span>
+              <span className="text-white font-bold text-sm">SA</span>
             </div>
-            <span className="font-semibold text-gray-900 dark:text-white">Scrum Poker</span>
+            <span className="font-semibold text-gray-900 dark:text-white">Scrum AI</span>
           </div>
 
           <div className="flex items-center gap-4">

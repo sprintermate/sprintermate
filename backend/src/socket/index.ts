@@ -3,6 +3,10 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { AIEstimateResult } from '../services/aiService';
 import { setIO } from './ioInstance';
 
+// ─── Special vote sentinels ─────────────────────────────────────────────────────
+const SCORE_UNDECIDED = -1; // ?
+const SCORE_COFFEE    = -2; // ☕
+
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 export interface AdoWorkItemSnapshot {
@@ -41,11 +45,15 @@ interface RoomState {
   aiEstimate: AIEstimateResult | null;
   /** userId of the participant temporarily holding moderator control, or null */
   delegatedModerator: string | null;
+  /** userIds of participants currently on coffee break — persists across resets/navigations */
+  coffeeBreaks: Set<string>;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
 
 const rooms = new Map<string, RoomState>();
+// socketId -> displayName per retro room code
+const retroRooms = new Map<string, Map<string, string>>();
 
 function getOrCreateRoom(code: string, moderatorId: string): RoomState {
   let state = rooms.get(code);
@@ -60,6 +68,7 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       revealed: false,
       aiEstimate: null,
       delegatedModerator: null,
+      coffeeBreaks: new Set(),
     };
     rooms.set(code, state);
   }
@@ -171,6 +180,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes           = new Map();
       room.revealed        = false;
       room.aiEstimate      = null;
+      // coffeeBreaks intentionally preserved across navigations
 
       io.to(code).emit('session:navigate', { workItem });
     });
@@ -189,17 +199,30 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes         = new Map();
       room.revealed      = false;
 
+      // Restore coffee-break votes before broadcasting
+      for (const [sid, p] of room.participants) {
+        if (room.coffeeBreaks.has(p.userId)) {
+          room.votes.set(p.userId, { userId: p.userId, displayName: p.displayName, score: SCORE_COFFEE });
+        }
+      }
+
       io.to(code).emit('session:start_scoring', {
         workItem: room.currentWorkItem,
       });
+
+      // If any coffee-break votes were restored, broadcast the updated vote list
+      if (room.coffeeBreaks.size > 0) {
+        io.to(code).emit('vote:update', { votes: serializeVotes(room, false) });
+      }
     });
 
     // ── vote:cast ─────────────────────────────────────────────────────────────
-    // User submits a score; other participants see only that they voted (no value)
+    // User submits a score; other participants see only that they voted (no value).
+    // Also allowed after reveal so users can update their vote.
     socket.on('vote:cast', (data: { code: string; score: number }) => {
       const { code, score } = data;
       const room = rooms.get(code);
-      if (!room || !room.scoringActive || room.revealed) return;
+      if (!room || !room.scoringActive) return;
 
       const participant = room.participants.get(socket.id);
       if (!participant) return;
@@ -210,10 +233,39 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         score,
       });
 
-      // Send hidden vote list (no scores) to all participants
-      io.to(code).emit('vote:update', {
-        votes: serializeVotes(room, false),
-      });
+      // Track / clear coffee-break status
+      if (score === SCORE_COFFEE) {
+        room.coffeeBreaks.add(participant.userId);
+      } else {
+        room.coffeeBreaks.delete(participant.userId);
+      }
+
+      if (room.revealed) {
+        // Re-broadcast the full revealed state with updated vote & recalculated stats
+        const votes = serializeVotes(room, true);
+        // Exclude special sentinels (? and ☕) from numeric stats
+        const numericScores = votes
+          .map((v) => v.score as number)
+          .filter((s) => s > 0);
+        const avg = numericScores.length ? numericScores.reduce((a, b) => a + b, 0) / numericScores.length : 0;
+        const sorted = [...numericScores].sort((a, b) => a - b);
+
+        io.to(code).emit('vote:revealed', {
+          votes,
+          stats: {
+            average: Math.round(avg * 10) / 10,
+            median: sorted[Math.floor(sorted.length / 2)] ?? 0,
+            highest: sorted[sorted.length - 1] ?? 0,
+            lowest: sorted[0] ?? 0,
+          },
+          aiEstimate: room.aiEstimate,
+        });
+      } else {
+        // Send hidden vote list (no scores) to all participants
+        io.to(code).emit('vote:update', {
+          votes: serializeVotes(room, false),
+        });
+      }
     });
 
     // ── vote:reveal ───────────────────────────────────────────────────────────
@@ -232,9 +284,12 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       }
 
       const votes = serializeVotes(room, true);
-      const scores = votes.map((v) => v.score as number);
-      const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-      const sorted = [...scores].sort((a, b) => a - b);
+      // Exclude special sentinels (? and ☕) from numeric stats
+      const numericScores = votes
+        .map((v) => v.score as number)
+        .filter((s) => s > 0);
+      const avg = numericScores.length ? numericScores.reduce((a, b) => a + b, 0) / numericScores.length : 0;
+      const sorted = [...numericScores].sort((a, b) => a - b);
 
       io.to(code).emit('vote:revealed', {
         votes,
@@ -263,6 +318,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.votes           = new Map();
       room.revealed        = false;
       room.aiEstimate      = null;
+      // coffeeBreaks intentionally preserved across resets
 
       io.to(code).emit('session:reset', {});
     });
@@ -297,6 +353,35 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       io.to(code).emit('moderator:updated', { delegatedModerator: null });
     });
 
+    // ── retro:join ────────────────────────────────────────────────────────────
+    // Any participant (authenticated or future guest) joins a retro socket room.
+    socket.on('retro:join', (data: { code: string; displayName?: string }) => {
+      const { code, displayName } = data;
+      if (!code) return;
+      socket.join(`retro:${code}`);
+      // Track participant
+      if (!retroRooms.has(code)) retroRooms.set(code, new Map());
+      retroRooms.get(code)!.set(socket.id, displayName ?? 'Guest');
+      io.to(`retro:${code}`).emit('retro:participants_changed', {
+        participants: Array.from(retroRooms.get(code)!.values()),
+      });
+      console.log(`[socket] socket ${socket.id} joined retro room ${code}`);
+    });
+
+    // ── retro:leave ───────────────────────────────────────────────────────────
+    socket.on('retro:leave', (data: { code: string }) => {
+      const { code } = data;
+      if (!code) return;
+      socket.leave(`retro:${code}`);
+      retroRooms.get(code)?.delete(socket.id);
+      if (retroRooms.get(code)?.size === 0) retroRooms.delete(code);
+      else {
+        io.to(`retro:${code}`).emit('retro:participants_changed', {
+          participants: Array.from(retroRooms.get(code)!.values()),
+        });
+      }
+    });
+
     // ── disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       handleLeave(socket, io);
@@ -324,6 +409,20 @@ function handleLeave(socket: Socket, io: SocketIOServer) {
         participants: serializeParticipants(room),
       });
       // Clean up empty rooms (keep if moderator may rejoin)
+      break;
+    }
+  }
+  // Clean up retro rooms
+  for (const [code, participants] of retroRooms) {
+    if (participants.has(socket.id)) {
+      participants.delete(socket.id);
+      if (participants.size === 0) {
+        retroRooms.delete(code);
+      } else {
+        io.to(`retro:${code}`).emit('retro:participants_changed', {
+          participants: Array.from(participants.values()),
+        });
+      }
       break;
     }
   }

@@ -14,9 +14,9 @@ export default function Header() {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-cyan-600 dark:bg-indigo-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">SP</span>
+            <span className="text-white font-bold text-sm">SA</span>
           </div>
-          <span className="font-semibold text-gray-900 dark:text-white">Scrum Poker</span>
+          <span className="font-semibold text-gray-900 dark:text-white">Scrum AI</span>
         </div>
 
         {/* CTAs + Language switcher */}

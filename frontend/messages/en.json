@@ -5,17 +5,17 @@
     "language": "Language"
   },
   "hero": {
-    "badge": "AI-Powered Estimation",
-    "headline": "Sprint Planning,\nReinvented.",
-    "subheadline": "Real-time collaborative Scrum Poker with AI-assisted story point estimation and native Azure DevOps integration.",
-    "ctaJoin": "Join a Room",
-    "ctaCreate": "Create a Room",
+    "badge": "AI-Powered Agile",
+    "headline": "Agile Teams,\nElevated by AI.",
+    "subheadline": "Sprint planning with real-time Scrum Poker, AI story-point estimation, Azure DevOps integration — and AI-powered retrospectives to close every sprint strong.",
+    "ctaJoin": "Join a Session",
+    "ctaCreate": "Get Started",
     "scroll": "Discover how it works"
   },
   "features": {
     "sectionLabel": "Everything you need",
     "sectionTitle": "Built for modern engineering teams",
-    "sectionSubtitle": "Stop arguing about estimates. Let data and AI guide the conversation.",
+    "sectionSubtitle": "Stop arguing about estimates. Let data, AI, and structured retrospectives guide your team forward.",
     "items": {
       "realtime": {
         "title": "Real-Time Collaboration",
@@ -40,17 +40,21 @@
       "rooms": {
         "title": "Instant Rooms",
         "description": "Create a room in seconds. Share a 6-character code or QR code. Participants join without needing an account."
+      },
+      "retro": {
+        "title": "AI Retrospectives",
+        "description": "Run structured sprint retrospectives on a chalkboard or whiteboard. AI analyzes trends, spots recurring issues, and suggests concrete actions."
       }
     }
   },
   "howItWorks": {
     "sectionLabel": "The Story",
-    "sectionTitle": "From zero to estimated in minutes",
+    "sectionTitle": "From zero to shipped in minutes",
     "steps": {
       "connect": {
         "step": "01",
         "title": "Connect Azure DevOps",
-        "description": "Paste your sprint board URL. Scrum Poker parses your organization, project, and current sprint automatically."
+        "description": "Paste your sprint board URL. Scrum AI parses your organization, project, and current sprint automatically."
       },
       "calibrate": {
         "step": "02",
@@ -59,13 +63,13 @@
       },
       "create": {
         "step": "03",
-        "title": "Create a Room",
-        "description": "Hit 'Create Room'. A unique 6-character code is generated. Share it with your team via code or QR. Everyone joins in real time."
+        "title": "Plan Your Sprint",
+        "description": "Create a Scrum Poker room. Share the 6-character code. The AI suggests story points while the team votes in real time."
       },
       "vote": {
         "step": "04",
-        "title": "Vote & Reveal",
-        "description": "Pick a work item. The AI suggests an estimate. The team votes. Cards flip simultaneously. The facilitator accepts or overrides the score."
+        "title": "Retro & Improve",
+        "description": "Close the sprint with an AI retrospective. See what went well, what to improve, and get concrete action items based on trend analysis."
       }
     }
   },
@@ -74,15 +78,16 @@
     "sectionTitle": "Plays well with your existing tools",
     "azure": "Azure DevOps",
     "ai": "AI Estimation",
-    "websocket": "Real-Time WebSocket"
+    "websocket": "Real-Time WebSocket",
+    "retro": "AI Retrospectives"
   },
   "footer": {
-    "tagline": "Scrum Poker — smarter sprint planning.",
+    "tagline": "Scrum AI — smarter agile teams.",
     "rights": "All rights reserved."
   },
   "login": {
-    "title": "Welcome to Scrum Poker",
-    "description": "Sign in to access sprint planning rooms and AI-powered estimation.",
+    "title": "Welcome to Scrum AI",
+    "description": "Sign in to access sprint planning rooms, AI estimation, and retrospectives.",
     "emailLabel": "Email",
     "emailPlaceholder": "you@example.com",
     "passwordLabel": "Password",
@@ -99,7 +104,7 @@
   },
   "register": {
     "title": "Create an account",
-    "description": "Join Scrum Poker and start planning sprints with your team.",
+    "description": "Join Scrum AI and start planning sprints with your team.",
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Your name",
     "emailLabel": "Email",
@@ -127,7 +132,7 @@
     "noRooms": "No rooms yet. Create one to get started.",
     "createRoom": "+ Create Room",
     "joinByCode": "Join by Code",
-    "tabRooms": "Rooms",
+    "tabRooms": "Scrum Poker Rooms",
     "tabProjects": "Projects",
     "yourProjects": "Your Projects",
     "noProjects": "No projects yet. Create a room to connect an Azure DevOps project.",
@@ -294,6 +299,7 @@
     "emptyContent": "Please give some content before planning.",
     "yourVote": "Your vote ✓",
     "pickScore": "Pick your score",
+    "updateVote": "Update your vote",
     "youSelected": "You selected {score}",
     "sectionResults": "Results",
     "statAverage": "Average",
@@ -315,7 +321,13 @@
     "modalSelected": "Selected: {score} story points",
     "cancel": "Cancel",
     "saveToAdo": "Save to Azure DevOps",
-    "savingToAdo": "Saving…"
+    "savingToAdo": "Saving…",
+    "prevItem": "Previous",
+    "nextItem": "Next",
+    "voteUndecided": "Undecided",
+    "voteUndecidedHint": "I'm not sure yet",
+    "voteCoffee": "Break",
+    "voteCoffeeHint": "Coffee break — I'll stay on break until I vote again"
   },
   "guestJoin": {
     "title": "Join Room",
@@ -365,5 +377,74 @@
     "loading": "Loading sprint metrics...",
     "error": "Error Loading Metrics",
     "noData": "No data available"
+  },
+  "retro": {
+    "createTitle": "New Retrospective",
+    "createTitleLabel": "Session title",
+    "createTitlePlaceholder": "e.g. Sprint 42 Retrospective",
+    "createThemeLabel": "Board theme",
+    "themeDark": "Chalkboard",
+    "themeLight": "Whiteboard",
+    "createDurationLabel": "Duration",
+    "minutes": "min",
+    "createBtn": "Start Retro",
+    "creating": "Starting…",
+    "cancel": "Cancel",
+    "errorTitleRequired": "Please enter a session title.",
+    "errorCreate": "Failed to create retro session.",
+    "columnWell": "What Went Well",
+    "columnImprove": "What Could Be Improved",
+    "columnIdeas": "Ideas for Next Sprint",
+    "addCard": "Add a card",
+    "itemPlaceholder": "Write your thought…",
+    "addBtn": "Add",
+    "adding": "Adding…",
+    "timerStart": "Start",
+    "timerPause": "Pause",
+    "switchDark": "Switch to Chalkboard mode",
+    "switchLight": "Switch to Whiteboard mode",
+    "trendBtn": "History",
+    "historyTitle": "Previous Retrospectives",
+    "noHistory": "No previous retros found.",
+    "histTitle": "Title",
+    "histDate": "Date",
+    "histActions": "Actions",
+    "loading": "Loading…",
+    "analyzeBtn": "Analyze with AI",
+    "analyzing": "AI is thinking…",
+    "aiAnalysisTitle": "AI Analysis & Actions",
+    "summary": "Summary",
+    "trend": "Trend",
+    "actionsTitle": "Suggested Action Items",
+    "addManualAction": "Add your own action items",
+    "manualActionPlaceholder": "Type an action item and press Enter…",
+    "saveActionsBtn": "Save Actions & Close",
+    "saving": "Saving…",
+    "finalActionsTitle": "Final Action Items",
+    "status_writing": "Writing",
+    "status_analyzing": "In Review",
+    "status_closed": "Closed",
+    "tabRetro": "Retros",
+    "yourRetros": "Your Retrospectives",
+    "noRetros": "No retros yet. Start one!",
+    "createRetro": "+ New Retro",
+    "open": "Open",
+    "joinRetro": "Join Retro",
+    "joinTitle": "Join a Retrospective",
+    "joinCodeLabel": "Session code",
+    "joinCodePlaceholder": "Enter 6-character code",
+    "joinBtn": "Join",
+    "joining": "Joining…",
+    "errorNotFound": "Retro session not found.",
+    "errorJoin": "Failed to join.",
+    "deleteRetro": "Delete retro",
+    "confirmDeleteRetro": "Delete this retro session? This action cannot be undone.",
+    "errorDeleteRetro": "Failed to delete retro session.",
+    "backToDashboard": "Back to Dashboard",
+    "copyLink": "Copy join link",
+    "copied": "Copied!",
+    "online": "Online:",
+    "createProjectLabel": "Link to project (optional)",
+    "createProjectNone": "No project"
   }
 }

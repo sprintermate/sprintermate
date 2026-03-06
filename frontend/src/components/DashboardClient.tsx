@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import CreateRoomModal from './CreateRoomModal';
+import CreateRetroModal from './CreateRetroModal';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -46,14 +48,85 @@ interface Props {
   locale: string;
 }
 
-type ActiveTab = 'rooms' | 'projects';
+type ActiveTab = 'rooms' | 'projects' | 'retros';
+
+interface RetroSessionSummary {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  theme: string;
+  duration_minutes: number;
+  created_at: string;
+}
 
 export default function DashboardClient({ initialProjects, initialRooms, locale }: Props) {
   const t = useTranslations('dashboard');
+  const rt = useTranslations('retro');
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('rooms');
   const [modalOpen, setModalOpen] = useState(false);
+  const [retroModalOpen, setRetroModalOpen] = useState(false);
+  const [joinRetroModalOpen, setJoinRetroModalOpen] = useState(false);
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+
+  // Retros state
+  const [retros, setRetros] = useState<RetroSessionSummary[]>([]);
+  const [retrosLoading, setRetrosLoading] = useState(false);
+  const [deletingRetroCode, setDeletingRetroCode] = useState<string | null>(null);
+
+  // Join retro popup state
+  const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const loadRetros = useCallback(async () => {
+    setRetrosLoading(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/retro`, { credentials: 'include' });
+      if (res.ok) setRetros(await res.json());
+    } finally {
+      setRetrosLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'retros' && retros.length === 0) loadRetros();
+  }, [activeTab, retros.length, loadRetros]);
+
+  const handleJoinRetro = async () => {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) return;
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/retro/${code}`, { credentials: 'include' });
+      if (!res.ok) { setJoinError(rt('errorNotFound')); return; }
+      router.push(`/${locale}/retro/${code}`);
+    } catch {
+      setJoinError(rt('errorJoin'));
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleDeleteRetro = async (code: string) => {
+    if (!confirm(rt('confirmDeleteRetro'))) return;
+    setDeletingRetroCode(code);
+    try {
+      const res = await fetch(`${BACKEND}/api/retro/${code}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) { alert(rt('errorDeleteRetro')); return; }
+      setRetros(prev => prev.filter(r => r.code !== code));
+    } catch {
+      alert(t('errorNetwork'));
+    } finally {
+      setDeletingRetroCode(null);
+    }
+  };
 
   // Projects state
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -246,6 +319,16 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           }`}
         >
           {t('tabProjects')}
+        </button>
+        <button
+          onClick={() => setActiveTab('retros')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === 'retros'
+              ? 'border-cyan-500 text-cyan-600 dark:border-indigo-500 dark:text-indigo-300'
+              : 'border-transparent text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
+          }`}
+        >
+          {rt('tabRetro')}
         </button>
       </div>
 
@@ -521,13 +604,142 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
         </section>
       )}
 
-      {/* Modal */}
+      {/* ── RETROS TAB ── */}
+      {activeTab === 'retros' && (
+        <section>
+          <div className="flex flex-wrap gap-3 mb-6">
+            <button
+              onClick={() => setRetroModalOpen(true)}
+              className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+            >
+              {rt('createRetro')}
+            </button>
+            <button
+              onClick={() => { setJoinCode(''); setJoinError(null); setJoinRetroModalOpen(true); }}
+              className="px-4 py-2 rounded-lg border border-violet-400 dark:border-violet-700 text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-sm font-medium transition-colors"
+            >
+              {rt('joinRetro')}
+            </button>
+          </div>
+
+          {retrosLoading ? (
+            <p className="text-sm text-gray-400 dark:text-slate-500">{rt('loading')}</p>
+          ) : retros.length === 0 ? (
+            <div className="border border-dashed border-gray-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">📋</span>
+              </div>
+              <p className="text-gray-400 dark:text-slate-500 text-sm">{rt('noRetros')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {retros.map(r => (
+                <div
+                  key={r.id}
+                  className="relative flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-violet-300 dark:hover:border-violet-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xl">{r.theme === 'dark' ? '🌑' : '☀️'}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.title}</p>
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 font-mono">{r.code} · {new Date(r.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 pr-8">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide
+                      ${r.status === 'writing' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' :
+                        r.status === 'analyzing' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' :
+                        'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>
+                      {rt(`status_${r.status}`)}
+                    </span>
+                    <a
+                      href={`/${locale}/retro/${r.code}`}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
+                    >
+                      {rt('open')}
+                    </a>
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={() => handleDeleteRetro(r.code)}
+                    disabled={deletingRetroCode === r.code}
+                    title={rt('deleteRetro')}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:text-slate-600 dark:hover:text-red-400 dark:hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                  >
+                    {deletingRetroCode === r.code ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Modals */}
       {modalOpen && (
         <CreateRoomModal
           initialProjects={projects}
           locale={locale}
           onClose={() => setModalOpen(false)}
         />
+      )}
+      {retroModalOpen && (
+        <CreateRetroModal
+          locale={locale}
+          onClose={() => setRetroModalOpen(false)}
+        />
+      )}
+
+      {/* Join Retro Modal */}
+      {joinRetroModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setJoinRetroModalOpen(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-white mb-5">{rt('joinTitle')}</h2>
+            <label className="block text-xs font-medium text-slate-400 mb-1">{rt('joinCodeLabel')}</label>
+            <input
+              autoFocus
+              value={joinCode}
+              onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleJoinRetro(); if (e.key === 'Escape') setJoinRetroModalOpen(false); }}
+              placeholder={rt('joinCodePlaceholder')}
+              maxLength={6}
+              className="w-full rounded-lg px-3 py-2 text-sm border border-slate-600 bg-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-mono uppercase tracking-widest mb-3"
+            />
+            {joinError && <p className="text-red-400 text-xs mb-3">{joinError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setJoinRetroModalOpen(false)}
+                className="flex-1 py-2 text-sm rounded-lg border border-slate-600 text-slate-400 hover:bg-slate-800"
+              >
+                {rt('cancel')}
+              </button>
+              <button
+                onClick={handleJoinRetro}
+                disabled={joining || joinCode.trim().length < 6}
+                className="flex-1 py-2 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold disabled:opacity-50"
+              >
+                {joining ? rt('joining') : rt('joinBtn')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

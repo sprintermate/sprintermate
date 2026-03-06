@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
+import { UniqueConstraintError } from 'sequelize';
 import requireAuth from '../middleware/requireAuth';
 import { UserAISettings, Room, Project, Sprint, ReferenceScore, WorkItemAIEstimate } from '../db/schema';
 import { encrypt, decrypt } from '../utils/crypto';
@@ -50,28 +51,41 @@ function isLocked(projectId: string, workItemId: number): boolean {
 // ─── Helper: persist AI estimate result to DB (upsert) ───────────────────────
 async function persistEstimate(projectId: string, workItemId: number, result: AIEstimateResult): Promise<void> {
   const now = new Date().toISOString();
-  const existing = await WorkItemAIEstimate.findOne({
+  const fieldsToUpdate = {
+    story_point: result['story-point'],
+    confidence: result.confidence,
+    analysis: result.analysis,
+    similar_items: JSON.stringify(result['similar-items']),
+    updated_at: now,
+  };
+
+  // UPDATE first (avoids full-model validation that save() triggers, and handles
+  // the common case of re-estimating an existing item atomically).
+  const [affectedRows] = await WorkItemAIEstimate.update(fieldsToUpdate as any, {
     where: { project_id: projectId, work_item_id: workItemId },
   });
-  if (existing) {
-    (existing as any).story_point = result['story-point'];
-    (existing as any).confidence = result.confidence;
-    (existing as any).analysis = result.analysis;
-    (existing as any).similar_items = JSON.stringify(result['similar-items']);
-    (existing as any).updated_at = now;
-    await existing.save();
-  } else {
-    await WorkItemAIEstimate.create({
-      id: randomUUID(),
-      project_id: projectId,
-      work_item_id: workItemId,
-      story_point: result['story-point'],
-      confidence: result.confidence,
-      analysis: result.analysis,
-      similar_items: JSON.stringify(result['similar-items']),
-      created_at: now,
-      updated_at: now,
-    } as any);
+
+  if (affectedRows === 0) {
+    // No existing record – try to INSERT it.
+    try {
+      await WorkItemAIEstimate.create({
+        id: randomUUID(),
+        project_id: projectId,
+        work_item_id: workItemId,
+        ...fieldsToUpdate,
+        created_at: now,
+      } as any);
+    } catch (err: any) {
+      // Race condition: a concurrent request (e.g. estimate-all batch + single estimate)
+      // inserted between our UPDATE and this INSERT. Retry the update.
+      if (err instanceof UniqueConstraintError) {
+        await WorkItemAIEstimate.update(fieldsToUpdate as any, {
+          where: { project_id: projectId, work_item_id: workItemId },
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 }
 
@@ -318,6 +332,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
 
     res.json(result);
   } catch (err: any) {
+    console.error('[ai/estimate] error:', err?.name, err?.message, err?.errors ?? '');
     res.status(500).json({ error: err.message ?? 'AI estimation failed' });
   } finally {
     if (projectId !== null && workItemIdNum !== null) {

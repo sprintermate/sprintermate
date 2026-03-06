@@ -9,27 +9,27 @@ $FRONTEND = "$ROOT\frontend"
 $ELECTRON = "$ROOT\electron"
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════╗"
-Write-Host "║     Scrum Poker — Electron Build Pipeline    ║"
-Write-Host "╚══════════════════════════════════════════════╝"
+Write-Host "============================================="
+Write-Host "   Scrum AI - Electron Build Pipeline"
+Write-Host "============================================="
 Write-Host ""
 
-# ── 1. Backend TypeScript build ───────────────────────────────────────────────
-Write-Host "▶ [1/6] Building backend TypeScript…"
+# -- 1. Backend TypeScript build ---
+Write-Host "> [1/6] Building backend TypeScript..."
 Set-Location $BACKEND
 npm install
 npm run build
-Write-Host "  ✓ backend/dist/ ready"
+Write-Host "  [ok] backend/dist/ ready"
 Write-Host ""
 
-# ── 2. Backend production dependencies ───────────────────────────────────────
-Write-Host "▶ [2/6] Installing backend production dependencies…"
+# -- 2. Backend production dependencies ---
+Write-Host "> [2/6] Installing backend production dependencies..."
 npm install
-Write-Host "  ✓ backend/node_modules/ trimmed to production"
+Write-Host "  [ok] backend/node_modules/ trimmed to production"
 Write-Host ""
 
-# ── 3. Frontend Next.js standalone build ─────────────────────────────────────
-Write-Host "▶ [3/6] Building Next.js frontend (standalone, empty NEXT_PUBLIC_BACKEND_URL)…"
+# -- 3. Frontend Next.js standalone build ---
+Write-Host "> [3/6] Building Next.js frontend (standalone, empty NEXT_PUBLIC_BACKEND_URL)..."
 Set-Location $FRONTEND
 
 $env:NEXT_PUBLIC_BACKEND_URL = ""
@@ -39,47 +39,48 @@ npm run build
 Remove-Item Env:\NEXT_PUBLIC_BACKEND_URL -ErrorAction SilentlyContinue
 Remove-Item Env:\BACKEND_URL             -ErrorAction SilentlyContinue
 
-Write-Host "  ✓ frontend/.next/standalone/ ready"
+Write-Host "  [ok] frontend/.next/standalone/ ready"
 
-Write-Host "  → Copying public/ and .next/static/ into standalone dir…"
+Write-Host "  -> Copying public/ and .next/static/ into standalone dir..."
 if (Test-Path "$FRONTEND\public") {
     Copy-Item -Recurse -Force "$FRONTEND\public" "$FRONTEND\.next\standalone\public"
 }
 New-Item -ItemType Directory -Force -Path "$FRONTEND\.next\standalone\.next" | Out-Null
 Copy-Item -Recurse -Force "$FRONTEND\.next\static" "$FRONTEND\.next\standalone\.next\static"
-Write-Host "  ✓ Static assets copied"
+Write-Host "  [ok] Static assets copied"
 Write-Host ""
 
-# ── 4. Electron npm install ───────────────────────────────────────────────────
-Write-Host "▶ [4/6] Installing Electron dependencies…"
+# -- 4. Electron npm install ---
+Write-Host "> [4/6] Installing Electron dependencies..."
 Set-Location $ELECTRON
 npm install
-Write-Host "  ✓ electron/node_modules/ ready"
+Write-Host "  [ok] electron/node_modules/ ready"
 Write-Host ""
 
-# ── 5. Rebuild native modules for Electron's Node.js ABI ─────────────────────
-Write-Host "▶ [5/6] Rebuilding native modules (sqlite3, better-sqlite3) for Electron…"
-$ELECTRON_VER = node -e "console.log(require('$($ELECTRON.Replace('\','/'))/node_modules/electron/package.json').version)"
-Write-Host "  → Electron version: $ELECTRON_VER"
+# -- 5. Rebuild native modules for Electron's Node.js ABI ---
+Write-Host "> [5/6] Rebuilding native modules (sqlite3, better-sqlite3) for Electron..."
+$ELECTRON_PATH = $ELECTRON.Replace('\', '/')
+$ELECTRON_VER = node -e "console.log(require('$ELECTRON_PATH/node_modules/electron/package.json').version)"
+Write-Host "  -> Electron version: $ELECTRON_VER"
 
 npx --prefix "$ELECTRON" @electron/rebuild `
     --version "$ELECTRON_VER" `
     --module-dir "$BACKEND" `
     --which-module "sqlite3,better-sqlite3"
 
-Write-Host "  ✓ Native modules rebuilt"
+Write-Host "  [ok] Native modules rebuilt"
 Write-Host ""
 
-# ── 6. Electron TypeScript build ─────────────────────────────────────────────
-Write-Host "▶ [6/6] Building Electron TypeScript…"
+# -- 6. Electron TypeScript build ---
+Write-Host "> [6/6] Building Electron TypeScript..."
 Set-Location $ELECTRON
 npm run build
-Write-Host "  ✓ electron/dist/ ready"
+Write-Host "  [ok] electron/dist/ ready"
 Write-Host ""
 
-Write-Host "╔══════════════════════════════════════════════╗"
-Write-Host "║            Build complete!                   ║"
-Write-Host "╚══════════════════════════════════════════════╝"
+Write-Host "============================================="
+Write-Host "           Build complete!"
+Write-Host "============================================="
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  Dev test:   cd electron; npx electron dist/main.js"

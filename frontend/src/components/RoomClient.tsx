@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
 import WorkItemList, { type WorkItem } from './WorkItemList';
-import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult } from './WorkItemDetail';
+import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult, SCORE_COFFEE } from './WorkItemDetail';
 import { ThemeToggle } from './ThemeProvider';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
@@ -44,6 +44,8 @@ interface Props {
 export default function RoomClient({ room, user, locale }: Props) {
   const t = useTranslations('room');
   const socketRef = useRef<Socket | null>(null);
+  // Tracks whether this user is on coffee break — persists across navigations/resets
+  const coffeeBreakRef = useRef<boolean>(false);
 
   // Work items from backend REST
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
@@ -179,7 +181,14 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(data.revealed);
       setAiEstimate(data.aiEstimate ?? null);
       setDelegatedModerator(data.delegatedModerator ?? null);
-      setMyScore(null);
+      // Restore coffee-break state from persisted vote
+      const ownVote = data.votes.find((v) => v.userId === user.id);
+      if (ownVote?.score === SCORE_COFFEE) {
+        coffeeBreakRef.current = true;
+        setMyScore(SCORE_COFFEE);
+      } else {
+        setMyScore(null);
+      }
     });
 
     socket.on('room:participants_changed', (data: { participants: Participant[] }) => {
@@ -202,8 +211,14 @@ export default function RoomClient({ room, user, locale }: Props) {
       setVotes([]);
       setRevealed(false);
       setStats(null);
-      setMyScore(null);
       setAiError(null);
+      // Restore coffee-break vote automatically if user was on coffee break
+      if (coffeeBreakRef.current) {
+        setMyScore(SCORE_COFFEE);
+        socket.emit('vote:cast', { code: room.code, score: SCORE_COFFEE });
+      } else {
+        setMyScore(null);
+      }
     });
 
     socket.on('vote:update', (data: { votes: VoteInfo[] }) => {
@@ -376,6 +391,7 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleCastVote = useCallback((score: number) => {
     setMyScore(score);
+    coffeeBreakRef.current = (score === SCORE_COFFEE);
     socketRef.current?.emit('vote:cast', { code: room.code, score });
   }, [room.code]);
 
@@ -440,6 +456,22 @@ export default function RoomClient({ room, user, locale }: Props) {
       setMyScore(null);
     }
   }, [isEffectiveModerator, room.code]);
+
+  const handleNextItem = useCallback(() => {
+    if (!currentWorkItem) return;
+    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx >= 0 && idx < workItems.length - 1) {
+      handleSelectItem(workItems[idx + 1]!);
+    }
+  }, [currentWorkItem, workItems, handleSelectItem]);
+
+  const handlePrevItem = useCallback(() => {
+    if (!currentWorkItem) return;
+    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx > 0) {
+      handleSelectItem(workItems[idx - 1]!);
+    }
+  }, [currentWorkItem, workItems, handleSelectItem]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -637,6 +669,10 @@ export default function RoomClient({ room, user, locale }: Props) {
             onReveal={handleReveal}
             onReset={handleReset}
             onBack={handleBack}
+            onNextItem={isEffectiveModerator ? handleNextItem : undefined}
+            onPrevItem={isEffectiveModerator ? handlePrevItem : undefined}
+            hasNext={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) < workItems.length - 1 && workItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
+            hasPrev={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
             onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
             aiEstimate={revealed ? aiEstimate : null}
             aiLoading={aiLoading}

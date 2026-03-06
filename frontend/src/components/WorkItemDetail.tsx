@@ -3,19 +3,24 @@ import { useTranslations } from 'next-intl';
 import { type WorkItem } from './WorkItemList';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
+export const SCORE_UNDECIDED = -1; // ?
+export const SCORE_COFFEE    = -2; // ☕
 
 function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
   const scoreCounts: Record<number, number> = {};
   FIBONACCI.forEach((n) => (scoreCounts[n] = 0));
+  let undecidedCount = 0;
   votes.forEach((v) => {
-    if (typeof v.score === 'number' && scoreCounts.hasOwnProperty(v.score)) {
+    if (v.score === SCORE_UNDECIDED) {
+      undecidedCount++;
+    } else if (typeof v.score === 'number' && v.score > 0 && scoreCounts.hasOwnProperty(v.score)) {
       scoreCounts[v.score]! += 1;
     }
   });
   const maxCount = Math.max(...Object.values(scoreCounts));
   return (
     <div className="flex flex-col gap-1 mt-2">
-      <div className="flex gap-1 justify-center">
+      <div className="flex gap-1 justify-center flex-wrap">
         {FIBONACCI.map((n) => (
           <div key={n} className="flex flex-col items-center mx-0.5">
             {/* Kart puanı üstte */}
@@ -40,8 +45,17 @@ function VoteDistributionBar({ votes }: { votes: VoteInfo[] }) {
             )}
           </div>
         ))}
+        {/* Undecided (?) column */}
+        {undecidedCount > 0 && (
+          <div className="flex flex-col items-center mx-0.5 ml-3">
+            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mb-1">?</span>
+            <div
+              style={{ width: '22px', height: '8px', background: '#e5e7eb', borderRadius: '6px 6px 4px 4px', marginBottom: '2px', border: '1.5px solid #e5e7eb' }}
+            />
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-1">{undecidedCount}</span>
+          </div>
+        )}
       </div>
-      {/* Info text removed as requested */}
     </div>
   );
 }
@@ -95,6 +109,10 @@ interface Props {
   onReveal: () => void;
   onReset: () => void;
   onBack: () => void;
+  onNextItem?: () => void;
+  onPrevItem?: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
   onUpdateWorkItem?: (score: number, aiScore: number | null) => void;
   aiEstimate?: AIEstimateResult | null;
   aiLoading?: boolean;
@@ -127,6 +145,10 @@ export default function WorkItemDetail({
   onReveal,
   onReset,
   onBack,
+  onNextItem,
+  onPrevItem,
+  hasNext,
+  hasPrev,
   onUpdateWorkItem,
   aiEstimate,
   aiLoading,
@@ -200,15 +222,42 @@ export default function WorkItemDetail({
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4">
         {isModerator ? (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white transition-colors text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            {t('backToList')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {t('backToList')}
+            </button>
+            {(hasPrev !== undefined || hasNext !== undefined) && (
+              <>
+                <span className="text-gray-300 dark:text-slate-700 text-sm">|</span>
+                <button
+                  onClick={onPrevItem}
+                  disabled={!hasPrev}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {t('prevItem')}
+                </button>
+                <button
+                  onClick={onNextItem}
+                  disabled={!hasNext}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t('nextItem')}
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
         ) : (
           <div />
         )}
@@ -376,29 +425,52 @@ export default function WorkItemDetail({
         {scoringActive && (
           <div className="col-span-5 flex flex-col gap-4 min-h-0">
 
-            {/* Card selector – only shown before reveal */}
-            {!revealed && (
-              <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
-                  {myVote?.hasVoted ? t('yourVote') : t('pickScore')}
-                </p>
-                <div className="grid grid-cols-5 gap-2">
-                  {FIBONACCI.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => onCastVote(n)}
-                      className={`h-12 rounded-lg text-sm font-bold transition-all border ${
-                        myScore === n
-                          ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
-                          : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+            {/* Card selector – shown before AND after reveal so users can update their vote */}
+            <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
+                {revealed ? t('updateVote') : (myVote?.hasVoted ? t('yourVote') : t('pickScore'))}
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {FIBONACCI.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => onCastVote(n)}
+                    className={`h-12 rounded-lg text-sm font-bold transition-all border ${
+                      myScore === n
+                        ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
+                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
               </div>
-            )}
+              {/* Special vote options: Undecided and Coffee Break */}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => onCastVote(SCORE_UNDECIDED)}
+                  title={t('voteUndecidedHint')}
+                  className={`flex-1 h-10 rounded-lg text-sm font-bold transition-all border ${
+                    myScore === SCORE_UNDECIDED
+                      ? 'bg-amber-500 border-amber-400 text-white scale-105 shadow-lg shadow-amber-500/20'
+                      : 'bg-gray-100 border-gray-300 text-amber-600 hover:bg-amber-50 hover:border-amber-300 dark:bg-slate-800 dark:border-slate-700 dark:text-amber-400 dark:hover:bg-amber-500/10 dark:hover:border-amber-500/40'
+                  }`}
+                >
+                  ? <span className="text-xs font-normal ml-1 opacity-70">{t('voteUndecided')}</span>
+                </button>
+                <button
+                  onClick={() => onCastVote(SCORE_COFFEE)}
+                  title={t('voteCoffeeHint')}
+                  className={`flex-1 h-10 rounded-lg text-sm font-bold transition-all border ${
+                    myScore === SCORE_COFFEE
+                      ? 'bg-orange-500 border-orange-400 text-white scale-105 shadow-lg shadow-orange-500/20'
+                      : 'bg-gray-100 border-gray-300 text-orange-600 hover:bg-orange-50 hover:border-orange-300 dark:bg-slate-800 dark:border-slate-700 dark:text-orange-400 dark:hover:bg-orange-500/10 dark:hover:border-orange-500/40'
+                  }`}
+                >
+                  ☕ <span className="text-xs font-normal ml-1 opacity-70">{t('voteCoffee')}</span>
+                </button>
+              </div>
+            </div>
 
             {/* Stats – shown after reveal */}
 
@@ -539,7 +611,7 @@ export default function WorkItemDetail({
                       <span className="flex-1 text-sm text-gray-700 dark:text-slate-300 truncate">{v.displayName}</span>
                       {revealed && v.score !== null ? (
                         <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300 font-bold text-sm">
-                          {v.score}
+                          {v.score === SCORE_UNDECIDED ? '?' : v.score === SCORE_COFFEE ? '☕' : v.score}
                         </span>
                       ) : v.hasVoted ? (
                         <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 border border-green-200 text-green-600 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400">
