@@ -59,7 +59,7 @@ export default async function RegisterPage({ params }: Props) {
         </div>
 
         <p className="text-center text-gray-400 dark:text-slate-600 text-xs">
-          Scrum Poker — AI-Powered Sprint Planning
+          Scrum AI — AI-Powered Agile
         </p>
       </div>
     </div>
