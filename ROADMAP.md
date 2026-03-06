@@ -20,6 +20,7 @@
 - [x] Oylar göster dedikten sonra kişiler oylarını güncelleyebilsin oyları göster diyince güncelleyebilsin kullanıcılar
 - [x] Work item oylaması yapıldıktan sonra sonraki madde butonu olsun önceki madde butonu da olsun listeye dön demeden ileri ve geri gidebilinsin daha akıcı hale gelmiş olur ekran deneyimi.
 - [x] Ayrıca ? ve ☕ seçimleride mümkün olacak. Kahve molasında olan kişi sıfırlama yapılsa da farklı maddeye geçilse de tekrar oy verene kadar kahve molasında olacak. ? ise kararsız oy demek anlamına gelir ve kullanıcı oy vermiş gibi değerlendirilir. Sonuç grafiğinde ortalama hesaplamasına yazılmaz ama puan ve kişi sayısını gösteren yerde ? yer almalıdır. 
+- [x] Retro ekranı olacak geçmiş notlar mevcuttakini analiz edip aksiyonlar önerecek !
 
 ## MVP 2
 - [ ] Puanlama sadece fibonacci bazlı olmayacak, proje oluşturulurken aşağıdaki tiplerde    kullanılacak.
@@ -29,5 +30,4 @@
    Powers of 2 (0, 1, 2, 4, 8, 16, 32, 64, 128)
 - [ ] Havalı bir websitesi, daha detaylı bir şekilde geliştirilecek.
 - [ ] websitesi üzerinden çalışan versiyonda ücretli versiyon sunulacak.
-- [ ] Retro ekranı olacak geçmiş notlar mevcuttakini analiz edip aksiyonlar önerecek !
 - [ ] mobilde sadece bu ekran gibi gözükecek çalışacak bir hal ekranda moderatörü izlerken mobilden puanını verebilecek katılımcı (yani puan verme, grafik görme, ai analizi ve verilen oylar kısmını görecek mobilde sadece)
