@@ -10,7 +10,7 @@ $ELECTRON = "$ROOT\electron"
 
 Write-Host ""
 Write-Host "============================================="
-Write-Host "   Scrum Poker - Electron Build Pipeline"
+Write-Host "   Scrum AI - Electron Build Pipeline"
 Write-Host "============================================="
 Write-Host ""
 
