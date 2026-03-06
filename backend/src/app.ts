@@ -1,6 +1,8 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import authRouter from './routes/auth';
@@ -12,6 +14,14 @@ import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
 import './types/auth'; // register Express.User augmentation
 
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
 export function createApp(): Application {
   const app = express();
 
@@ -21,14 +31,16 @@ export function createApp(): Application {
   // - HTTPS (ngrok / production TLS)    → secure: true
   app.set('trust proxy', 1);
 
+  app.use(helmet());
+
   const frontendUrls = (process.env.FRONTEND_URL ?? 'http://localhost:3000')
     .split(',').map(s => s.trim()).filter(Boolean);
   app.use(cors({
     origin: frontendUrls.length === 1 ? frontendUrls[0] : frontendUrls,
     credentials: true,
   }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
   app.use(cookieParser());
 
   // ── JWT Strategy ────────────────────────────────────────────────────────────
@@ -70,7 +82,7 @@ export function createApp(): Application {
     )(req, _res, next);
   });
 
-  app.use('/api/auth', authRouter);
+  app.use('/api/auth', authRateLimit, authRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/rooms', roomsRouter);
   app.use('/api/ai', aiRouter);

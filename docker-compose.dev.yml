@@ -1,0 +1,23 @@
+# Development overlay — adds ngrok tunnel to the production compose stack.
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Requires NGROK_AUTHTOKEN in your .env file.
+# Get your token at: https://dashboard.ngrok.com/get-started/your-authtoken
+
+services:
+
+  # ── ngrok tunnel ───────────────────────────────────────────────────────────
+  # Exposes nginx :80 to the public internet for sharing / testing.
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http nginx:80 --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?NGROK_AUTHTOKEN is required for dev overlay}
+    ports:
+      # ngrok web inspector UI — view tunnel URL at http://localhost:4040
+      - "4040:4040"
+    depends_on:
+      - nginx
+    restart: unless-stopped
+    networks:
+      - internal

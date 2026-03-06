@@ -21,7 +21,12 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 
 # SQLite data directory
-RUN mkdir -p data
+RUN mkdir -p data && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 4000
 

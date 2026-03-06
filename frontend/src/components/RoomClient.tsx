@@ -69,19 +69,41 @@ export default function RoomClient({ room, user, locale }: Props) {
   const [savedAiEstimates, setSavedAiEstimates] = useState<Map<number, AIEstimateResult>>(new Map());
   const [isEstimatingAll, setIsEstimatingAll] = useState(false);
 
+  // Delegation state
+  const [delegatedModerator, setDelegatedModerator] = useState<string | null>(null);
+  const delegatedModeratorRef = useRef<string | null>(null);
+  useEffect(() => { delegatedModeratorRef.current = delegatedModerator; }, [delegatedModerator]);
+
+  // Moderator promotion/demotion toast
+  const [moderatorToast, setModeratorToast] = useState<'granted' | 'revoked' | null>(null);
+  useEffect(() => {
+    if (!moderatorToast) return;
+    const timer = setTimeout(() => setModeratorToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [moderatorToast]);
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number; y: number; userId: string; displayName: string;
+  } | null>(null);
+
   // Copy URL state (for moderator)
   const [urlCopied, setUrlCopied] = useState(false);
 
   // Set when this session is displaced by a newer connection with the same userId
   const [replacedMessage, setReplacedMessage] = useState<string | null>(null);
 
+  // Effective moderator: when delegation active → only delegate; otherwise main mod
+  const isEffectiveModerator = delegatedModerator !== null
+    ? user.id === delegatedModerator
+    : room.isModerator;
+
   // View: 'list' or 'item'
   const view = currentWorkItem ? 'item' : 'list';
 
   // ── Fetch work items (moderator / authenticated participants only) ─────────
   useEffect(() => {
-    // Guests don't fetch the item list — they see whatever the moderator navigates to via socket
-    if (user.isGuest) {
+    // Guests don't fetch the item list unless they've been promoted to co-moderator
+    if (user.isGuest && !isEffectiveModerator) {
       setItemsLoading(false);
       return;
     }
@@ -105,7 +127,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       }
     }
     void load();
-  }, [room.code, user.isGuest]);
+  }, [room.code, user.isGuest, isEffectiveModerator]);
 
   // ── Load persisted AI estimates ───────────────────────────────────────────
   useEffect(() => {
@@ -148,6 +170,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       votes: VoteInfo[];
       revealed: boolean;
       aiEstimate?: AIEstimateResult | null;
+      delegatedModerator?: string | null;
     }) => {
       setParticipants(data.participants);
       setCurrentWorkItem(data.currentWorkItem);
@@ -155,6 +178,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       setVotes(data.votes);
       setRevealed(data.revealed);
       setAiEstimate(data.aiEstimate ?? null);
+      setDelegatedModerator(data.delegatedModerator ?? null);
       setMyScore(null);
     });
 
@@ -209,6 +233,18 @@ export default function RoomClient({ room, user, locale }: Props) {
       socket.disconnect();
     });
 
+    socket.on('moderator:updated', (data: { delegatedModerator: string | null }) => {
+      const prev = delegatedModeratorRef.current;
+      setDelegatedModerator(data.delegatedModerator);
+      if (data.delegatedModerator === user.id) {
+        setModeratorToast('granted');
+        // Navigate to the list so the newly promoted co-moderator sees all work items
+        setCurrentWorkItem(null);
+      } else if (prev === user.id) {
+        setModeratorToast('revoked');
+      }
+    });
+
     // Batch AI estimation events
     socket.on('ai:estimate_start', (data: { workItemId: number }) => {
       setEstimatingItems((prev) => new Set(prev).add(data.workItemId));
@@ -246,7 +282,7 @@ export default function RoomClient({ room, user, locale }: Props) {
   // ── Socket action handlers ─────────────────────────────────────────────────
 
   const handleSelectItem = useCallback((item: WorkItem) => {
-    if (!room.isModerator) {
+    if (!isEffectiveModerator) {
       // Non-moderators can open items freely (local only, not broadcasted)
       setCurrentWorkItem(item);
       setScoringActive(false);
@@ -261,7 +297,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       code: room.code,
       workItem: item,
     });
-  }, [room.isModerator, room.code]);
+  }, [isEffectiveModerator, room.code]);
 
   // handleAIEstimate defined before handleStartScoring (which depends on it)
   const handleAIEstimate = useCallback(async () => {
@@ -327,8 +363,8 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleStartScoring = useCallback(() => {
     socketRef.current?.emit('session:start_scoring', { code: room.code });
-    // Trigger AI estimation simultaneously when scoring starts (moderator only)
-    if (room.isModerator && currentWorkItem) {
+    // Trigger AI estimation simultaneously when scoring starts (any moderator)
+    if (isEffectiveModerator && currentWorkItem) {
       const saved = savedAiEstimates.get(currentWorkItem.id);
       if (saved) {
         setAiEstimate(saved);
@@ -336,7 +372,7 @@ export default function RoomClient({ room, user, locale }: Props) {
         void handleAIEstimate();
       }
     }
-  }, [room.code, room.isModerator, currentWorkItem, handleAIEstimate, savedAiEstimates]);
+  }, [room.code, isEffectiveModerator, currentWorkItem, handleAIEstimate, savedAiEstimates]);
 
   const handleCastVote = useCallback((score: number) => {
     setMyScore(score);
@@ -372,8 +408,26 @@ export default function RoomClient({ room, user, locale }: Props) {
     setWorkItems((prev) => prev.map((wi) => wi.id === currentWorkItem.id ? updated : wi));
   }, [currentWorkItem, room.code]);
 
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [contextMenu]);
+
+  const handleGrantModerator = useCallback((targetUserId: string) => {
+    socketRef.current?.emit('moderator:grant', { code: room.code, userId: targetUserId });
+    setContextMenu(null);
+  }, [room.code]);
+
+  const handleRevokeModerator = useCallback((targetUserId: string) => {
+    socketRef.current?.emit('moderator:revoke', { code: room.code, userId: targetUserId });
+    setContextMenu(null);
+  }, [room.code]);
+
   const handleBack = useCallback(() => {
-    if (room.isModerator) {
+    if (isEffectiveModerator) {
       // Moderator going back resets everyone
       socketRef.current?.emit('session:reset', { code: room.code });
     } else {
@@ -385,7 +439,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       setStats(null);
       setMyScore(null);
     }
-  }, [room.isModerator, room.code]);
+  }, [isEffectiveModerator, room.code]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -441,7 +495,7 @@ export default function RoomClient({ room, user, locale }: Props) {
                 <span className="text-gray-400 dark:text-slate-500 text-xs hidden sm:inline">{t('roomLabel')}</span>
                 <span className="font-mono font-bold text-cyan-600 dark:text-indigo-400 tracking-widest text-sm">{room.code}</span>
               </div>
-              {room.isModerator && (
+              {isEffectiveModerator && (
                 <button
                   onClick={() => {
                     const url = `${window.location.origin}/${locale}/room/${room.code}`;
@@ -484,6 +538,12 @@ export default function RoomClient({ room, user, locale }: Props) {
                 {t('moderator')}
                </span>
             )}
+            {/* Co-Moderator badge (delegated only) */}
+            {!room.isModerator && user.id === delegatedModerator && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-700 dark:text-violet-300 text-xs font-medium">
+                ☆ {t('selfModerator')}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -496,15 +556,24 @@ export default function RoomClient({ room, user, locale }: Props) {
             {participants.map((p) => (
               <span
                 key={p.userId}
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs border shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs border shrink-0 select-none ${
                   p.userId === room.moderatorId
                     ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/20'
+                    : p.userId === delegatedModerator
+                    ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20'
                     : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                }`}
+                } ${room.isModerator && p.userId !== room.moderatorId && (delegatedModerator === null || p.userId === delegatedModerator) ? 'cursor-context-menu' : ''}`}
+                onContextMenu={(e) => {
+                  if (!room.isModerator || p.userId === room.moderatorId) return;
+                  if (delegatedModerator !== null && p.userId !== delegatedModerator) return;
+                  e.preventDefault();
+                  setContextMenu({ x: e.clientX, y: e.clientY, userId: p.userId, displayName: p.displayName });
+                }}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-emerald-400 shrink-0" />
                 {p.displayName}
                 {p.userId === room.moderatorId && <span className="opacity-60"> ★</span>}
+                {p.userId === delegatedModerator && p.userId !== room.moderatorId && <span className="opacity-60"> ☆</span>}
               </span>
             ))}
           </div>
@@ -520,14 +589,14 @@ export default function RoomClient({ room, user, locale }: Props) {
                 <h1 className="text-lg font-bold text-gray-900 dark:text-white">{room.sprintName}</h1>
                 <p className="text-gray-400 dark:text-slate-500 text-sm">{room.organization} · {room.projectName}</p>
               </div>
-              {!room.isModerator && !user.isGuest && (
+              {!isEffectiveModerator && !user.isGuest && (
                 <span className="text-gray-400 dark:text-slate-500 text-xs">{t('clickItemHint')}</span>
               )}
-              {room.isModerator && (
+              {isEffectiveModerator && (
                 <span className="text-gray-400 dark:text-slate-500 text-xs">{t('clickItemModeratorHint')}</span>
               )}
             </div>
-            {user.isGuest ? (
+            {user.isGuest && !isEffectiveModerator ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-20">
                 <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 dark:bg-slate-800 dark:border-slate-700 flex items-center justify-center mb-4">
                   <svg className="w-5 h-5 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -543,8 +612,8 @@ export default function RoomClient({ room, user, locale }: Props) {
                 loading={itemsLoading}
                 error={itemsError}
                 onSelectItem={handleSelectItem}
-                isModerator={room.isModerator}
-                onEstimateAll={room.isModerator ? handleEstimateAll : undefined}
+                isModerator={isEffectiveModerator}
+                onEstimateAll={isEffectiveModerator ? handleEstimateAll : undefined}
                 onCancelEstimateAll={handleCancelEstimateAll}
                 estimatingItems={estimatingItems}
                 isEstimatingAll={isEstimatingAll}
@@ -556,7 +625,7 @@ export default function RoomClient({ room, user, locale }: Props) {
           <WorkItemDetail
             workItem={currentWorkItem}
             roomCode={room.code}
-            isModerator={room.isModerator}
+            isModerator={isEffectiveModerator}
             userId={user.id}
             scoringActive={scoringActive}
             revealed={revealed}
@@ -568,7 +637,7 @@ export default function RoomClient({ room, user, locale }: Props) {
             onReveal={handleReveal}
             onReset={handleReset}
             onBack={handleBack}
-            onUpdateWorkItem={room.isModerator ? handleUpdateWorkItem : undefined}
+            onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
             aiEstimate={revealed ? aiEstimate : null}
             aiLoading={aiLoading}
             aiError={aiError}
@@ -577,6 +646,46 @@ export default function RoomClient({ room, user, locale }: Props) {
           />
         ) : null}
       </main>
+
+      {/* ── Moderator promotion/demotion toast ── */}
+      {moderatorToast && (
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-xl font-medium text-sm flex items-center gap-2 transition-all ${
+          moderatorToast === 'granted'
+            ? 'bg-violet-600 text-white'
+            : 'bg-slate-700 text-slate-300'
+        }`}>
+          {moderatorToast === 'granted' ? '☆ ' : ''}
+          {t(moderatorToast === 'granted' ? 'moderatorGranted' : 'moderatorRevoked')}
+        </div>
+      )}
+
+      {/* ── Context menu (right-click on participant pill) ── */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 text-xs text-gray-400 dark:text-slate-500 font-medium border-b border-gray-100 dark:border-slate-700">
+            {contextMenu.displayName}
+          </div>
+          {contextMenu.userId === delegatedModerator ? (
+            <button
+              onClick={() => handleRevokeModerator(contextMenu.userId)}
+              className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              {t('revokeModerator')}
+            </button>
+          ) : (
+            <button
+              onClick={() => handleGrantModerator(contextMenu.userId)}
+              className="w-full text-left px-3 py-2 text-sm text-violet-600 dark:text-violet-400 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              {t('grantModerator')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

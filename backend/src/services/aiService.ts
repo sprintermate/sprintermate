@@ -197,6 +197,10 @@ function callCLI(
       proc.stdin.write(stdinData, () => proc.stdin.end());
     }
 
+    // Prevent unhandled 'error' event if the child process closes its stdin early.
+    // The proc.on('close') handler will still fire and reject with a meaningful message.
+    proc.stdin.on('error', () => {});
+
     const timer = setTimeout(() => {
       proc.kill();
       reject(new Error(`CLI command timed out after ${timeoutMs / 1000}s`));

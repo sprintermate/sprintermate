@@ -39,6 +39,8 @@ interface RoomState {
   votes: Map<string, Vote>;
   revealed: boolean;
   aiEstimate: AIEstimateResult | null;
+  /** userId of the participant temporarily holding moderator control, or null */
+  delegatedModerator: string | null;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -57,10 +59,17 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       votes: new Map(),
       revealed: false,
       aiEstimate: null,
+      delegatedModerator: null,
     };
     rooms.set(code, state);
   }
   return state;
+}
+
+// ─── Permission helper ────────────────────────────────────────────────────────
+
+function isActiveModerator(room: RoomState, userId: string): boolean {
+  return userId === (room.delegatedModerator ?? room.moderatorId);
 }
 
 // ─── Helper serialisers ───────────────────────────────────────────────────────
@@ -88,6 +97,7 @@ function buildRoomSnapshot(room: RoomState) {
     votes: serializeVotes(room, room.revealed),
     revealed: room.revealed,
     aiEstimate: room.revealed ? room.aiEstimate : null,
+    delegatedModerator: room.delegatedModerator,
   };
 }
 
@@ -152,9 +162,9 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       const room = rooms.get(code);
       if (!room) return;
 
-      // Only moderator may force navigation
+      // Only moderators may force navigation
       const participant = room.participants.get(socket.id);
-      if (!participant || participant.userId !== room.moderatorId) return;
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
 
       room.currentWorkItem = workItem;
       room.scoringActive   = false;
@@ -173,7 +183,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       if (!room) return;
 
       const participant = room.participants.get(socket.id);
-      if (!participant || participant.userId !== room.moderatorId) return;
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
 
       room.scoringActive = true;
       room.votes         = new Map();
@@ -214,7 +224,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       if (!room) return;
 
       const participant = room.participants.get(socket.id);
-      if (!participant || participant.userId !== room.moderatorId) return;
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
 
       room.revealed = true;
       if (data.aiEstimate) {
@@ -246,7 +256,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       if (!room) return;
 
       const participant = room.participants.get(socket.id);
-      if (!participant || participant.userId !== room.moderatorId) return;
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
 
       room.currentWorkItem = null;
       room.scoringActive   = false;
@@ -255,6 +265,36 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.aiEstimate      = null;
 
       io.to(code).emit('session:reset', {});
+    });
+
+    // ── moderator:grant ───────────────────────────────────────────────────────
+    // Main moderator grants temporary moderator rights to a participant
+    socket.on('moderator:grant', (data: { code: string; userId: string }) => {
+      const { code, userId } = data;
+      const room = rooms.get(code);
+      if (!room) return;
+
+      const caller = room.participants.get(socket.id);
+      // Only the main moderator can grant (not a self-moderator)
+      if (!caller || caller.userId !== room.moderatorId) return;
+
+      room.delegatedModerator = userId;
+      io.to(code).emit('moderator:updated', { delegatedModerator: userId });
+    });
+
+    // ── moderator:revoke ──────────────────────────────────────────────────────
+    // Main moderator revokes temporary moderator rights from a participant
+    socket.on('moderator:revoke', (data: { code: string; userId: string }) => {
+      const { code, userId } = data;
+      const room = rooms.get(code);
+      if (!room) return;
+
+      const caller = room.participants.get(socket.id);
+      // Only the main moderator can revoke
+      if (!caller || caller.userId !== room.moderatorId) return;
+
+      room.delegatedModerator = null;
+      io.to(code).emit('moderator:updated', { delegatedModerator: null });
     });
 
     // ── disconnect ────────────────────────────────────────────────────────────
@@ -272,7 +312,13 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 function handleLeave(socket: Socket, io: SocketIOServer) {
   for (const [code, room] of rooms) {
     if (room.participants.has(socket.id)) {
+      const leaving = room.participants.get(socket.id)!;
       room.participants.delete(socket.id);
+      const wasDelegated = room.delegatedModerator === leaving.userId;
+      if (wasDelegated) {
+        room.delegatedModerator = null;
+        io.to(code).emit('moderator:updated', { delegatedModerator: null });
+      }
       socket.leave(code);
       io.to(code).emit('room:participants_changed', {
         participants: serializeParticipants(room),

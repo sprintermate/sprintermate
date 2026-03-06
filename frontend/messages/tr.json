@@ -252,7 +252,12 @@
     "clickItemHint": "Ayrıntıları görüntülemek için herhangi bir öğeye tıklayın",
     "clickItemModeratorHint": "Herkesi yönlendirmek için bir öğeye tıklayın",
     "waitingForModerator": "Moderatör bekleniyor",
-    "waitingForModeratorDesc": "Moderatör oylama başlatmak için bir iş öğesi seçecek."
+    "waitingForModeratorDesc": "Moderatör oylama başlatmak için bir iş öğesi seçecek.",
+    "grantModerator": "Moderatörlük ver",
+    "revokeModerator": "Moderatörlüğü geri al",
+    "selfModerator": "Ortak Moderatör",
+    "moderatorGranted": "Artık Ortak Moderatörsünüz",
+    "moderatorRevoked": "Moderatör rolünüz geri alındı"
   },
   "workItemList": {
     "loading": "Azure DevOps'tan iş öğeleri yükleniyor…",

@@ -1,5 +1,15 @@
 # Roadmap
 
+## Upcoming Features (English summary)
+
+### TODO
+- [ ] **Multi-moderator support**: The moderator can grant moderator rights to any online participant via right-click. Granted users become "self-moderators". The main moderator can revoke rights at any time.
+- [ ] **Special vote cards**: Support for `?` (undecided) and ☕ (coffee break) votes. Coffee break persists across rounds until the participant votes again. `?` counts as a vote but is excluded from the average calculation.
+- [ ] **GitHub login**: OAuth via GitHub — tokens used directly for integration.
+- [ ] **Sprint metrics dashboard**: Clicking a project shows a metrics chart for the selected sprint.
+
+---
+
 ## TODO
 
 - [ ] Moderatör 1 kişi ancak moderatörlük yetkisi birden çok kişiye verilebilir. Online kısmındaki kişilerden dilediğine sağ tıklayıp moderatörlük verebilir. Bu kişinin rölü self-moderator olarak değiştirilebilir. Ana moderatör, moderatörlük yetkisi verdiğinde online şeridinde "Moderatörlüğü geri al" butonu ortaya çıkacaktır ve dilediğinde geri alıp başkasına verebilir veya kendi devam edebilir.
