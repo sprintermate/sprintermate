@@ -39,9 +39,12 @@ RetroSession.belongsTo(User, { foreignKey: 'created_by' });
 
 async function runMigrations(): Promise<void> {
   // Add columns that may be missing from existing DBs (safe, idempotent)
+  const dialect = sequelize.getDialect();
   const migrations: Array<{ check: string; run: string }> = [
     {
-      check: "SELECT name FROM pragma_table_info('retro_sessions') WHERE name='project_id'",
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='retro_sessions' AND column_name='project_id'"
+        : "SELECT name FROM pragma_table_info('retro_sessions') WHERE name='project_id'",
       run: "ALTER TABLE retro_sessions ADD COLUMN project_id TEXT",
     },
   ];
