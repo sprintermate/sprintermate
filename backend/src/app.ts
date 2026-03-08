@@ -13,6 +13,7 @@ import roomsRouter from './routes/rooms';
 import aiRouter from './routes/ai';
 import metricsRouter from './routes/metrics';
 import retroRouter from './routes/retro';
+import requestLogger from './middleware/requestLogger';
 import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
 import './types/auth'; // register Express.User augmentation
@@ -96,6 +97,8 @@ export function createApp(): Application {
       },
     )(req, _res, next);
   });
+
+  app.use(requestLogger);
 
   app.use('/api/auth', authRateLimit, authRouter);
   app.use('/api/projects', projectsRouter);

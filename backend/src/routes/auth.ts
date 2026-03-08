@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, CookieOptions } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
@@ -14,16 +14,22 @@ const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-me';
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days in seconds
 
-function setAuthCookie(res: Response, payload: UserSession): void {
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+function getCookieOptions(): CookieOptions {
   const isSecure = (process.env.FRONTEND_URL ?? '').split(',').some(u => u.trim().startsWith('https://'));
   const cookieDomain = process.env.COOKIE_DOMAIN;
-  res.cookie('token', token, {
+  return {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
-    maxAge: COOKIE_MAX_AGE,
     ...(cookieDomain ? { domain: cookieDomain } : {}),
+  };
+}
+
+function setAuthCookie(res: Response, payload: UserSession): void {
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  res.cookie('token', token, {
+    ...getCookieOptions(),
+    maxAge: COOKIE_MAX_AGE,
   });
 }
 
@@ -115,7 +121,7 @@ router.get('/me', (req: Request, res: Response) => {
 
 // POST /api/auth/logout
 router.post('/logout', (_req: Request, res: Response) => {
-  res.clearCookie('token');
+  res.clearCookie('token', getCookieOptions());
   res.json({ ok: true });
 });
 
