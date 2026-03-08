@@ -10,8 +10,17 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Scrum AI — AI-Powered Agile',
-  description: 'Real-time Scrum Poker, AI story-point estimation, Azure DevOps integration, and AI-powered retrospectives.',
+  title: 'Sprintermate AI — AI-Powered Agile',
+  description: 'Real-time planning poker, AI story-point estimation, Azure DevOps integration, and AI-powered retrospectives.',
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
 };
 
 export function generateStaticParams() {

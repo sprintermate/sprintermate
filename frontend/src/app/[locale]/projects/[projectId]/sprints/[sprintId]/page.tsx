@@ -102,7 +102,7 @@ export default async function SprintMetricsPage({ params }: Props) {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 dark:from-indigo-500 dark:to-violet-600 flex items-center justify-center shadow-lg">
                 <span className="text-white font-bold text-sm">SA</span>
               </div>
-              <span className="font-semibold text-gray-900 dark:text-white">Scrum AI</span>
+              <span className="font-semibold text-gray-900 dark:text-white">Sprintermate AI</span>
             </a>
             
             <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400">

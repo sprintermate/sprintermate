@@ -1,5 +1,9 @@
 # Sprintermate
 
+> 🌐 **English** | [Türkçe](README.tr.md)
+
+![Sprintermate](LOGO.jpg)
+
 **Planning poker that actually helps your team estimate smarter.**
 
 Sprintermate combines real-time collaborative voting with AI-powered story point estimation. Your team votes together, the AI learns from your history, and estimates get better every sprint — no more endless debates or anchoring bias.
@@ -74,4 +78,4 @@ Copy `backend/.env.example` to `backend/.env` and set `JWT_SECRET`, `ENCRYPTION_
 | `FRONTEND_URL`    | CORS origin(s) — comma-separated for multiple          |
 | `NGROK_AUTHTOKEN` | ngrok token (Docker only)                              |
 | `PORT`            | Backend port (default `4000`)                          |
-| `DB_PATH`         | SQLite file path (default `data/scrum-poker.db`)       |
+| `DB_PATH`         | SQLite file path (default `data/sprintermate.db`)      |

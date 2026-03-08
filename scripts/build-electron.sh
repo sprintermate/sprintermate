@@ -10,7 +10,7 @@ ELECTRON="$ROOT/electron"
 
 echo ""
 echo "╔══════════════════════════════════════════════╗"
-echo "║     Scrum Poker — Electron Build Pipeline    ║"
+echo "║   Sprintermate AI — Electron Build Pipeline  ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 

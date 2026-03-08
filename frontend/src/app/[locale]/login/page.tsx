@@ -59,7 +59,7 @@ export default async function LoginPage({ params }: Props) {
         </div>
 
         <p className="text-center text-gray-400 dark:text-slate-600 text-xs">
-          Scrum AI — AI-Powered Agile
+          Sprintermate AI — AI-Powered Agile
         </p>
       </div>
     </div>

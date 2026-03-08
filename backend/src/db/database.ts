@@ -24,7 +24,7 @@ if (choice === 'postgres') {
     logging: false,
   });
 } else {
-  const dbPath = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'scrum-poker.db');
+  const dbPath = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'sprintermate.db');
   const dataDir = path.dirname(dbPath);
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });

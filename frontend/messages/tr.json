@@ -7,7 +7,7 @@
   "hero": {
     "badge": "YZ Destekli Agile",
     "headline": "Agile Ekipler,\nYZ ile Güçlendi.",
-    "subheadline": "Gerçek zamanlı Scrum Poker ile sprint planlaması, YZ hikaye puanı tahmini, Azure DevOps entegrasyonu ve her sprinti güçlü kapatmak için YZ destekli retrospektifler.",
+    "subheadline": "Gerçek zamanlı planlama pokeri ile sprint planlaması, YZ hikaye puanı tahmini, Azure DevOps entegrasyonu ve her sprinti güçlü kapatmak için YZ destekli retrospektifler.",
     "ctaJoin": "Oturuma Katıl",
     "ctaCreate": "Başlayın",
     "scroll": "Nasıl çalıştığını keşfet"
@@ -28,10 +28,6 @@
       "devops": {
         "title": "Azure DevOps Entegrasyonu",
         "description": "Sprint URL'sini yapıştırın ve Kişisel Erişim Belirteci ile bağlanın. Backlog'unuz anında içe aktarılır — manuel giriş yok."
-      },
-      "fibonacci": {
-        "title": "Fibonacci Ölçeği",
-        "description": "Tahminler standart Fibonacci dizisini (1, 2, 3, 5, 8, 13, 21, 34, 55) kullanır — ekibinizin zaten bildiği ölçek."
       },
       "history": {
         "title": "Geçmiş Bağlam",
@@ -54,7 +50,7 @@
       "connect": {
         "step": "01",
         "title": "Azure DevOps'a Bağlanın",
-        "description": "Sprint panosu URL'nizi yapıştırın. Scrum AI organizasyonunuzu, projenizi ve mevcut sprint'inizi otomatik olarak ayıklar."
+        "description": "Sprint panosu URL'nizi yapıştırın. Sprintermate AI organizasyonunuzu, projenizi ve mevcut sprint'inizi otomatik olarak ayıklar."
       },
       "calibrate": {
         "step": "02",
@@ -64,7 +60,7 @@
       "create": {
         "step": "03",
         "title": "Sprintinizi Planlayın",
-        "description": "Scrum Poker odası oluşturun. 6 karakterli kodu paylaşın. YZ hikaye puanı önerirken ekip gerçek zamanlı oy verir."
+        "description": "Sprintermate AI odası oluşturun. 6 karakterli kodu paylaşın. YZ hikaye puanı önerirken ekip gerçek zamanlı oy verir."
       },
       "vote": {
         "step": "04",
@@ -82,11 +78,11 @@
     "retro": "YZ Retrospektifleri"
   },
   "footer": {
-    "tagline": "Scrum AI — daha akıllı agile ekipler.",
+    "tagline": "Sprintermate AI — daha akıllı agile ekipler.",
     "rights": "Tüm hakları saklıdır."
   },
   "login": {
-    "title": "Scrum AI'ya Hoş Geldiniz",
+    "title": "Sprintermate AI'ya Hoş Geldiniz",
     "description": "Sprint planlama odalarına, YZ tahmine ve retrospektiflere erişmek için giriş yapın.",
     "emailLabel": "E-posta",
     "emailPlaceholder": "siz@ornek.com",
@@ -104,7 +100,7 @@
   },
   "register": {
     "title": "Hesap Oluştur",
-    "description": "Scrum AI'ya katılın ve ekibinizle sprint planlamaya başlayın.",
+    "description": "Sprintermate AI'ya katılın ve ekibinizle sprint planlamaya başlayın.",
     "displayNameLabel": "Görünen ad",
     "displayNamePlaceholder": "Adınız",
     "emailLabel": "E-posta",
@@ -132,7 +128,7 @@
     "noRooms": "Henüz oda yok. Başlamak için bir tane oluşturun.",
     "createRoom": "+ Oda Oluştur",
     "joinByCode": "Kodla Katıl",
-    "tabRooms": "Scrum Poker Odaları",
+    "tabRooms": "Sprintermate AI Odaları",
     "tabProjects": "Projeler",
     "yourProjects": "Projeleriniz",
     "noProjects": "Henüz proje yok. Bağlanmak için bir oda oluşturun.",

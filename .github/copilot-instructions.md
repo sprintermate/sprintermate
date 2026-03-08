@@ -104,6 +104,6 @@ Key components: `RoomClient.tsx` (Socket.IO voting), `WorkItemDetail.tsx` (AI es
 | `NEXT_PUBLIC_BACKEND_URL` | Backend base URL for frontend fetch calls |
 | `NGROK_AUTHTOKEN` | Required for Electron's public URL tunneling |
 | `PORT` | Backend port (default `4000`) |
-| `DB_PATH` | SQLite file path (default `data/scrum-poker.db`) |
+| `DB_PATH` | SQLite file path (default `data/sprintermate.db`) |
 
 Copy `.env.example` to `.env` before running locally.

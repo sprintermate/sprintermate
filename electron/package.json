@@ -1,7 +1,7 @@
 {
-  "name": "scrum-poker-desktop",
+  "name": "sprintermate-desktop",
   "version": "1.0.0",
-  "description": "Scrum Poker desktop application",
+  "description": "Sprintermate AI desktop application",
   "main": "dist/main.js",
   "private": true,
   "scripts": {

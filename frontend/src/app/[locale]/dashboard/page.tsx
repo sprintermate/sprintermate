@@ -80,7 +80,7 @@ export default async function DashboardPage({ params }: Props) {
             <div className="w-8 h-8 rounded-lg bg-cyan-600 dark:bg-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">SA</span>
             </div>
-            <span className="font-semibold text-gray-900 dark:text-white">Scrum AI</span>
+            <span className="font-semibold text-gray-900 dark:text-white">Sprintermate AI</span>
           </div>
 
           <div className="flex items-center gap-4">

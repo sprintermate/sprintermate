@@ -1,4 +1,4 @@
-# Contributing to Scrum Poker
+# Contributing to Sprintermate AI
 
 Thank you for considering contributing! This document outlines how to set up your development environment and the process for submitting contributions.
 
@@ -13,8 +13,8 @@ Thank you for considering contributing! This document outlines how to set up you
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/scrum-poker.git
-   cd scrum-poker
+   git clone https://github.com/sprintermate/sprintermate.git
+   cd sprintermate
    ```
 
 2. **Set up the backend**
@@ -66,7 +66,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ## Reporting Bugs
 
-Please use [GitHub Issues](https://github.com/your-org/scrum-poker/issues). Include:
+Please use [GitHub Issues](https://github.com/sprintermate/sprintermate/issues). Include:
 - Steps to reproduce
 - Expected vs actual behavior
 - Environment (OS, Node version, Docker version)

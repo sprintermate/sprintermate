@@ -39,7 +39,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: Scrum Poker Desktop ${{ steps.tag.outputs.tag }}
+          name: Sprintermate AI Desktop ${{ steps.tag.outputs.tag }}
           prerelease: ${{ inputs.prerelease }}
           draft: false
           generate_release_notes: true

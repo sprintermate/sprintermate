@@ -4,13 +4,12 @@ const ICONS: Record<string, string> = {
   realtime: '⚡',
   ai: '🤖',
   devops: '☁️',
-  fibonacci: '🃏',
   history: '📊',
   rooms: '🚪',
   retro: '📝',
 };
 
-const FEATURE_KEYS = ['realtime', 'ai', 'devops', 'fibonacci', 'history', 'rooms', 'retro'] as const;
+const FEATURE_KEYS = ['realtime', 'ai', 'devops', 'history', 'rooms', 'retro'] as const;
 
 export default function Features() {
   const t = useTranslations('features');

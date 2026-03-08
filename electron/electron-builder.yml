@@ -1,5 +1,5 @@
-appId: com.scrumpoker.desktop
-productName: ScrumPoker
+appId: com.sprintermate.desktop
+productName: SprintermateAI
 
 directories:
   output: dist-electron
