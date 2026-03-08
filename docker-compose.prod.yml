@@ -54,10 +54,12 @@ services:
     image: datalust/seq:latest
     restart: unless-stopped
     environment:
-      ACCEPT_EULA: Y
-      SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_ADMIN_PASSWORD_HASH}
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD}
     volumes:
       - seq_data:/data
+    ports:
+      - "8081:80"
     networks:
       - internal
 
