@@ -128,7 +128,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
   setIO(io);
 
   io.on('connection', (socket: Socket) => {
-    log.info({ socketId: socket.id }, 'client connected');
+    log.info('client connected', { socketId: socket.id });
 
     // ── room:join ─────────────────────────────────────────────────────────────
     socket.on('room:join', (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
@@ -159,7 +159,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         participants: serializeParticipants(room),
       });
 
-      log.info({ displayName, roomCode: code }, 'user joined room');
+      log.info('user joined room', { displayName, roomCode: code });
     });
 
     // ── room:leave ────────────────────────────────────────────────────────────
@@ -368,7 +368,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       io.to(`retro:${code}`).emit('retro:participants_changed', {
         participants: Array.from(retroRooms.get(code)!.values()),
       });
-      log.info({ socketId: socket.id, roomCode: code }, 'joined retro room');
+      log.info('joined retro room', { socketId: socket.id, roomCode: code });
     });
 
     // ── retro:leave ───────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     // ── disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       handleLeave(socket, io);
-      log.info({ socketId: socket.id }, 'client disconnected');
+      log.info('client disconnected', { socketId: socket.id });
     });
   });
 

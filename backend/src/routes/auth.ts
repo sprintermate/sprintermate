@@ -17,11 +17,13 @@ const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days in seconds
 function setAuthCookie(res: Response, payload: UserSession): void {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   const isSecure = (process.env.FRONTEND_URL ?? '').split(',').some(u => u.trim().startsWith('https://'));
+  const cookieDomain = process.env.COOKIE_DOMAIN;
   res.cookie('token', token, {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
     maxAge: COOKIE_MAX_AGE,
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
   });
 }
 
@@ -66,7 +68,7 @@ router.post('/register', async (req: Request, res: Response) => {
     setAuthCookie(res, sessionUser);
     return res.status(201).json(sessionUser);
   } catch (err) {
-    log.error({ err }, 'register error');
+    log.error('register error', { err });
     return res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -98,7 +100,7 @@ router.post('/login', async (req: Request, res: Response) => {
     setAuthCookie(res, sessionUser);
     return res.json(sessionUser);
   } catch (err) {
-    log.error({ err }, 'login error');
+    log.error('login error', { err });
     return res.status(500).json({ error: 'Login failed' });
   }
 });

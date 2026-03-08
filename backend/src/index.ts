@@ -18,11 +18,11 @@ async function main() {
   initSocket(httpServer);
 
   httpServer.listen(PORT, () => {
-    log.info({ port: PORT }, `listening on http://localhost:${PORT}`);
+    log.info(`listening on http://localhost:${PORT}`, { port: PORT });
   });
 }
 
 main().catch((err) => {
-  log.fatal({ err }, 'startup error');
+  log.error('startup error', { err });
   process.exit(1);
 });

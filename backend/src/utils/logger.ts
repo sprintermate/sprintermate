@@ -1,51 +1,35 @@
-import pino from 'pino';
+import winston from 'winston';
+import { SeqTransport } from '@datalust/winston-seq';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const seqUrl = process.env.SEQ_URL;
 
-function isPinoSeqAvailable(): boolean {
-  try {
-    require.resolve('pino-seq');
-    return true;
-  } catch {
-    return false;
-  }
-}
+const devFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(({ timestamp, level, message, component, ...meta }) => {
+    const comp = component ? `[${component}] ` : '';
+    const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    return `${timestamp} ${level} ${comp}${message}${metaStr}`;
+  }),
+);
 
-const logger = (() => {
-  if (isProduction) {
-    if (seqUrl && isPinoSeqAvailable()) {
-      return pino(
-        { level: 'info' },
-        pino.transport({
-          targets: [
-            { target: 'pino/file', options: { destination: 1 }, level: 'info' as const },
-            {
-              target: 'pino-seq',
-              options: { serverUrl: seqUrl, apiKey: process.env.SEQ_API_KEY },
-              level: 'info' as const,
-            },
-          ],
+const logger = winston.createLogger({
+  level: isProduction ? 'info' : 'debug',
+  transports: isProduction
+    ? [
+        new SeqTransport({
+          serverUrl: process.env.SEQ_URL ?? 'http://seq:5341',
+          apiKey: process.env.SEQ_API_KEY || undefined,
+          onError: (e) => console.error('[seq]', e),
+          handleExceptions: true,
+          handleRejections: true,
         }),
-      );
-    }
-    return pino({ level: 'info' });
-  }
-  return pino(
-    { level: 'debug' },
-    pino.transport({
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'SYS:standard',
-        ignore: 'pid,hostname',
-      },
-    }),
-  );
-})();
+      ]
+    : [new winston.transports.Console({ format: devFormat })],
+});
 
 export default logger;
 
-export function childLogger(component: string): pino.Logger {
+export function childLogger(component: string): winston.Logger {
   return logger.child({ component });
 }

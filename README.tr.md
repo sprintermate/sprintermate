@@ -2,7 +2,7 @@
 
 > 🌐 [English](README.md) | **Türkçe**
 
-![Sprintermate](LOGO.jpg)
+<p align="center"><img src="LOGO.jpg" width="300" /></p>
 
 **Ekibinizin daha akıllı tahmin yapmasını sağlayan planlama pokeri.**
 

@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
-import pinoHttp from 'pino-http';
+import expressWinston from 'express-winston';
 import logger from './utils/logger';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
@@ -34,11 +34,17 @@ export function createApp(): Application {
   // - HTTPS (ngrok / production TLS)    → secure: true
   app.set('trust proxy', 1);
 
-  app.use(pinoHttp({
-    logger,
-    redact: ['req.headers.authorization', 'req.headers.cookie'],
-    autoLogging: { ignore: (req) => req.url === '/api/health' },
-  }));
+  app.use(
+    expressWinston.logger({
+      winstonInstance: logger,
+      meta: true,
+      msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}}',
+      expressFormat: false,
+      colorize: false,
+      ignoredRoutes: ['/api/health'],
+      headerBlacklist: ['authorization', 'cookie'],
+    }),
+  );
 
   app.use(helmet());
 

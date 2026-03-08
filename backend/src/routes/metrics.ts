@@ -70,7 +70,7 @@ router.get('/projects/:projectId/sprints/:sprintId', async (req, res) => {
 
     res.json(metrics);
   } catch (err: any) {
-    log.error({ err }, 'Error fetching sprint metrics');
+    log.error('Error fetching sprint metrics', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch sprint metrics' });
   }
 });
@@ -134,7 +134,7 @@ router.get('/projects/:projectId/trends', async (req, res) => {
 
     res.json(trends);
   } catch (err: any) {
-    log.error({ err }, 'Error fetching sprint trends');
+    log.error('Error fetching sprint trends', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch sprint trends' });
   }
 });
@@ -194,7 +194,7 @@ router.get('/projects/:projectId/sprints/:sprintId/velocity-history', async (req
 
     res.json(history);
   } catch (err: any) {
-    log.error({ err }, 'Error fetching velocity history');
+    log.error('Error fetching velocity history', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch velocity history' });
   }
 });
@@ -283,7 +283,7 @@ router.post('/projects/:projectId/sprints/:sprintId/insights', async (req, res) 
 
     res.json(insights);
   } catch (err: any) {
-    log.error({ err }, 'Error generating sprint insights');
+    log.error('Error generating sprint insights', { err });
     res.status(500).json({ error: err.message ?? 'Failed to generate insights' });
   }
 });
@@ -316,7 +316,7 @@ router.get('/projects/:projectId/sprints/:sprintId/score-records', async (req, r
 
     res.json(records.map(r => r.get({ plain: true })));
   } catch (err: any) {
-    log.error({ err }, 'Error fetching score records');
+    log.error('Error fetching score records', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch score records' });
   }
 });

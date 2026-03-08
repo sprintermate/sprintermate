@@ -12,7 +12,7 @@ if (choice === 'postgres') {
   const required = ['POSTGRES_DB_HOST', 'POSTGRES_DB_PORT', 'POSTGRES_DB_NAME', 'POSTGRES_DB_USER', 'POSTGRES_DB_PASSWORD'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
-    log.fatal({ missingVars: missing }, 'DB_CHOICE=postgres but required env vars are missing');
+    log.error('DB_CHOICE=postgres but required env vars are missing', { missingVars: missing });
     process.exit(1);
   }
 

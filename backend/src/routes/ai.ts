@@ -357,7 +357,7 @@ router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
 
     res.json(result);
   } catch (err: any) {
-    log.error({ err, name: err?.name, errors: err?.errors }, 'estimate error');
+    log.error('estimate error', { err, name: err?.name, errors: err?.errors });
     res.status(500).json({ error: err.message ?? 'AI estimation failed' });
   } finally {
     if (projectId !== null && workItemIdNum !== null) {

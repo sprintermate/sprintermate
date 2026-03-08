@@ -893,14 +893,14 @@ async function getWorkItemsWithHistory(
 
       if (!batchRes.ok) {
         const text = (await batchRes.text()).slice(0, 200);
-        log.error({ status: batchRes.status, body: text }, 'Failed to batch fetch work items chunk');
+        log.error('Failed to batch fetch work items chunk', { status: batchRes.status, body: text });
         continue; // Skip this chunk but continue with others
       }
 
       const batchData = await batchRes.json() as any;
       allItems.push(...(batchData.value ?? []));
     } catch (err) {
-      log.error({ err }, 'Batch fetch work items chunk failed');
+      log.error('Batch fetch work items chunk failed', { err });
       // Continue with next chunk
     }
   }
@@ -1080,7 +1080,7 @@ async function calculateStateDurations(
         leadTimesArr.push((firstDoneDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
       }
     } catch (err) {
-      log.error({ err, workItemId: id }, 'Failed to fetch revisions for work item');
+      log.error('Failed to fetch revisions for work item', { err, workItemId: id });
     }
   }
 
@@ -1137,7 +1137,7 @@ export async function calculateSprintTrends(
         startDate: metrics.startDate,
       });
     } catch (err) {
-      log.error({ err, sprintId }, 'Failed to calculate metrics for sprint');
+      log.error('Failed to calculate metrics for sprint', { err, sprintId });
     }
   }
 
@@ -1233,7 +1233,7 @@ export async function getVelocityHistory(
         isCurrent: sprint.id === currentIterationId,
       });
     } catch (err) {
-      log.error({ err, sprintName: sprint.name }, 'Failed to fetch velocity for sprint');
+      log.error('Failed to fetch velocity for sprint', { err, sprintName: sprint.name });
     }
   }
 

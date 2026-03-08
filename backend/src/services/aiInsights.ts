@@ -45,7 +45,7 @@ export async function generateSprintInsights(
   try {
     aiResponse = await callAIProvider(settings, context);
   } catch (err) {
-    log.error({ err }, 'AI provider call failed, using fallback analysis');
+    log.error('AI provider call failed, using fallback analysis', { err });
     return generateFallbackInsights(currentMetrics, historicalTrends);
   }
 
@@ -198,7 +198,7 @@ function parseAIInsights(aiResponse: string, current: SprintMetrics, trends: Spr
       };
     }
   } catch (err) {
-    log.error({ err }, 'Failed to parse AI response');
+    log.error('Failed to parse AI response', { err });
   }
 
   // Fallback to rule-based insights
