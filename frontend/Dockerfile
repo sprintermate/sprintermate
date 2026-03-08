@@ -17,6 +17,9 @@ COPY . .
 ARG NEXT_PUBLIC_BACKEND_URL=""
 ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 
+ARG NEXT_PUBLIC_IS_PRODUCTION_AI=""
+ENV NEXT_PUBLIC_IS_PRODUCTION_AI=${NEXT_PUBLIC_IS_PRODUCTION_AI}
+
 RUN npm run build && mkdir -p /app/public
 
 # ─── Runtime stage ────────────────────────────────────────────────────────────

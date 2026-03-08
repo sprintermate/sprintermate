@@ -94,7 +94,7 @@ export default async function DashboardPage({ params }: Props) {
             </div>
 
             <ThemeToggle />
-            <AISettingsButton />
+            {process.env.NEXT_PUBLIC_IS_PRODUCTION_AI !== 'true' && <AISettingsButton />}
             <LogoutButton locale={locale} />
           </div>
         </div>

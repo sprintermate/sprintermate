@@ -336,6 +336,13 @@ export async function callAI(
   }
 }
 
+export function getProductionAISettings(): { provider: string; apiKey: string } | null {
+  if (process.env.NODE_ENV !== 'production') return null;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('[production] GEMINI_API_KEY is not set. AI features are unavailable.');
+  return { provider: 'gemini', apiKey };
+}
+
 /** Simple connectivity test — verify the AI provider responds with anything. */
 export async function testAIConnection(
   provider: string,
