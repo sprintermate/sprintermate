@@ -282,9 +282,13 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     required: ['story-point', 'confidence', 'analysis', 'similar-items'],
   };
 
+  const geminiModel = process.env.NODE_ENV === 'production'
+    ? 'gemini-2.5-flash-lite'
+    : 'gemini-flash-latest';
+
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-flash-latest',
+    model: geminiModel,
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: estimateSchema,

@@ -306,9 +306,10 @@ router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
 
       // Find the index of the current sprint
       const currentIdx = allSprints.findIndex((s) => s.id === sprint.ado_sprint_id);
-      // Get up to 10 previous sprints
+      // Get previous sprints (limit depends on environment)
+      const sprintHistoryLimit = process.env.NODE_ENV === 'production' ? 5 : 10;
       const prevSprints = (currentIdx > 0)
-        ? allSprints.slice(Math.max(0, currentIdx - 10), currentIdx)
+        ? allSprints.slice(Math.max(0, currentIdx - sprintHistoryLimit), currentIdx)
         : [];
 
       const isVisualStudio = req.headers['referer']?.includes('.visualstudio.com') || project.ado_url?.includes('.visualstudio.com');
