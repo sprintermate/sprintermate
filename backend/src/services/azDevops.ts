@@ -1,3 +1,7 @@
+import { childLogger } from '../utils/logger';
+
+const log = childLogger('azDevops');
+
 /**
  * Azure DevOps work item URL'sini organization, project ve workItemId'ye göre üretir.
  * dev.azure.com ve *.visualstudio.com formatlarını destekler.
@@ -889,14 +893,14 @@ async function getWorkItemsWithHistory(
 
       if (!batchRes.ok) {
         const text = (await batchRes.text()).slice(0, 200);
-        console.error(`Failed to batch fetch work items chunk: ${batchRes.status} - ${text}`);
+        log.error({ status: batchRes.status, body: text }, 'Failed to batch fetch work items chunk');
         continue; // Skip this chunk but continue with others
       }
 
       const batchData = await batchRes.json() as any;
       allItems.push(...(batchData.value ?? []));
     } catch (err) {
-      console.error('Batch fetch work items chunk failed:', err);
+      log.error({ err }, 'Batch fetch work items chunk failed');
       // Continue with next chunk
     }
   }
@@ -1076,7 +1080,7 @@ async function calculateStateDurations(
         leadTimesArr.push((firstDoneDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
       }
     } catch (err) {
-      console.error(`Failed to fetch revisions for work item ${id}:`, err);
+      log.error({ err, workItemId: id }, 'Failed to fetch revisions for work item');
     }
   }
 
@@ -1133,7 +1137,7 @@ export async function calculateSprintTrends(
         startDate: metrics.startDate,
       });
     } catch (err) {
-      console.error(`Failed to calculate metrics for sprint ${sprintId}:`, err);
+      log.error({ err, sprintId }, 'Failed to calculate metrics for sprint');
     }
   }
 
@@ -1229,7 +1233,7 @@ export async function getVelocityHistory(
         isCurrent: sprint.id === currentIterationId,
       });
     } catch (err) {
-      console.error(`Failed to fetch velocity for sprint ${sprint.name}:`, err);
+      log.error({ err, sprintName: sprint.name }, 'Failed to fetch velocity for sprint');
     }
   }
 

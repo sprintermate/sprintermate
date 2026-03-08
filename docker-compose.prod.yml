@@ -34,15 +34,30 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       FRONTEND_URL: ${FRONTEND_URL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SEQ_URL: http://seq:5341
+      SEQ_API_KEY: ${SEQ_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
+      seq:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - internal
+
+  seq:
+    image: datalust/seq:latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: Y
+      SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_ADMIN_PASSWORD_HASH}
+    volumes:
+      - seq_data:/data
     networks:
       - internal
 
@@ -55,11 +70,14 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      seq:
+        condition: service_started
     networks:
       - internal
 
 volumes:
   postgres_data:
+  seq_data:
 
 networks:
   internal:

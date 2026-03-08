@@ -8,12 +8,22 @@ const logger = isProduction
       pino.transport({
         target: 'pino-seq',
         options: {
-          serverUrl: process.env.SEQ_URL ?? 'http://localhost:5341',
+          serverUrl: process.env.SEQ_URL,
           apiKey: process.env.SEQ_API_KEY,
         },
       }),
     )
-  : pino({ level: 'silent' });
+  : pino(
+      { level: 'debug' },
+      pino.transport({
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }),
+    );
 
 export default logger;
 
