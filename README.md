@@ -12,13 +12,13 @@ Sprintermate combines real-time collaborative voting with AI-powered story point
 
 **Stack:** Next.js 14 · Express · Socket.IO · SQLite/PostgreSQL · TypeScript · Tailwind CSS
 
----
+# How can I use it?
 
-## Hosted — no setup needed
+You can use Sprintermate in the cloud with no setup, or self-host it locally.
+
+## Cloud version
 
 Visit **[sprintermate.com](https://sprintermate.com)** and start a session in seconds.
-
----
 
 ## Self-host locally
 
