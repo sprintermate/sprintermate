@@ -5,6 +5,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import pinoHttp from 'pino-http';
+import logger from './utils/logger';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import roomsRouter from './routes/rooms';
@@ -31,6 +33,12 @@ export function createApp(): Application {
   // - HTTP (local/Docker without HTTPS) → secure: false
   // - HTTPS (ngrok / production TLS)    → secure: true
   app.set('trust proxy', 1);
+
+  app.use(pinoHttp({
+    logger,
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
+    autoLogging: { ignore: (req) => req.url === '/api/health' },
+  }));
 
   app.use(helmet());
 

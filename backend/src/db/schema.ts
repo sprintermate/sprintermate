@@ -1,4 +1,5 @@
 import sequelize from './database';
+import { childLogger } from '../utils/logger';
 import User from './models/User';
 import Project from './models/Project';
 import Sprint from './models/Sprint';
@@ -57,11 +58,13 @@ async function runMigrations(): Promise<void> {
   }
 }
 
+const log = childLogger('db');
+
 export async function initSchema(): Promise<void> {
   // sync() only creates missing tables — never alters existing ones (safe for prod data)
   await sequelize.sync();
   await runMigrations();
-  console.log('[db] schema synced');
+  log.info('schema synced');
 }
 
 export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction };

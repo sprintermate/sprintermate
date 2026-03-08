@@ -23,7 +23,7 @@ Sprint.init(
       allowNull: true,
     },
     project_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     name: {

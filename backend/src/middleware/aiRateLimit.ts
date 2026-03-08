@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 const aiRateLimit = rateLimit({
   windowMs: 60 * 1000,
@@ -7,7 +7,7 @@ const aiRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => {
-    return (req.user as { id?: string } | undefined)?.id ?? req.ip ?? 'unknown';
+    return (req.user as { id?: string } | undefined)?.id ?? ipKeyGenerator(req);
   },
   message: { error: 'Too many AI requests. Please wait before trying again.' },
 });

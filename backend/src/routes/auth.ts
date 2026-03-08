@@ -4,6 +4,9 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { User } from '../db/schema';
 import type { UserSession } from '../types/auth';
+import { childLogger } from '../utils/logger';
+
+const log = childLogger('auth');
 
 const router = Router();
 
@@ -63,7 +66,7 @@ router.post('/register', async (req: Request, res: Response) => {
     setAuthCookie(res, sessionUser);
     return res.status(201).json(sessionUser);
   } catch (err) {
-    console.error('[auth] register error:', err);
+    log.error({ err }, 'register error');
     return res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -95,7 +98,7 @@ router.post('/login', async (req: Request, res: Response) => {
     setAuthCookie(res, sessionUser);
     return res.json(sessionUser);
   } catch (err) {
-    console.error('[auth] login error:', err);
+    log.error({ err }, 'login error');
     return res.status(500).json({ error: 'Login failed' });
   }
 });

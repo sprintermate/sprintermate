@@ -1,7 +1,9 @@
 import { Sequelize } from 'sequelize';
 import path from 'path';
 import fs from 'fs';
+import { childLogger } from '../utils/logger';
 
+const log = childLogger('db');
 const choice = (process.env.DB_CHOICE ?? 'sqlite').toLowerCase();
 
 let sequelize: Sequelize;
@@ -10,7 +12,7 @@ if (choice === 'postgres') {
   const required = ['POSTGRES_DB_HOST', 'POSTGRES_DB_PORT', 'POSTGRES_DB_NAME', 'POSTGRES_DB_USER', 'POSTGRES_DB_PASSWORD'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
-    console.error(`[db] DB_CHOICE=postgres but required env vars are missing: ${missing.join(', ')}`);
+    log.fatal({ missingVars: missing }, 'DB_CHOICE=postgres but required env vars are missing');
     process.exit(1);
   }
 

@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { UniqueConstraintError } from 'sequelize';
+import { childLogger } from '../utils/logger';
+
+const log = childLogger('ai');
 import requireAuth from '../middleware/requireAuth';
 import aiRateLimit from '../middleware/aiRateLimit';
 import { UserAISettings, Room, Project, Sprint, ReferenceScore, WorkItemAIEstimate } from '../db/schema';
@@ -354,7 +357,7 @@ router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
 
     res.json(result);
   } catch (err: any) {
-    console.error('[ai/estimate] error:', err?.name, err?.message, err?.errors ?? '');
+    log.error({ err, name: err?.name, errors: err?.errors }, 'estimate error');
     res.status(500).json({ error: err.message ?? 'AI estimation failed' });
   } finally {
     if (projectId !== null && workItemIdNum !== null) {

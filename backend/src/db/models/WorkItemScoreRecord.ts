@@ -20,7 +20,7 @@ WorkItemScoreRecord.init(
       primaryKey: true,
     },
     project_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     work_item_id: {

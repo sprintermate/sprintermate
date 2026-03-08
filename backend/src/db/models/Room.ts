@@ -23,11 +23,11 @@ Room.init(
       unique: true,
     },
     project_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     sprint_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     moderator_id: {

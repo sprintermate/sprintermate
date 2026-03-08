@@ -3,9 +3,11 @@ import dotenv from 'dotenv';
 import { createApp } from './app';
 import { initSocket } from './socket';
 import { initSchema } from './db/schema';
+import { childLogger } from './utils/logger';
 
 dotenv.config();
 
+const log = childLogger('backend');
 const PORT = process.env.PORT ?? 4000;
 
 async function main() {
@@ -16,11 +18,11 @@ async function main() {
   initSocket(httpServer);
 
   httpServer.listen(PORT, () => {
-    console.log(`[backend] listening on http://localhost:${PORT}`);
+    log.info({ port: PORT }, `listening on http://localhost:${PORT}`);
   });
 }
 
 main().catch((err) => {
-  console.error('[backend] startup error', err);
+  log.fatal({ err }, 'startup error');
   process.exit(1);
 });
