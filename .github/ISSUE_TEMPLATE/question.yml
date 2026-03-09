@@ -1,0 +1,37 @@
+name: Question
+description: Ask a question about setup, usage, or behavior
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: Before asking, please check the [README](../../blob/main/README.md) and existing issues.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+      description: Describe what you're attempting to accomplish.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Steps or approaches you've already taken.
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - Docker
+        - Electron
+        - Dev (local)
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: e.g. 1.2.0
