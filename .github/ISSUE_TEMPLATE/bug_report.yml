@@ -3,15 +3,11 @@ description: Report a bug or unexpected behavior
 title: "[Bug]: "
 labels: ["bug"]
 body:
-  - type: markdown
-    attributes:
-      value: Thanks for taking the time to report a bug!
-
   - type: textarea
     id: description
     attributes:
       label: What happened?
-      description: A clear description of the bug and what you expected to happen.
+      description: Describe the bug and what you expected instead.
       placeholder: Describe the bug...
     validations:
       required: true
@@ -43,17 +39,3 @@ body:
     attributes:
       label: Version
       placeholder: e.g. 1.2.0
-
-  - type: textarea
-    id: logs
-    attributes:
-      label: Relevant log output
-      render: shell
-
-  - type: checkboxes
-    id: terms
-    attributes:
-      label: Checklist
-      options:
-        - label: I have searched for existing issues
-          required: true
