@@ -197,9 +197,9 @@ router.get('/:code', async (req, res) => {
 });
 
 // ─── POST /api/retro/:code/items — add a post-it ─────────────────────────────
-router.post('/:code/items', requireAuth, async (req, res) => {
+router.post('/:code/items', async (req, res) => {
   const { code } = req.params;
-  const { category, content } = req.body as { category?: string; content?: string };
+  const { category, content, author_name = 'Guest', author_id = null } = req.body as { category?: string; content?: string; author_name?: string; author_id?: string | null };
 
   if (!category || !['well', 'improve', 'ideas'].includes(category)) {
     res.status(400).json({ error: 'category must be well, improve, or ideas' });
@@ -223,8 +223,8 @@ router.post('/:code/items', requireAuth, async (req, res) => {
     session_code: code,
     category,
     content: content.trim(),
-    author_id: req.user!.id,
-    author_name: req.user!.displayName,
+    author_id: author_id ?? 'guest',
+    author_name: author_name ?? 'Guest',
     votes: 0,
     created_at: now,
   } as any);
@@ -312,7 +312,7 @@ router.delete('/:code/items/:id', requireAuth, async (req, res) => {
 // ─── POST /api/retro/:code/analyze — trigger AI analysis ─────────────────────
 router.post('/:code/analyze', requireAuth, async (req, res) => {
   const { code } = req.params;
-  const { locale = 'en' } = req.body as { locale?: string };
+  const { locale = 'en', provider: reqProvider } = req.body as { locale?: string; provider?: string };
 
   const session = await RetroSession.findOne({ where: { code } });
   if (!session) {
@@ -334,6 +334,8 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
   }
 
   const aiPlain = (aiSettings as any).get({ plain: true });
+  // Provider seçimi: Eğer frontend'den provider gelirse onu kullan, yoksa kayıttaki provider'ı kullan
+  const provider = reqProvider || aiPlain.provider;
   const apiKey = aiPlain.encrypted_api_key
     ? decrypt(aiPlain.encrypted_api_key)
     : null;
@@ -373,7 +375,7 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
   );
 
   try {
-    const raw = await callAI(aiPlain.provider, apiKey, prompt);
+    const raw = await callAI(provider, apiKey, prompt);
     const parsed = parseRetroAIResponse(raw);
 
     // Update session status
