@@ -79,3 +79,4 @@ Copy `backend/.env.example` to `backend/.env` and set `JWT_SECRET`, `ENCRYPTION_
 | `NGROK_AUTHTOKEN` | ngrok token (Docker only)                              |
 | `PORT`            | Backend port (default `4000`)                          |
 | `DB_PATH`         | SQLite file path (default `data/sprintermate.db`)      |
+
