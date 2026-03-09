@@ -1,8 +1,13 @@
+import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import ProjectMetricsClient from '../../../../../components/ProjectMetricsClient';
 import { ThemeToggle } from '../../../../../components/ThemeProvider';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 import LogoutButton from '../../../../../components/LogoutButton';
 
 type Props = { 

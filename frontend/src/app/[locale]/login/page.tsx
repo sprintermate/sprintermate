@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
@@ -7,6 +8,18 @@ import LoginForm from '@/components/LoginForm';
 type Props = {
   params: Promise<{ locale: string }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const isEn = locale !== 'tr';
+  return {
+    title: isEn ? 'Sign In' : 'Giriş Yap',
+    description: isEn
+      ? 'Sign in to your Sprintermate AI account.'
+      : 'Sprintermate AI hesabınıza giriş yapın.',
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function LoginPage({ params }: Props) {
   const { locale } = await params;
