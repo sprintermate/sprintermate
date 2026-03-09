@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
     environment:
       PORT: "4000"
-      NODE_ENV: production
+      NODE_ENV: development
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
@@ -60,7 +60,7 @@ services:
         # Empty → browser uses same origin so nginx routes /api & /socket.io
         NEXT_PUBLIC_BACKEND_URL: ""
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       # Server-side (SSR) calls go directly to backend over the internal network
       BACKEND_URL: http://backend:4000
     restart: unless-stopped

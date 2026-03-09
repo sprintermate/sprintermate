@@ -26,7 +26,7 @@ RUN npm run build && mkdir -p /app/public
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PORT=3000
 
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs

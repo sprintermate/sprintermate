@@ -533,7 +533,7 @@ function spawnBackend(config: AppConfig, frontendUrl: string): ChildProcess {
         JWT_SECRET: config.sessionSecret,
         ENCRYPTION_KEY: config.encryptionKey,
         DB_PATH: getDbPath(),
-        NODE_ENV: 'production',
+        NODE_ENV: 'development',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -560,7 +560,7 @@ function spawnFrontend(): ChildProcess {
         ELECTRON_RUN_AS_NODE: '1',
         PORT: '3000',
         HOSTNAME: '127.0.0.1',
-        NODE_ENV: 'production',
+        NODE_ENV: 'development',
         BACKEND_URL: 'http://127.0.0.1:4000',
       },
       stdio: ['ignore', 'pipe', 'pipe'],

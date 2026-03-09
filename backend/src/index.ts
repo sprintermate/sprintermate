@@ -11,15 +11,21 @@ const log = childLogger('backend');
 const PORT = process.env.PORT ?? 4000;
 
 async function main() {
-  await initSchema();
-
   const app        = createApp();
   const httpServer = http.createServer(app);
   initSocket(httpServer);
 
-  httpServer.listen(PORT, () => {
-    log.info(`listening on http://localhost:${PORT}`, { port: PORT });
+  // Start listening immediately so health checks pass while DB initialises
+  await new Promise<void>((resolve) => {
+    httpServer.listen(PORT, () => {
+      log.info(`listening on http://localhost:${PORT}`, { port: PORT });
+      resolve();
+    });
   });
+
+  // Initialise schema after the server is already accepting connections.
+  // Any API request that arrives before this completes will fail gracefully.
+  await initSchema();
 }
 
 main().catch((err) => {
