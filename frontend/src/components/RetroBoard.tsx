@@ -352,8 +352,6 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     ? 'bg-[radial-gradient(ellipse_at_top_left,_rgba(30,80,40,0.25)_0%,_transparent_60%)] bg-[length:1px_1px]'
     : 'bg-[radial-gradient(ellipse_at_top_right,_rgba(230,230,230,0.5)_0%,_transparent_60%)]';
 
-  const fontClass = isDark ? 'font-chalk' : 'font-marker';
-
   const cardBg = isDark ? POSTIT_DARK : POSTIT_LIGHT;
 
   const timerColor = secondsLeft < 60 ? 'text-red-400' : isDark ? 'text-yellow-200' : 'text-yellow-700';
@@ -365,64 +363,113 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md h-16 ${isDark ? 'bg-slate-950/80 border-slate-800/60' : 'bg-white/80 border-gray-200/60'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
           {/* Left side */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link href={user.isGuest ? `/${locale}` : `/${locale}/dashboard`} className="shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-600/30">
-                <span className="text-white font-bold text-xs">SA</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href={user.isGuest ? `/${locale}` : `/${locale}/dashboard`} className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-indigo-600' : 'bg-cyan-600'}`}>
+                <span className="text-white font-bold text-sm">SA</span>
               </div>
             </Link>
-            <span className={`hidden sm:block text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Sprintermate AI</span>
-            <span className={`text-sm font-medium truncate max-w-[200px] ${isDark ? 'text-white' : 'text-gray-900'}`}>{initialSession.title}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide shrink-0
-              ${status === 'writing' ? (isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700') :
-                status === 'analyzing' ? (isDark ? 'bg-violet-800 text-violet-200' : 'bg-violet-100 text-violet-700') :
-                (isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600')}`}>
-              {t(`status_${status}`)}
-            </span>
-          </div>
-
-          {/* Center: timer */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-base font-mono font-bold ${timerColor}`}>{timerDisplay}</span>
-            {initialSession.isModerator && status === 'writing' && (
-              <button
-                onClick={() => setTimerRunning(r => !r)}
-                className={`text-xs px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
-              >
-                {timerRunning ? '⏸' : '▶'}
-              </button>
-            )}
+            <div className="min-w-0 hidden sm:block">
+              <div className={`font-semibold text-sm truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{initialSession.title}</div>
+              <div className={`text-xs font-mono uppercase tracking-wide
+                ${status === 'writing' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') :
+                  status === 'analyzing' ? (isDark ? 'text-violet-400' : 'text-violet-600') :
+                  (isDark ? 'text-slate-500' : 'text-gray-400')}`}>
+                {t(`status_${status}`)}
+              </div>
+            </div>
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Timer */}
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gray-100 border-gray-200'}`}>
+              <span className={`text-sm font-mono font-bold ${timerColor}`}>{timerDisplay}</span>
+              {initialSession.isModerator && status === 'writing' && (
+                <button
+                  onClick={() => setTimerRunning(r => !r)}
+                  className={`text-xs transition-colors ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  {timerRunning ? '⏸' : '▶'}
+                </button>
+              )}
+            </div>
+
+            {/* Copy link */}
             <button
               onClick={handleCopyLink}
-              className={`text-xs px-2 py-1 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
               title={t('copyLink')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${
+                isDark
+                  ? 'bg-slate-900 border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800 text-slate-400 hover:text-indigo-300'
+                  : 'bg-gray-100 border-gray-200 hover:border-cyan-400 hover:bg-gray-50 text-gray-500 hover:text-cyan-600'
+              }`}
             >
-              {copied ? '✓' : '🔗'}
+              {copied ? (
+                <svg className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              )}
             </button>
+
+            {/* Participants */}
             <button
               onClick={() => setShowParticipants(s => !s)}
-              className={`text-xs px-2 py-1 rounded border ${showParticipants
-                ? isDark ? 'border-indigo-500 text-indigo-300 bg-indigo-900/30' : 'border-indigo-400 text-indigo-600 bg-indigo-50'
-                : isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${
+                showParticipants
+                  ? isDark ? 'border-indigo-500 text-indigo-300 bg-indigo-900/30' : 'border-indigo-400 text-indigo-600 bg-indigo-50'
+                  : isDark ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
             >
-              👥 {participants.length}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="text-xs">{participants.length}</span>
             </button>
+
+            {/* History (moderator only) */}
             {initialSession.isModerator && (
               <button
                 onClick={toggleHistory}
-                className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-violet-600 text-violet-300 hover:bg-violet-900/30' : 'border-violet-400 text-violet-600 hover:bg-violet-50'}`}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${
+                  showHistory
+                    ? isDark ? 'border-violet-500 text-violet-300 bg-violet-900/30' : 'border-violet-400 text-violet-600 bg-violet-50'
+                    : isDark ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-50'
+                }`}
               >
-                {t('trendBtn')}
+                <span className="text-xs">{t('trendBtn')}</span>
               </button>
             )}
+
+            {/* User avatar + name */}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+              {user.displayName.charAt(0).toUpperCase()}
+            </div>
+            <span className={`hidden sm:block text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{user.displayName}</span>
+
+            {user.isGuest ? (
+              <Link
+                href={`/${locale}`}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:text-white hover:border-slate-500' : 'border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400'}`}
+              >
+                {t('leaveSession')}
+              </Link>
+            ) : (
+              <LogoutButton locale={locale} />
+            )}
+
             {/* Theme toggle */}
             <button
               onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
-              className={`p-1.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              className={`p-2 rounded-lg border transition-colors ${
+                isDark
+                  ? 'border-slate-700 bg-slate-800 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50'
+                  : 'border-gray-200 bg-white text-gray-600 hover:text-cyan-600 hover:border-cyan-300'
+              }`}
               title={isDark ? t('switchLight') : t('switchDark')}
             >
               {isDark ? (
@@ -435,21 +482,6 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                 </svg>
               )}
             </button>
-            {/* User avatar */}
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
-              {user.displayName.charAt(0).toUpperCase()}
-            </div>
-            <span className={`hidden sm:block text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{user.displayName}</span>
-            {user.isGuest ? (
-              <Link
-                href={`/${locale}`}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:text-white hover:border-slate-500' : 'border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400'}`}
-              >
-                {t('leaveSession')}
-              </Link>
-            ) : (
-              <LogoutButton locale={locale} />
-            )}
           </div>
         </div>
       </header>
@@ -521,7 +553,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
               >
                 {/* Column header */}
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className={`text-base font-bold ${isDark ? col.chalkColor : col.markerColor} ${fontClass} tracking-wide`}>
+                  <h2 className={`text-base font-bold ${isDark ? col.chalkColor : col.markerColor} tracking-wide`}>
                     {t(col.labelKey)}
                   </h2>
                   <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
@@ -539,7 +571,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                         key={item.id}
                         className={`group relative rounded-lg border p-3 text-sm shadow-sm break-words ${cardBg[col.key]}`}
                       >
-                        <p className={`${fontClass} leading-snug ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
+                        <p className={`leading-snug ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
                           {item.content}
                         </p>
                         <div className="flex items-center justify-end mt-2">

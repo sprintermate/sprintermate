@@ -13,10 +13,7 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
-      fontFamily: {
-        chalk: ['"Caveat"', 'cursive'],
-        marker: ['"Kalam"', 'cursive'],
-      },
+
     },
   },
   plugins: [require('@tailwindcss/typography')],

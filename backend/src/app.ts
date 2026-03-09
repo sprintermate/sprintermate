@@ -18,13 +18,16 @@ import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
 import './types/auth'; // register Express.User augmentation
 
-const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
+const authRateLimit: import('express').RequestHandler =
+  process.env.NODE_ENV === 'production'
+    ? rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 20,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: 'Too many requests, please try again later.' },
+      })
+    : (_req, _res, next) => next();
 
 export function createApp(): Application {
   const app = express();
