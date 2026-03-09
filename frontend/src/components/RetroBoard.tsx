@@ -49,6 +49,7 @@ interface User {
   id: string;
   displayName: string;
   email: string;
+  isGuest?: boolean;
 }
 
 interface AIAnalysisResult {
@@ -168,7 +169,7 @@ export default function RetroBoard({ session: initialSession, user, locale }: Pr
 
   // ── Socket.IO ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const socket = io(BACKEND, { withCredentials: true, transports: ['websocket', 'polling'] });
+    const socket = io(BACKEND || undefined, { withCredentials: true });
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -216,11 +217,16 @@ export default function RetroBoard({ session: initialSession, user, locale }: Pr
     if (!content) return;
     setSubmitting(true);
     try {
+      const body: Record<string, unknown> = { category, content };
+      if (user.isGuest) {
+        body.guestId = user.id;
+        body.guestName = user.displayName;
+      }
       const res = await fetch(`${BACKEND}/api/retro/${initialSession.code}/items`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, content }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setDraft(d => ({ ...d, [category]: '' }));
@@ -229,25 +235,31 @@ export default function RetroBoard({ session: initialSession, user, locale }: Pr
     } finally {
       setSubmitting(false);
     }
-  }, [draft, initialSession.code]);
+  }, [draft, initialSession.code, user]);
 
   // ── Delete item ────────────────────────────────────────────────────────────
   const handleDeleteItem = useCallback(async (item: RetroItem) => {
+    const body: Record<string, unknown> = {};
+    if (user.isGuest) body.guestId = user.id;
     await fetch(`${BACKEND}/api/retro/${initialSession.code}/items/${item.id}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-  }, [initialSession.code]);
+  }, [initialSession.code, user]);
 
   // ── Vote ───────────────────────────────────────────────────────────────────
   const handleVote = useCallback(async (item: RetroItem, delta: number) => {
+    const body: Record<string, unknown> = { vote: delta };
+    if (user.isGuest) body.guestId = user.id;
     await fetch(`${BACKEND}/api/retro/${initialSession.code}/items/${item.id}`, {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vote: delta }),
+      body: JSON.stringify(body),
     });
-  }, [initialSession.code]);
+  }, [initialSession.code, user]);
 
   // ── 👍 / 👎 reaction — one reaction per item, switch or remove ────────────
   const handleReactionVote = useCallback(async (item: RetroItem, reaction: 'up' | 'down') => {

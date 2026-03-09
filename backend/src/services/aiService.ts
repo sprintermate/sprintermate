@@ -311,6 +311,25 @@ async function callChatGPT(prompt: string, apiKey: string): Promise<string> {
   return text;
 }
 
+/**
+ * Gemini free-form text generation — no enforced JSON schema.
+ * Used for retro analysis and other prompts that define their own output structure.
+ */
+async function callGeminiText(prompt: string, apiKey: string): Promise<string> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-flash-latest',
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+    },
+  });
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+  if (!text) throw new Error('Gemini returned empty response');
+  return text;
+}
+
 // ─── Main Dispatcher ──────────────────────────────────────────────────────────
 
 export async function callAI(
@@ -328,6 +347,33 @@ export async function callAI(
     case 'gemini':
       if (!apiKey) throw new Error('Gemini requires an API key');
       return callGemini(prompt, apiKey);
+    case 'chatgpt':
+      if (!apiKey) throw new Error('ChatGPT requires an API key');
+      return callChatGPT(prompt, apiKey);
+    default:
+      throw new Error(`Unknown AI provider: ${provider}`);
+  }
+}
+
+/**
+ * Free-form text AI call — skips structured estimation schemas.
+ * Use this for retro analysis, insights, and any prompt that defines its own JSON shape.
+ */
+export async function callAIText(
+  provider: string,
+  apiKey: string | null,
+  prompt: string,
+): Promise<string> {
+  switch (provider) {
+    case 'claude':
+      return callClaudeCLI(prompt);
+    case 'copilot':
+      return callCopilotCLI(prompt);
+    case 'codex':
+      return callCodexCLI(prompt);
+    case 'gemini':
+      if (!apiKey) throw new Error('Gemini requires an API key');
+      return callGeminiText(prompt, apiKey);
     case 'chatgpt':
       if (!apiKey) throw new Error('ChatGPT requires an API key');
       return callChatGPT(prompt, apiKey);

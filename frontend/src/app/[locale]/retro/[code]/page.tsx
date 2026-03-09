@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import RetroBoard from '../../../../components/RetroBoard';
+import GuestRetroJoinClient from '../../../../components/GuestRetroJoinClient';
 import type { RetroSession } from '../../../../components/RetroBoard';
 
 type Props = { params: Promise<{ locale: string; code: string }> };
@@ -53,7 +54,11 @@ export default async function RetroPage({ params }: Props) {
   ]);
 
   if (!user) {
-    redirect(`/${locale}/login`);
+    // Unauthenticated: must have a valid session to join
+    if (!session) {
+      redirect(`/${locale}/`);
+    }
+    return <GuestRetroJoinClient session={session} locale={locale} />;
   }
 
   if (!session) {

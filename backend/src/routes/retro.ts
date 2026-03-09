@@ -5,7 +5,7 @@ import { UserAISettings } from '../db/schema';
 import RetroSession from '../db/models/RetroSession';
 import RetroItem from '../db/models/RetroItem';
 import RetroAction from '../db/models/RetroAction';
-import { callAI } from '../services/aiService';
+import { callAIText } from '../services/aiService';
 import { decrypt } from '../utils/crypto';
 import { getIO } from '../socket/ioInstance';
 
@@ -197,9 +197,14 @@ router.get('/:code', async (req, res) => {
 });
 
 // ─── POST /api/retro/:code/items — add a post-it ─────────────────────────────
-router.post('/:code/items', requireAuth, async (req, res) => {
+router.post('/:code/items', async (req, res) => {
   const { code } = req.params;
-  const { category, content } = req.body as { category?: string; content?: string };
+  const { category, content, guestId, guestName } = req.body as {
+    category?: string;
+    content?: string;
+    guestId?: string;
+    guestName?: string;
+  };
 
   if (!category || !['well', 'improve', 'ideas'].includes(category)) {
     res.status(400).json({ error: 'category must be well, improve, or ideas' });
@@ -208,6 +213,21 @@ router.post('/:code/items', requireAuth, async (req, res) => {
   if (!content || !content.trim()) {
     res.status(400).json({ error: 'content is required' });
     return;
+  }
+
+  // Resolve author — authenticated session takes priority, otherwise guest fields
+  let authorId: string;
+  let authorName: string;
+  if (req.user) {
+    authorId = req.user.id;
+    authorName = req.user.displayName;
+  } else {
+    if (!guestId || !guestName || !guestName.trim()) {
+      res.status(401).json({ error: 'Authentication or guest name required' });
+      return;
+    }
+    authorId = guestId;
+    authorName = guestName.trim().slice(0, 64);
   }
 
   const session = await RetroSession.findOne({ where: { code } });
@@ -223,8 +243,8 @@ router.post('/:code/items', requireAuth, async (req, res) => {
     session_code: code,
     category,
     content: content.trim(),
-    author_id: req.user!.id,
-    author_name: req.user!.displayName,
+    author_id: authorId,
+    author_name: authorName,
     votes: 0,
     created_at: now,
   } as any);
@@ -240,9 +260,9 @@ router.post('/:code/items', requireAuth, async (req, res) => {
 });
 
 // ─── PATCH /api/retro/:code/items/:id — update content / votes ───────────────
-router.patch('/:code/items/:id', requireAuth, async (req, res) => {
+router.patch('/:code/items/:id', async (req, res) => {
   const { code, id } = req.params;
-  const { content, vote } = req.body as { content?: string; vote?: number };
+  const { content, vote, guestId } = req.body as { content?: string; vote?: number; guestId?: string };
 
   const item = await RetroItem.findOne({ where: { id, session_code: code } });
   if (!item) {
@@ -254,7 +274,8 @@ router.patch('/:code/items/:id', requireAuth, async (req, res) => {
 
   // Only author can edit content
   if (content !== undefined) {
-    if (plain.author_id !== req.user!.id) {
+    const callerId = req.user?.id ?? guestId;
+    if (plain.author_id !== callerId) {
       res.status(403).json({ error: 'Only the author can edit this item' });
       return;
     }
@@ -281,8 +302,9 @@ router.patch('/:code/items/:id', requireAuth, async (req, res) => {
 });
 
 // ─── DELETE /api/retro/:code/items/:id ───────────────────────────────────────
-router.delete('/:code/items/:id', requireAuth, async (req, res) => {
+router.delete('/:code/items/:id', async (req, res) => {
   const { code, id } = req.params;
+  const { guestId } = req.body as { guestId?: string };
 
   const item = await RetroItem.findOne({ where: { id, session_code: code } });
   if (!item) {
@@ -294,8 +316,9 @@ router.delete('/:code/items/:id', requireAuth, async (req, res) => {
 
   // Only author or session moderator can delete
   const session = await RetroSession.findOne({ where: { code } });
-  const isModerator = session && (session as any).get({ plain: true }).created_by === req.user!.id;
-  if (plain.author_id !== req.user!.id && !isModerator) {
+  const isModerator = req.user && session && (session as any).get({ plain: true }).created_by === req.user.id;
+  const callerId = req.user?.id ?? guestId;
+  if (plain.author_id !== callerId && !isModerator) {
     res.status(403).json({ error: 'Only author or moderator can delete this item' });
     return;
   }
@@ -326,17 +349,25 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
     return;
   }
 
-  // Load AI settings for this user
+  // Load AI settings for this user; fall back to server-level GEMINI_API_KEY env var
   const aiSettings = await UserAISettings.findOne({ where: { user_id: req.user!.id } });
-  if (!aiSettings) {
-    res.status(400).json({ error: 'No AI provider configured. Go to AI Settings first.' });
-    return;
-  }
 
-  const aiPlain = (aiSettings as any).get({ plain: true });
-  const apiKey = aiPlain.encrypted_api_key
-    ? decrypt(aiPlain.encrypted_api_key)
-    : null;
+  let provider: string;
+  let apiKey: string | null;
+
+  if (aiSettings) {
+    const aiPlain = (aiSettings as any).get({ plain: true });
+    provider = aiPlain.provider;
+    apiKey = aiPlain.encrypted_api_key ? decrypt(aiPlain.encrypted_api_key) : null;
+  } else {
+    const envKey = process.env.GEMINI_API_KEY ?? null;
+    if (!envKey) {
+      res.status(400).json({ error: 'No AI provider configured. Go to AI Settings first.' });
+      return;
+    }
+    provider = 'gemini';
+    apiKey = envKey;
+  }
 
   // Gather items
   const items = await RetroItem.findAll({ where: { session_code: code } });
@@ -373,7 +404,7 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
   );
 
   try {
-    const raw = await callAI(aiPlain.provider, apiKey, prompt);
+    const raw = await callAIText(provider, apiKey, prompt);
     const parsed = parseRetroAIResponse(raw);
 
     // Update session status

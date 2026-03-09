@@ -340,6 +340,17 @@
     "errorTooShort": "Name must be at least 2 characters.",
     "errorTooLong": "Name must be less than 64 characters."
   },
+  "guestRetroJoin": {
+    "title": "Join Retrospective",
+    "sessionLabel": "Session",
+    "nameLabel": "Your name",
+    "namePlaceholder": "Enter your display name",
+    "joinButton": "Join Session",
+    "moderatorPrompt": "Are you the moderator?",
+    "signInLink": "Sign in",
+    "errorTooShort": "Name must be at least 2 characters.",
+    "errorTooLong": "Name must be less than 64 characters."
+  },
   "metrics": {
     "title": "Sprint Metrics",
     "healthScore": "Health Score",
