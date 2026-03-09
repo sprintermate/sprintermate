@@ -7,7 +7,7 @@
   "hero": {
     "badge": "AI-Powered Agile",
     "headline": "Agile Teams,\nElevated by AI.",
-    "subheadline": "Sprint planning with real-time Scrum Poker, AI story-point estimation, Azure DevOps integration — and AI-powered retrospectives to close every sprint strong.",
+    "subheadline": "Sprint planning with real-time planning poker, AI story-point estimation, Azure DevOps integration — and AI-powered retrospectives to close every sprint strong.",
     "ctaJoin": "Join a Session",
     "ctaCreate": "Get Started",
     "scroll": "Discover how it works"
@@ -28,10 +28,6 @@
       "devops": {
         "title": "Azure DevOps Native",
         "description": "Paste a sprint URL and connect with a Personal Access Token. Your backlog is instantly imported — no manual entry."
-      },
-      "fibonacci": {
-        "title": "Fibonacci Scale",
-        "description": "Estimates use the standard Fibonacci sequence (1, 2, 3, 5, 8, 13, 21, 34, 55) — the same scale your team already knows."
       },
       "history": {
         "title": "Historical Context",
@@ -54,7 +50,7 @@
       "connect": {
         "step": "01",
         "title": "Connect Azure DevOps",
-        "description": "Paste your sprint board URL. Scrum AI parses your organization, project, and current sprint automatically."
+        "description": "Paste your sprint board URL. Sprintermate AI parses your organization, project, and current sprint automatically."
       },
       "calibrate": {
         "step": "02",
@@ -64,7 +60,7 @@
       "create": {
         "step": "03",
         "title": "Plan Your Sprint",
-        "description": "Create a Scrum Poker room. Share the 6-character code. The AI suggests story points while the team votes in real time."
+        "description": "Create a Sprintermate AI room. Share the 6-character code. The AI suggests story points while the team votes in real time."
       },
       "vote": {
         "step": "04",
@@ -82,11 +78,11 @@
     "retro": "AI Retrospectives"
   },
   "footer": {
-    "tagline": "Scrum AI — smarter agile teams.",
+    "tagline": "Sprintermate AI — smarter agile teams.",
     "rights": "All rights reserved."
   },
   "login": {
-    "title": "Welcome to Scrum AI",
+    "title": "Welcome to Sprintermate AI",
     "description": "Sign in to access sprint planning rooms, AI estimation, and retrospectives.",
     "emailLabel": "Email",
     "emailPlaceholder": "you@example.com",
@@ -104,7 +100,7 @@
   },
   "register": {
     "title": "Create an account",
-    "description": "Join Scrum AI and start planning sprints with your team.",
+    "description": "Join Sprintermate AI and start planning sprints with your team.",
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Your name",
     "emailLabel": "Email",
@@ -132,7 +128,7 @@
     "noRooms": "No rooms yet. Create one to get started.",
     "createRoom": "+ Create Room",
     "joinByCode": "Join by Code",
-    "tabRooms": "Scrum Poker Rooms",
+    "tabRooms": "Sprintermate AI Rooms",
     "tabProjects": "Projects",
     "yourProjects": "Your Projects",
     "noProjects": "No projects yet. Create a room to connect an Azure DevOps project.",

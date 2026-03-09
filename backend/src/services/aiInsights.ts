@@ -3,8 +3,10 @@ import { UserAISettings } from '../db/schema';
 import { decrypt } from '../utils/crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { childLogger } from '../utils/logger';
 
 const execAsync = promisify(exec);
+const log = childLogger('ai');
 
 export interface SprintInsights {
   summary: string;
@@ -43,7 +45,7 @@ export async function generateSprintInsights(
   try {
     aiResponse = await callAIProvider(settings, context);
   } catch (err) {
-    console.error('AI provider call failed, using fallback analysis:', err);
+    log.error('AI provider call failed, using fallback analysis', { err });
     return generateFallbackInsights(currentMetrics, historicalTrends);
   }
 
@@ -196,7 +198,7 @@ function parseAIInsights(aiResponse: string, current: SprintMetrics, trends: Spr
       };
     }
   } catch (err) {
-    console.error('Failed to parse AI response:', err);
+    log.error('Failed to parse AI response', { err });
   }
 
   // Fallback to rule-based insights

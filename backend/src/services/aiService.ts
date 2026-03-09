@@ -282,9 +282,13 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     required: ['story-point', 'confidence', 'analysis', 'similar-items'],
   };
 
+  const geminiModel = process.env.NODE_ENV === 'production'
+    ? 'gemini-2.5-flash-lite'
+    : 'gemini-flash-latest';
+
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-flash-latest',
+    model: geminiModel,
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: estimateSchema,
@@ -355,6 +359,7 @@ export async function callAI(
   }
 }
 
+<<<<<<< HEAD
 /**
  * Free-form text AI call — skips structured estimation schemas.
  * Use this for retro analysis, insights, and any prompt that defines its own JSON shape.
@@ -380,6 +385,13 @@ export async function callAIText(
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
+=======
+export function getProductionAISettings(): { provider: string; apiKey: string } | null {
+  if (process.env.NODE_ENV !== 'production') return null;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('[production] GEMINI_API_KEY is not set. AI features are unavailable.');
+  return { provider: 'gemini', apiKey };
+>>>>>>> main
 }
 
 /** Simple connectivity test — verify the AI provider responds with anything. */

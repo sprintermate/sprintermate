@@ -29,7 +29,7 @@ RetroSession.init(
       allowNull: false,
     },
     created_by: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
     },
     project_id: {

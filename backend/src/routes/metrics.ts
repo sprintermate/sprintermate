@@ -4,7 +4,9 @@ import { Project, Sprint, WorkItemScoreRecord } from '../db/schema';
 import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend, getVelocityHistory } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { generateSprintInsights } from '../services/aiInsights';
+import { childLogger } from '../utils/logger';
 
+const log = childLogger('metrics');
 const router = Router();
 
 // All metrics routes require authentication
@@ -68,7 +70,7 @@ router.get('/projects/:projectId/sprints/:sprintId', async (req, res) => {
 
     res.json(metrics);
   } catch (err: any) {
-    console.error('Error fetching sprint metrics:', err);
+    log.error('Error fetching sprint metrics', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch sprint metrics' });
   }
 });
@@ -132,7 +134,7 @@ router.get('/projects/:projectId/trends', async (req, res) => {
 
     res.json(trends);
   } catch (err: any) {
-    console.error('Error fetching sprint trends:', err);
+    log.error('Error fetching sprint trends', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch sprint trends' });
   }
 });
@@ -192,7 +194,7 @@ router.get('/projects/:projectId/sprints/:sprintId/velocity-history', async (req
 
     res.json(history);
   } catch (err: any) {
-    console.error('Error fetching velocity history:', err);
+    log.error('Error fetching velocity history', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch velocity history' });
   }
 });
@@ -281,7 +283,7 @@ router.post('/projects/:projectId/sprints/:sprintId/insights', async (req, res) 
 
     res.json(insights);
   } catch (err: any) {
-    console.error('Error generating sprint insights:', err);
+    log.error('Error generating sprint insights', { err });
     res.status(500).json({ error: err.message ?? 'Failed to generate insights' });
   }
 });
@@ -314,7 +316,7 @@ router.get('/projects/:projectId/sprints/:sprintId/score-records', async (req, r
 
     res.json(records.map(r => r.get({ plain: true })));
   } catch (err: any) {
-    console.error('Error fetching score records:', err);
+    log.error('Error fetching score records', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch score records' });
   }
 });

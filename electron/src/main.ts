@@ -53,7 +53,7 @@ function createMainWindow(): BrowserWindow {
     width: 580,
     height: 520,
     resizable: false,
-    title: 'Scrum Poker',
+    title: 'Sprintermate AI',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -73,7 +73,7 @@ function createMainWindow(): BrowserWindow {
 function showSetupPage(): void {
   mainWindow?.setSize(580, 520);
   mainWindow?.setResizable(false);
-  mainWindow?.setTitle('Scrum Poker — Setup');
+  mainWindow?.setTitle('Sprintermate AI — Setup');
   mainWindow?.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(getSetupHTML())}`
   );
@@ -95,7 +95,7 @@ function showSetupPage(): void {
 function showLoadingPage(): void {
   mainWindow?.setSize(460, 320);
   mainWindow?.setResizable(false);
-  mainWindow?.setTitle('Scrum Poker — Starting…');
+  mainWindow?.setTitle('Sprintermate AI — Starting…');
   mainWindow?.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(getLoadingPageHTML())}`
   );
@@ -108,7 +108,7 @@ function sendLoadingUpdate(message: string): void {
 function showReadyPage(pubUrl: string, localUrl: string): void {
   mainWindow?.setSize(580, 480);
   mainWindow?.setResizable(false);
-  mainWindow?.setTitle('Scrum Poker — Running');
+  mainWindow?.setTitle('Sprintermate AI — Running');
   mainWindow?.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(getReadyPageHTML(pubUrl, localUrl))}`
   );
@@ -120,7 +120,7 @@ function getSetupHTML(): string {
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:">
-<title>Scrum Poker Setup</title>
+<title>Sprintermate AI Setup</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   body {
@@ -160,7 +160,7 @@ function getSetupHTML(): string {
 </style>
 </head>
 <body>
-  <h1>Scrum Poker Desktop</h1>
+  <h1>Sprintermate AI Desktop</h1>
   <p class="subtitle">First-time setup — takes less than a minute</p>
 
   <p>
@@ -183,7 +183,7 @@ function getSetupHTML(): string {
   >
   <p class="error" id="error">Please enter your ngrok auth token.</p>
 
-  <button id="save">Save &amp; Launch Scrum Poker</button>
+  <button id="save">Save &amp; Launch Sprintermate AI</button>
 
   <div class="hint">
     <strong>Why ngrok?</strong> It creates an encrypted tunnel from the internet to
@@ -364,7 +364,7 @@ function getReadyPageHTML(pubUrl: string, localUrl: string): string {
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:">
-<title>Scrum Poker — Ready</title>
+<title>Sprintermate AI — Ready</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   body {
@@ -462,7 +462,7 @@ function getReadyPageHTML(pubUrl: string, localUrl: string): string {
     </svg>
   </div>
 
-  <h1>Scrum Poker is ready!</h1>
+  <h1>Sprintermate AI is ready!</h1>
   <p class="sub">Share the link below with your team</p>
 
   <div class="url-card">
@@ -486,7 +486,7 @@ function getReadyPageHTML(pubUrl: string, localUrl: string): string {
     Local access: <a id="open-local">${safeLocal}</a>
   </div>
 
-  <p class="close-hint">Closing this window will stop Scrum Poker.</p>
+  <p class="close-hint">Closing this window will stop Sprintermate AI.</p>
 
   <script>
     const pubUrl   = ${JSON.stringify(pubUrl)};
@@ -606,16 +606,16 @@ function sleep(ms: number): Promise<void> {
 
 function buildTray(localUrl: string): void {
   // Use a template image (macOS) or a regular icon
-  const trayIcon = path.join(__dirname, '..', 'assets', 'tray.png');
+  const trayIcon = path.join(__dirname, '..', 'assets', 'tray.jpg');
 
   try {
     tray = new Tray(trayIcon);
   } catch {
     // If custom icon not found, fall back gracefully (uses default Electron icon)
-    tray = new Tray(path.join(__dirname, '..', 'assets', 'icon.png'));
+    tray = new Tray(path.join(__dirname, '..', 'assets', 'icon.jpg'));
   }
 
-  tray.setToolTip('Scrum Poker is running');
+  tray.setToolTip('Sprintermate AI is running');
   updateTrayMenu(localUrl);
 }
 
@@ -623,7 +623,7 @@ function updateTrayMenu(localUrl: string): void {
   if (!tray) return;
 
   const menu = Menu.buildFromTemplate([
-    { label: 'Scrum Poker', enabled: false },
+    { label: 'Sprintermate AI', enabled: false },
     { type: 'separator' },
     {
       label: publicUrl ? `Public URL ready` : 'Connecting to ngrok…',
@@ -749,7 +749,7 @@ async function startApp(config: AppConfig): Promise<void> {
     console.error('[main] startup error:', err);
     dialog.showErrorBox(
       'Startup Failed',
-      `Scrum Poker could not start:\n\n${(err as Error).message}\n\nCheck your ngrok auth token and try again.`
+      `Sprintermate AI could not start:\n\n${(err as Error).message}\n\nCheck your ngrok auth token and try again.`
     );
     await gracefulShutdown();
   }

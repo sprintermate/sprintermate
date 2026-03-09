@@ -14,7 +14,7 @@ export default function Footer() {
           <span className="text-gray-500 dark:text-slate-400 text-sm">{t('tagline')}</span>
         </div>
         <p className="text-gray-400 dark:text-slate-500 text-sm">
-          &copy; {year} Scrum AI. {t('rights')}
+          &copy; {year} Sprintermate AI. {t('rights')}
         </p>
       </div>
     </footer>

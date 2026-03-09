@@ -41,5 +41,5 @@ export function generateSecrets(): Pick<AppConfig, 'sessionSecret' | 'encryption
 }
 
 export function getDbPath(): string {
-  return path.join(app.getPath('userData'), 'scrum-poker.db');
+  return path.join(app.getPath('userData'), 'sprintermate.db');
 }

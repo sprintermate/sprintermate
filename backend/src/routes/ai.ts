@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { UniqueConstraintError } from 'sequelize';
+import { childLogger } from '../utils/logger';
+
+const log = childLogger('ai');
 import requireAuth from '../middleware/requireAuth';
+import aiRateLimit from '../middleware/aiRateLimit';
 import { UserAISettings, Room, Project, Sprint, ReferenceScore, WorkItemAIEstimate } from '../db/schema';
 import { encrypt, decrypt } from '../utils/crypto';
 import {
@@ -9,6 +13,7 @@ import {
   testAIConnection,
   buildEstimationPrompt,
   extractJSON,
+  getProductionAISettings,
   type AIEstimateResult,
   type ReferenceScoreItem,
   type PreviousSprintItem,
@@ -92,6 +97,11 @@ async function persistEstimate(projectId: string, workItemId: number, result: AI
 // ─── GET /api/ai/settings ─────────────────────────────────────────────────────
 router.get('/settings', requireAuth, async (req, res) => {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      res.json({ provider: 'gemini', hasApiKey: true, productionMode: true });
+      return;
+    }
+
     const userId = req.user!.id;
     const settings = await UserAISettings.findOne({ where: { user_id: userId } });
 
@@ -111,6 +121,10 @@ router.get('/settings', requireAuth, async (req, res) => {
 
 // ─── PUT /api/ai/settings ─────────────────────────────────────────────────────
 router.put('/settings', requireAuth, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'AI provider configuration is managed by the server in production.' });
+    return;
+  }
   try {
     const userId = req.user!.id;
     const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
@@ -152,7 +166,11 @@ router.put('/settings', requireAuth, async (req, res) => {
 });
 
 // ─── POST /api/ai/test ────────────────────────────────────────────────────────
-router.post('/test', requireAuth, async (req, res) => {
+router.post('/test', requireAuth, aiRateLimit, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ success: false, error: 'AI provider testing is not available in production.' });
+    return;
+  }
   try {
     const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
 
@@ -174,7 +192,7 @@ router.post('/test', requireAuth, async (req, res) => {
 });
 
 // ─── POST /api/ai/estimate ────────────────────────────────────────────────────
-router.post('/estimate', requireAuth, async (req, res) => {
+router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
   let projectId: string | null = null;
   let workItemIdNum: number | null = null;
 
@@ -187,16 +205,22 @@ router.post('/estimate', requireAuth, async (req, res) => {
       return;
     }
 
-    // Load user AI settings
-    const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
-    if (!aiSettings) {
-      res.status(400).json({ error: 'No AI provider configured. Please configure AI settings first.' });
-      return;
-    }
+    // Resolve AI provider and key (production: use env; dev: use user settings)
+    let provider: string;
+    let apiKey: string | null;
 
-    let apiKey: string | null = null;
-    if (aiSettings.encrypted_api_key) {
-      apiKey = decrypt(aiSettings.encrypted_api_key);
+    const prodSettings = getProductionAISettings();
+    if (prodSettings) {
+      provider = prodSettings.provider;
+      apiKey = prodSettings.apiKey;
+    } else {
+      const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
+      if (!aiSettings) {
+        res.status(400).json({ error: 'No AI provider configured. Please configure AI settings first.' });
+        return;
+      }
+      provider = aiSettings.provider;
+      apiKey = aiSettings.encrypted_api_key ? decrypt(aiSettings.encrypted_api_key) : null;
     }
 
     // Load room, then its associated project and sprint
@@ -285,9 +309,10 @@ router.post('/estimate', requireAuth, async (req, res) => {
 
       // Find the index of the current sprint
       const currentIdx = allSprints.findIndex((s) => s.id === sprint.ado_sprint_id);
-      // Get up to 10 previous sprints
+      // Get previous sprints (limit depends on environment)
+      const sprintHistoryLimit = process.env.NODE_ENV === 'production' ? 5 : 10;
       const prevSprints = (currentIdx > 0)
-        ? allSprints.slice(Math.max(0, currentIdx - 10), currentIdx)
+        ? allSprints.slice(Math.max(0, currentIdx - sprintHistoryLimit), currentIdx)
         : [];
 
       const isVisualStudio = req.headers['referer']?.includes('.visualstudio.com') || project.ado_url?.includes('.visualstudio.com');
@@ -324,7 +349,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
 
     // Build prompt and call AI
     const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems, locale);
-    const raw = await callAI(aiSettings.provider, apiKey, prompt);
+    const raw = await callAI(provider, apiKey, prompt);
     const result = extractJSON(raw);
 
     // Persist result to DB
@@ -332,7 +357,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
 
     res.json(result);
   } catch (err: any) {
-    console.error('[ai/estimate] error:', err?.name, err?.message, err?.errors ?? '');
+    log.error('estimate error', { err, name: err?.name, errors: err?.errors });
     res.status(500).json({ error: err.message ?? 'AI estimation failed' });
   } finally {
     if (projectId !== null && workItemIdNum !== null) {
@@ -342,7 +367,7 @@ router.post('/estimate', requireAuth, async (req, res) => {
 });
 
 // ─── GET /api/ai/estimates ────────────────────────────────────────────────────
-router.get('/estimates', requireAuth, async (req, res) => {
+router.get('/estimates', requireAuth, aiRateLimit, async (req, res) => {
   try {
     const { roomCode } = req.query as { roomCode?: string };
     if (!roomCode) {
@@ -380,7 +405,7 @@ router.get('/estimates', requireAuth, async (req, res) => {
 });
 
 // ─── POST /api/ai/estimate-all ────────────────────────────────────────────────
-router.post('/estimate-all', requireAuth, async (req, res) => {
+router.post('/estimate-all', requireAuth, aiRateLimit, async (req, res) => {
   try {
     const userId = req.user!.id;
     const { roomCode, locale } = req.body as { roomCode?: string; locale?: string };
@@ -390,16 +415,22 @@ router.post('/estimate-all', requireAuth, async (req, res) => {
       return;
     }
 
-    // Load user AI settings
-    const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
-    if (!aiSettings) {
-      res.status(400).json({ error: 'No AI provider configured. Please configure AI settings first.' });
-      return;
-    }
+    // Resolve AI provider and key (production: use env; dev: use user settings)
+    let provider: string;
+    let apiKey: string | null;
 
-    let apiKey: string | null = null;
-    if (aiSettings.encrypted_api_key) {
-      apiKey = decrypt(aiSettings.encrypted_api_key);
+    const prodSettings = getProductionAISettings();
+    if (prodSettings) {
+      provider = prodSettings.provider;
+      apiKey = prodSettings.apiKey;
+    } else {
+      const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
+      if (!aiSettings) {
+        res.status(400).json({ error: 'No AI provider configured. Please configure AI settings first.' });
+        return;
+      }
+      provider = aiSettings.provider;
+      apiKey = aiSettings.encrypted_api_key ? decrypt(aiSettings.encrypted_api_key) : null;
     }
 
     const room = await Room.findOne({ where: { code: roomCode } });
@@ -475,7 +506,7 @@ router.post('/estimate-all', requireAuth, async (req, res) => {
         project,
         sprint,
         roomCode,
-        aiSettings,
+        provider,
         apiKey,
         authHeader,
         locale,
@@ -494,7 +525,7 @@ router.post('/estimate-all', requireAuth, async (req, res) => {
 });
 
 // ─── POST /api/ai/estimate-all/cancel ────────────────────────────────────────
-router.post('/estimate-all/cancel', requireAuth, async (req, res) => {
+router.post('/estimate-all/cancel', requireAuth, aiRateLimit, async (req, res) => {
   const { roomCode } = req.body as { roomCode?: string };
   if (!roomCode) {
     res.status(400).json({ error: 'roomCode is required' });
@@ -513,14 +544,14 @@ interface BatchEstimationOpts {
   project: any;
   sprint: any;
   roomCode: string;
-  aiSettings: any;
+  provider: string;
   apiKey: string | null;
   authHeader: string;
   locale?: string;
 }
 
 async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
-  const { items, project, sprint, roomCode, aiSettings, apiKey, authHeader, locale } = opts;
+  const { items, project, sprint, roomCode, provider, apiKey, authHeader, locale } = opts;
   const io = getIO();
   const BATCH_SIZE = 3;
 
@@ -594,7 +625,7 @@ async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
 
       try {
         const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems, locale);
-        const raw = await callAI(aiSettings.provider, apiKey, prompt);
+        const raw = await callAI(provider, apiKey, prompt);
         const result = extractJSON(raw);
 
         await persistEstimate(project.id, workItem.id, result);

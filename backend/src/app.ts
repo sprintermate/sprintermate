@@ -5,12 +5,15 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import expressWinston from 'express-winston';
+import logger from './utils/logger';
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import roomsRouter from './routes/rooms';
 import aiRouter from './routes/ai';
 import metricsRouter from './routes/metrics';
 import retroRouter from './routes/retro';
+import requestLogger from './middleware/requestLogger';
 import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
 import './types/auth'; // register Express.User augmentation
@@ -31,6 +34,18 @@ export function createApp(): Application {
   // - HTTP (local/Docker without HTTPS) → secure: false
   // - HTTPS (ngrok / production TLS)    → secure: true
   app.set('trust proxy', 1);
+
+  app.use(
+    expressWinston.logger({
+      winstonInstance: logger,
+      meta: true,
+      msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}}',
+      expressFormat: false,
+      colorize: false,
+      ignoredRoutes: ['/api/health'],
+      headerBlacklist: ['authorization', 'cookie'],
+    }),
+  );
 
   app.use(helmet());
 
@@ -82,6 +97,8 @@ export function createApp(): Application {
       },
     )(req, _res, next);
   });
+
+  app.use(requestLogger);
 
   app.use('/api/auth', authRateLimit, authRouter);
   app.use('/api/projects', projectsRouter);

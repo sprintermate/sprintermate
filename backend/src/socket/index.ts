@@ -2,6 +2,9 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import type { AIEstimateResult } from '../services/aiService';
 import { setIO } from './ioInstance';
+import { childLogger } from '../utils/logger';
+
+const log = childLogger('socket');
 
 // ─── Special vote sentinels ─────────────────────────────────────────────────────
 const SCORE_UNDECIDED = -1; // ?
@@ -125,7 +128,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
   setIO(io);
 
   io.on('connection', (socket: Socket) => {
-    console.log(`[socket] client connected: ${socket.id}`);
+    log.info('client connected', { socketId: socket.id });
 
     // ── room:join ─────────────────────────────────────────────────────────────
     socket.on('room:join', (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
@@ -156,7 +159,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         participants: serializeParticipants(room),
       });
 
-      console.log(`[socket] ${displayName} joined room ${code}`);
+      log.info('user joined room', { displayName, roomCode: code });
     });
 
     // ── room:leave ────────────────────────────────────────────────────────────
@@ -365,7 +368,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       io.to(`retro:${code}`).emit('retro:participants_changed', {
         participants: Array.from(retroRooms.get(code)!.values()),
       });
-      console.log(`[socket] socket ${socket.id} joined retro room ${code}`);
+      log.info('joined retro room', { socketId: socket.id, roomCode: code });
     });
 
     // ── retro:leave ───────────────────────────────────────────────────────────
@@ -385,7 +388,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     // ── disconnect ────────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       handleLeave(socket, io);
-      console.log(`[socket] client disconnected: ${socket.id}`);
+      log.info('client disconnected', { socketId: socket.id });
     });
   });
 

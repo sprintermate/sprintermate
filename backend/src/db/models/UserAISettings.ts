@@ -19,7 +19,7 @@ UserAISettings.init(
       primaryKey: true,
     },
     user_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: false,
       unique: true,
     },
