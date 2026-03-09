@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import RetroBoard from '../../../../components/RetroBoard';
 import type { RetroSession } from '../../../../components/RetroBoard';
+import RetroGuestJoinClient from '../../../../components/RetroGuestJoinClient';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -57,13 +58,13 @@ export default async function RetroPage({ params }: Props) {
     getRetroSession(code, cookieHeader),
   ]);
 
-  if (!user) {
-    redirect(`/${locale}/login`);
-  }
-
   if (!session) {
-    redirect(`/${locale}/dashboard`);
+    redirect(user ? `/${locale}/dashboard` : `/${locale}`);
   }
 
-  return <RetroBoard session={session} user={user} locale={locale} />;
+  if (user) {
+    return <RetroBoard session={session} user={user} locale={locale} />;
+  }
+
+  return <RetroGuestJoinClient session={session} locale={locale} />;
 }

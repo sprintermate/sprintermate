@@ -6,6 +6,7 @@ import Features from '@/components/Features';
 import HowItWorks from '@/components/HowItWorks';
 import Integrations from '@/components/Integrations';
 import Footer from '@/components/Footer';
+import BlogSection from '@/components/BlogSection';
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -132,6 +133,7 @@ export default async function HomePage({ params }: Props) {
       <Features />
       <HowItWorks />
       <Integrations />
+      <BlogSection locale={locale} />
       <Footer />
     </main>
   );

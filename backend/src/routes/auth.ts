@@ -15,12 +15,13 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 const JWT_EXPIRES_IN = 7 * 24 * 60 * 60; // 7 days in seconds
 
 function getCookieOptions(): CookieOptions {
-  const isSecure = (process.env.FRONTEND_URL ?? '').split(',').some(u => u.trim().startsWith('https://'));
+  const isSecure = process.env.NODE_ENV === 'production';
   const cookieDomain = process.env.COOKIE_DOMAIN;
   return {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
+    path: '/',
     ...(cookieDomain ? { domain: cookieDomain } : {}),
   };
 }

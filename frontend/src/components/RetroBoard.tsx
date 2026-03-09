@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import RetroGuestJoinModal from './RetroGuestJoinModal';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import LogoutButton from './LogoutButton';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -63,16 +63,11 @@ interface HistoryEntry {
   actions_count: number;
 }
 
-interface GuestUser {
-  id: string;
-  displayName: string;
-  isGuest: boolean;
-}
-
 interface User {
   id: string;
   displayName: string;
   email: string;
+  isGuest?: boolean;
 }
 
 interface Props {
@@ -122,8 +117,6 @@ function useTimer(durationMinutes: number, running: boolean) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function RetroBoard({ session: initialSession, user, locale }: Props) {
-  // Guest join state
-  const [guestUser, setGuestUser] = useState<GuestUser | null>(null);
   const t = useTranslations('retro');
   const socketRef = useRef<Socket | null>(null);
 
@@ -177,7 +170,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
 
   // ── Socket.IO ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const displayName = guestUser ? guestUser.displayName : user.displayName;
+    const displayName = user.displayName;
     const socket = io(BACKEND, { withCredentials: true, transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
@@ -218,7 +211,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
       socket.emit('retro:leave', { code: initialSession.code });
       socket.disconnect();
     };
-  }, [initialSession.code, guestUser, user.displayName]);
+  }, [initialSession.code, user.displayName]);
 
   // ── Add item ───────────────────────────────────────────────────────────────
   const handleAddItem = useCallback(async (category: RetroCategory) => {
@@ -226,8 +219,8 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     if (!content) return;
     setSubmitting(true);
     try {
-      const author_name = guestUser ? guestUser.displayName : user.displayName;
-      const author_id = guestUser ? 'guest' : user.id;
+      const author_name = user.displayName;
+      const author_id = user.id;
       const res = await fetch(`${BACKEND}/api/retro/${initialSession.code}/items`, {
         method: 'POST',
         credentials: 'include',
@@ -241,7 +234,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     } finally {
       setSubmitting(false);
     }
-  }, [draft, initialSession.code, guestUser, user]);
+  }, [draft, initialSession.code, user]);
 
   // ── Delete item ────────────────────────────────────────────────────────────
   const handleDeleteItem = useCallback(async (item: RetroItem) => {
@@ -365,40 +358,32 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
 
   const timerColor = secondsLeft < 60 ? 'text-red-400' : isDark ? 'text-yellow-200' : 'text-yellow-700';
 
-  // ── Guest join modal ───────────────────────────────────────────────────────
-  if (!user || user.id === 'guest' || guestUser === null) {
-    return (
-      <RetroGuestJoinModal
-        onJoin={name => {
-          setGuestUser({ id: 'guest', displayName: name, isGuest: true });
-        }}
-      />
-    );
-  }
-
   // ── Main board ────────────────────────────────────────────────────────────
   return (
     <div className={`min-h-screen ${boardBg} ${boardTexture} transition-colors duration-500`}>
       {/* ── Header ── */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-sm ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white/80 border-gray-200'}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md h-16 ${isDark ? 'bg-slate-950/80 border-slate-800/60' : 'bg-white/80 border-gray-200/60'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
           {/* Left side */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link
-              href={`/${locale}/dashboard`}
-              className={`shrink-0 text-lg px-2 py-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-              title={t('backToDashboard')}
-            >
-              ←
+            <Link href={user.isGuest ? `/${locale}` : `/${locale}/dashboard`} className="shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-600/30">
+                <span className="text-white font-bold text-xs">SA</span>
+              </div>
             </Link>
-            <span className={`text-lg ${fontClass} truncate font-semibold`}>{initialSession.title}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide
+            <span className={`hidden sm:block text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Sprintermate AI</span>
+            <span className={`text-sm font-medium truncate max-w-[200px] ${isDark ? 'text-white' : 'text-gray-900'}`}>{initialSession.title}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide shrink-0
               ${status === 'writing' ? (isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700') :
                 status === 'analyzing' ? (isDark ? 'bg-violet-800 text-violet-200' : 'bg-violet-100 text-violet-700') :
                 (isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600')}`}>
               {t(`status_${status}`)}
             </span>
-            <span className={`text-xs font-mono ${timerColor}`}>{timerDisplay}</span>
+          </div>
+
+          {/* Center: timer */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-base font-mono font-bold ${timerColor}`}>{timerDisplay}</span>
             {initialSession.isModerator && status === 'writing' && (
               <button
                 onClick={() => setTimerRunning(r => !r)}
@@ -407,16 +392,17 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                 {timerRunning ? '⏸' : '▶'}
               </button>
             )}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCopyLink}
-              className={`text-xs px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+              className={`text-xs px-2 py-1 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
               title={t('copyLink')}
             >
               {copied ? '✓' : '🔗'}
             </button>
-          </div>
-          {/* Right side */}
-          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowParticipants(s => !s)}
               className={`text-xs px-2 py-1 rounded border ${showParticipants
@@ -425,17 +411,6 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
             >
               👥 {participants.length}
             </button>
-
-            {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
-              className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-              title={isDark ? t('switchLight') : t('switchDark')}
-            >
-              {isDark ? '☀️' : '🌑'}
-            </button>
-
-            {/* History toggle */}
             {initialSession.isModerator && (
               <button
                 onClick={toggleHistory}
@@ -443,6 +418,37 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
               >
                 {t('trendBtn')}
               </button>
+            )}
+            {/* Theme toggle */}
+            <button
+              onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
+              className={`p-1.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              title={isDark ? t('switchLight') : t('switchDark')}
+            >
+              {isDark ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
+            {/* User avatar */}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDark ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+              {user.displayName.charAt(0).toUpperCase()}
+            </div>
+            <span className={`hidden sm:block text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{user.displayName}</span>
+            {user.isGuest ? (
+              <Link
+                href={`/${locale}`}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:text-white hover:border-slate-500' : 'border-gray-300 text-gray-500 hover:text-gray-900 hover:border-gray-400'}`}
+              >
+                {t('leaveSession')}
+              </Link>
+            ) : (
+              <LogoutButton locale={locale} />
             )}
           </div>
         </div>

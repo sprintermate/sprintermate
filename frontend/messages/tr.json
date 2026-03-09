@@ -374,6 +374,15 @@
     "error": "Metrikler Yüklenirken Hata",
     "noData": "Veri mevcut değil"
   },
+  "blog": {
+    "sectionLabel": "Blogdan",
+    "sectionTitle": "Agile Ekipler İçin İçgörüler",
+    "listTitle": "Blog",
+    "listDescription": "Sprint planlaması, YZ tahmini ve agile süreçler üzerine pratik rehberler.",
+    "viewAll": "Tüm yazıları gör",
+    "backToBlog": "Bloğa Dön",
+    "noPosts": "Henüz yazı yok. Yakında tekrar kontrol edin."
+  },
   "retro": {
     "createTitle": "Yeni Retrospektif",
     "createTitleLabel": "Oturum başlığı",
@@ -441,6 +450,18 @@
     "copied": "Kopyalandı!",
     "online": "Çevrimini:",
     "createProjectLabel": "Projeye bağla (isteğe bağlı)",
-    "createProjectNone": "Proje yok"
+    "createProjectNone": "Proje yok",
+    "leaveSession": "Ayrıl"
+  },
+  "retroGuestJoin": {
+    "title": "Retrospektife Katıl",
+    "sessionLabel": "Oturum",
+    "nameLabel": "Adınız",
+    "namePlaceholder": "Görünen adınızı girin",
+    "joinButton": "Retroya Katıl",
+    "moderatorPrompt": "Moderatör müsünüz?",
+    "signInLink": "Giriş yap",
+    "errorTooShort": "Ad en az 2 karakter olmalıdır.",
+    "errorTooLong": "Ad 64 karakterden kısa olmalıdır."
   }
 }

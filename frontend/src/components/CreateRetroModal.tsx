@@ -21,7 +21,6 @@ export default function CreateRetroModal({ locale, onClose }: Props) {
   const router = useRouter();
 
   const [title, setTitle] = useState('');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [duration, setDuration] = useState(30);
   const [projectId, setProjectId] = useState<string>('');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,7 +45,6 @@ export default function CreateRetroModal({ locale, onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          theme,
           duration_minutes: duration,
           project_id: projectId || null,
         }),
@@ -100,25 +98,6 @@ export default function CreateRetroModal({ locale, onClose }: Props) {
             </select>
           </div>
         )}
-
-        {/* Theme */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-400 mb-1">{t('createThemeLabel')}</label>
-          <div className="flex gap-2">
-            {(['dark', 'light'] as const).map(th => (
-              <button
-                key={th}
-                onClick={() => setTheme(th)}
-                className={`flex-1 py-2 text-sm rounded-lg border transition-colors
-                  ${theme === th
-                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                    : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-500'}`}
-              >
-                {th === 'dark' ? `🌑 ${t('themeDark')}` : `☀️ ${t('themeLight')}`}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Duration */}
         <div className="mb-5">

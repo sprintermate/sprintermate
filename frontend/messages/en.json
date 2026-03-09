@@ -374,6 +374,15 @@
     "error": "Error Loading Metrics",
     "noData": "No data available"
   },
+  "blog": {
+    "sectionLabel": "From the Blog",
+    "sectionTitle": "Insights for Agile Teams",
+    "listTitle": "Blog",
+    "listDescription": "Practical guides on sprint planning, AI estimation, and agile processes.",
+    "viewAll": "View all posts",
+    "backToBlog": "Back to Blog",
+    "noPosts": "No posts yet. Check back soon."
+  },
   "retro": {
     "createTitle": "New Retrospective",
     "createTitleLabel": "Session title",
@@ -441,6 +450,18 @@
     "copied": "Copied!",
     "online": "Online:",
     "createProjectLabel": "Link to project (optional)",
-    "createProjectNone": "No project"
+    "createProjectNone": "No project",
+    "leaveSession": "Leave"
+  },
+  "retroGuestJoin": {
+    "title": "Join Retrospective",
+    "sessionLabel": "Session",
+    "nameLabel": "Your name",
+    "namePlaceholder": "Enter your display name",
+    "joinButton": "Join Retro",
+    "moderatorPrompt": "Are you the moderator?",
+    "signInLink": "Sign in",
+    "errorTooShort": "Name must be at least 2 characters.",
+    "errorTooLong": "Name must be less than 64 characters."
   }
 }
