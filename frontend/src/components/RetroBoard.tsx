@@ -21,136 +21,37 @@ export interface RetroItem {
   author_name: string;
   votes: number;
 }
-// Additional context lines to ensure proper JSX structure
-const COLUMNS: { key: RetroCategory; labelKey: string; chalkColor: string; markerColor: string }[] = [
-  { key: 'well', labelKey: 'columnWell', chalkColor: 'text-emerald-300', markerColor: 'text-emerald-600' },
-  { key: 'improve', labelKey: 'columnImprove', chalkColor: 'text-rose-300', markerColor: 'text-rose-600' },
-  { key: 'ideas', labelKey: 'columnIdeas', chalkColor: 'text-yellow-300', markerColor: 'text-amber-600' },
-];
-// ─── Post-it card colours per column ─────────────────────────────────────────
-const POSTIT_DARK = { well: 'bg-emerald-900/70 border-emerald-600/50', improve: 'bg-rose-900/70 border-rose-600/50', ideas: 'bg-yellow-900/70 border-yellow-600/50' };
-const POSTIT_LIGHT = { well: 'bg-emerald-100 border-emerald-400', improve: 'bg-rose-100 border-rose-400', ideas: 'bg-amber-100 border-amber-400' };
-// ─── Timer ────────────────────────────────────────────────────────────────────
-function useTimer(durationMinutes: number, running: boolean) {
-  const [secondsLeft, setSecondsLeft] = useState(durationMinutes * 60);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    setSecondsLeft(durationMinutes * 60);
-  }, [durationMinutes]);
-  useEffect(() => {
-    if (!running) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    intervalRef.current = setInterval(() => {
-      setSecondsLeft(s => Math.max(0, s - 1));
-    }, 1000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
-  const minutes = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
-  const seconds = (secondsLeft % 60).toString().padStart(2, '0');
-  return { display: `${minutes}:${seconds}`, secondsLeft };
-}
-// ─── Main Component ───────────────────────────────────────────────────────────
-function RetroBoard({ session, user, locale }: Props) {
-  // Guest join state
-  const [guestName, setGuestName] = useState<string | null>(null);
-  const [guestUser, setGuestUser] = useState<User | null>(null);
-  const t = useTranslations('retro');
-  const socketRef = useRef<Socket | null>(null);
 
-  const [items, setItems] = useState<RetroItem[]>(session.items);
-  const [actions, setActions] = useState<RetroAction[]>(session.actions);
-  const [status, setStatus] = useState(session.status);
-  const [theme, setTheme] = useState<'dark' | 'light'>(session.theme === 'light' ? 'light' : 'dark');
-  const [timerRunning, setTimerRunning] = useState(false);
-  const { display: timerDisplay, secondsLeft } = useTimer(session.duration_minutes, timerRunning);
-
-  // Participants
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [showParticipants, setShowParticipants] = useState(false);
-
-  // Copy link
-  const [copied, setCopied] = useState(false);
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/${locale}/retro/${session.code}`
-    : `/${locale}/retro/${session.code}`;
-
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(joinUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [joinUrl]);
-
-  // Input state per column
-  const [draft, setDraft] = useState<Record<RetroCategory, string>>({ well: '', improve: '', ideas: '' });
-  const [addingTo, setAddingTo] = useState<RetroCategory | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  // AI analysis state
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
-  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
-  const [manualAction, setManualAction] = useState('');
-  const [manualActions, setManualActions] = useState<string[]>([]);
-  const [savingActions, setSavingActions] = useState(false);
-
-  // Trend/history
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-
-  // Per-session reaction tracking: 'up' = 👍, 'down' = 👎
-  const [votedItems, setVotedItems] = useState<Map<string, 'up' | 'down'>>(new Map());
-
-  const isDark = theme === 'dark';
-
-  // Guest join modalı göster
-  if (!user || user.id === 'guest' || guestUser === null) {
-    return (
-      <RetroGuestJoinModal
-        onJoin={name => {
-          setGuestName(name);
-          setGuestUser({ id: 'guest', displayName: name, isGuest: true });
-        }}
-      />
-    );
-  }
-
-  // ...existing JSX for the main board...
-  return (
-    <div className={`min-h-screen ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-gray-900'} transition-colors duration-500`}>
-      {/* ...existing JSX... */}
-    </div>
-  );
-}
-
-export default RetroBoard;
-'use client';
-
-import { useEffect, useRef, useState, useCallback } from 'react';
-import RetroGuestJoinModal from './RetroGuestJoinModal';
-import { io, Socket } from 'socket.io-client';
-import { useTranslations } from 'next-intl';
-import Link from 'next/link';
-
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type RetroCategory = 'well' | 'improve' | 'ideas';
-
-export interface RetroItem {
+export interface RetroAction {
   id: string;
   session_code: string;
-  category: RetroCategory;
   content: string;
-  author_id: string;
-  author_name: string;
-  votes: number;
+  ai_suggested: boolean;
+  is_accepted: boolean;
+  created_at: string;
 }
+
+export interface AIAnalysisResult {
+  summary: string;
+  trend_analysis: string;
+  actions: RetroAction[];
+}
+
+export interface RetroSession {
+  id: string;
+  code: string;
+  title: string;
+  created_by: string;
+  project_id: string | null;
+  theme: string;
+  status: string;
+  duration_minutes: number;
+  created_at: string;
+  isModerator: boolean;
+  items: RetroItem[];
+  actions: RetroAction[];
+}
+
 interface HistoryEntry {
   code: string;
   title: string;
@@ -160,6 +61,18 @@ interface HistoryEntry {
   improve_count: number;
   ideas_count: number;
   actions_count: number;
+}
+
+interface GuestUser {
+  id: string;
+  displayName: string;
+  isGuest: boolean;
+}
+
+interface User {
+  id: string;
+  displayName: string;
+  email: string;
 }
 
 interface Props {
@@ -208,9 +121,9 @@ function useTimer(durationMinutes: number, running: boolean) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+function RetroBoard({ session: initialSession, user, locale }: Props) {
   // Guest join state
-  const [guestName, setGuestName] = useState<string | null>(null);
-  const [guestUser, setGuestUser] = useState<User | null>(null);
+  const [guestUser, setGuestUser] = useState<GuestUser | null>(null);
   const t = useTranslations('retro');
   const socketRef = useRef<Socket | null>(null);
 
@@ -264,7 +177,6 @@ function useTimer(durationMinutes: number, running: boolean) {
 
   // ── Socket.IO ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Eğer guest join varsa guestUser ile bağlan
     const displayName = guestUser ? guestUser.displayName : user.displayName;
     const socket = io(BACKEND, { withCredentials: true, transports: ['websocket', 'polling'] });
     socketRef.current = socket;
@@ -306,7 +218,7 @@ function useTimer(durationMinutes: number, running: boolean) {
       socket.emit('retro:leave', { code: initialSession.code });
       socket.disconnect();
     };
-  }, [initialSession.code]);
+  }, [initialSession.code, guestUser, user.displayName]);
 
   // ── Add item ───────────────────────────────────────────────────────────────
   const handleAddItem = useCallback(async (category: RetroCategory) => {
@@ -314,7 +226,6 @@ function useTimer(durationMinutes: number, running: boolean) {
     if (!content) return;
     setSubmitting(true);
     try {
-      // Guest ise author_name ile gönder
       const author_name = guestUser ? guestUser.displayName : user.displayName;
       const author_id = guestUser ? 'guest' : user.id;
       const res = await fetch(`${BACKEND}/api/retro/${initialSession.code}/items`, {
@@ -358,16 +269,15 @@ function useTimer(durationMinutes: number, running: boolean) {
       delta = reaction === 'up' ? 1 : -1;
       setVotedItems(m => new Map(m).set(item.id, reaction));
     } else if (prev === reaction) {
-      // Same button again → remove vote
       delta = reaction === 'up' ? -1 : 1;
       setVotedItems(m => { const next = new Map(m); next.delete(item.id); return next; });
     } else {
-      // Switch direction
       delta = reaction === 'up' ? 2 : -2;
       setVotedItems(m => new Map(m).set(item.id, reaction));
     }
     await handleVote(item, delta);
   }, [votedItems, handleVote]);
+
   // ── AI Analyze ─────────────────────────────────────────────────────────────
   const handleAnalyze = useCallback(async () => {
     setAiLoading(true);
@@ -455,104 +365,60 @@ function useTimer(durationMinutes: number, running: boolean) {
 
   const timerColor = secondsLeft < 60 ? 'text-red-400' : isDark ? 'text-yellow-200' : 'text-yellow-700';
 
-function RetroBoard({ session, user, locale }: Props) {
-  // Guest join state
-  const [guestName, setGuestName] = useState<string | null>(null);
-  const [guestUser, setGuestUser] = useState<User | null>(null);
-  const t = useTranslations('retro');
-  const socketRef = useRef<Socket | null>(null);
-
-  const [items, setItems] = useState<RetroItem[]>(session.items);
-  const [actions, setActions] = useState<RetroAction[]>(session.actions);
-  const [status, setStatus] = useState(session.status);
-  const [theme, setTheme] = useState<'dark' | 'light'>(session.theme === 'light' ? 'light' : 'dark');
-  const [timerRunning, setTimerRunning] = useState(false);
-  const { display: timerDisplay, secondsLeft } = useTimer(session.duration_minutes, timerRunning);
-
-  // Participants
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [showParticipants, setShowParticipants] = useState(false);
-
-  // Copy link
-  const [copied, setCopied] = useState(false);
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/${locale}/retro/${session.code}`
-    : `/${locale}/retro/${session.code}`;
-
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(joinUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [joinUrl]);
-
-  // Input state per column
-  const [draft, setDraft] = useState<Record<RetroCategory, string>>({ well: '', improve: '', ideas: '' });
-  const [addingTo, setAddingTo] = useState<RetroCategory | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  // AI analysis state
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
-  const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set());
-  const [manualAction, setManualAction] = useState('');
-  const [manualActions, setManualActions] = useState<string[]>([]);
-  const [savingActions, setSavingActions] = useState(false);
-
-  // Trend/history
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-
-  // Per-session reaction tracking: 'up' = 👍, 'down' = 👎
-  const [votedItems, setVotedItems] = useState<Map<string, 'up' | 'down'>>(new Map());
-
-  const isDark = theme === 'dark';
-
-  // Guest join modalı göster
+  // ── Guest join modal ───────────────────────────────────────────────────────
   if (!user || user.id === 'guest' || guestUser === null) {
     return (
       <RetroGuestJoinModal
         onJoin={name => {
-          setGuestName(name);
           setGuestUser({ id: 'guest', displayName: name, isGuest: true });
         }}
       />
     );
   }
 
+  // ── Main board ────────────────────────────────────────────────────────────
   return (
     <div className={`min-h-screen ${boardBg} ${boardTexture} transition-colors duration-500`}>
-      {/* Top bar and board JSX goes here, no placeholder comments */}
-      {/* ...existing JSX from previous implementation... */}
-    </div>
-  );
-}
-export default RetroBoard;
-                  title={t('backToDashboard')}
-                >
-                  ←
-                </Link>
-                <span className={`text-lg ${fontClass} truncate font-semibold`}>{initialSession.title}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide
-                  ${status === 'writing' ? (isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700') :
-                    status === 'analyzing' ? (isDark ? 'bg-violet-800 text-violet-200' : 'bg-violet-100 text-violet-700') :
-                    (isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600')}`}>
-                  {t(`status_${status}`)}
-                </span>
-              </div>
-              ...existing code...
-            </div>
-          </header>
-          ...existing code...
-          </main>
-        </div>
-      )}
-    </>
-  );
-}
-export default RetroBoard;
+      {/* ── Header ── */}
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-sm ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-white/80 border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          {/* Left side */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Link
+              href={`/${locale}/dashboard`}
+              className={`shrink-0 text-lg px-2 py-1 rounded transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+              title={t('backToDashboard')}
+            >
+              ←
+            </Link>
+            <span className={`text-lg ${fontClass} truncate font-semibold`}>{initialSession.title}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide
+              ${status === 'writing' ? (isDark ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-100 text-emerald-700') :
+                status === 'analyzing' ? (isDark ? 'bg-violet-800 text-violet-200' : 'bg-violet-100 text-violet-700') :
+                (isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600')}`}>
+              {t(`status_${status}`)}
+            </span>
+            <span className={`text-xs font-mono ${timerColor}`}>{timerDisplay}</span>
+            {initialSession.isModerator && status === 'writing' && (
+              <button
+                onClick={() => setTimerRunning(r => !r)}
+                className={`text-xs px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+              >
+                {timerRunning ? '⏸' : '▶'}
+              </button>
+            )}
+            <button
+              onClick={handleCopyLink}
+              className={`text-xs px-2 py-0.5 rounded border transition-colors ${isDark ? 'border-slate-600 text-slate-400 hover:bg-slate-800' : 'border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+              title={t('copyLink')}
+            >
+              {copied ? '✓' : '🔗'}
+            </button>
+          </div>
+          {/* Right side */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowParticipants(s => !s)}
               className={`text-xs px-2 py-1 rounded border ${showParticipants
                 ? isDark ? 'border-indigo-500 text-indigo-300 bg-indigo-900/30' : 'border-indigo-400 text-indigo-600 bg-indigo-50'
                 : isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
@@ -562,7 +428,7 @@ export default RetroBoard;
 
             {/* Theme toggle */}
             <button
-              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(th => th === 'dark' ? 'light' : 'dark')}
               className={`text-xs px-2 py-1 rounded border ${isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-800' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
               title={isDark ? t('switchLight') : t('switchDark')}
             >
@@ -598,7 +464,7 @@ export default RetroBoard;
 
       {/* ── Trend / History panel ── */}
       {showHistory && (
-        <div className={`max-w-7xl mx-auto px-4 mt-4`}>
+        <div className="max-w-7xl mx-auto px-4 mt-4">
           <div className={`rounded-xl border p-4 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-violet-50 border-violet-200'}`}>
             <h3 className={`text-sm font-semibold mb-3 ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>{t('historyTitle')}</h3>
             {historyLoading ? (
@@ -665,8 +531,7 @@ export default RetroBoard;
                     .map(item => (
                       <div
                         key={item.id}
-                        className={`group relative rounded-lg border p-3 text-sm shadow-sm break-words
-                          ${cardBg[col.key]}`}
+                        className={`group relative rounded-lg border p-3 text-sm shadow-sm break-words ${cardBg[col.key]}`}
                       >
                         <p className={`${fontClass} leading-snug ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
                           {item.content}
@@ -894,7 +759,7 @@ export default RetroBoard;
         )}
 
         {/* ── Closed state: show final actions ── */}
-        {status === 'closed' && actions.filter(a => a.is_accepted).length > 0 && !(aiResult) && (
+        {status === 'closed' && actions.filter(a => a.is_accepted).length > 0 && !aiResult && (
           <div className={`mt-8 rounded-2xl border p-6 ${isDark ? 'bg-emerald-900/20 border-emerald-700/50' : 'bg-emerald-50 border-emerald-200'}`}>
             <h3 className={`text-base font-bold mb-4 ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               ✅ {t('finalActionsTitle')}
@@ -913,3 +778,5 @@ export default RetroBoard;
     </div>
   );
 }
+
+export default RetroBoard;
