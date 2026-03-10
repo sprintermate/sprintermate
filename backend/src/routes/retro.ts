@@ -5,7 +5,7 @@ import { UserAISettings } from '../db/schema';
 import RetroSession from '../db/models/RetroSession';
 import RetroItem from '../db/models/RetroItem';
 import RetroAction from '../db/models/RetroAction';
-import { callAI } from '../services/aiService';
+import { callAIFreeform, getProductionAISettings } from '../services/aiService';
 import { decrypt } from '../utils/crypto';
 import { getIO } from '../socket/ioInstance';
 
@@ -326,19 +326,24 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
     return;
   }
 
-  // Load AI settings for this user
-  const aiSettings = await UserAISettings.findOne({ where: { user_id: req.user!.id } });
-  if (!aiSettings) {
-    res.status(400).json({ error: 'No AI provider configured. Go to AI Settings first.' });
-    return;
-  }
+  // Resolve AI provider and key (production: use env; dev/user: use saved settings)
+  let provider: string;
+  let apiKey: string | null;
 
-  const aiPlain = (aiSettings as any).get({ plain: true });
-  // Provider seçimi: Eğer frontend'den provider gelirse onu kullan, yoksa kayıttaki provider'ı kullan
-  const provider = reqProvider || aiPlain.provider;
-  const apiKey = aiPlain.encrypted_api_key
-    ? decrypt(aiPlain.encrypted_api_key)
-    : null;
+  const prodSettings = getProductionAISettings();
+  if (prodSettings) {
+    provider = reqProvider || prodSettings.provider;
+    apiKey = prodSettings.apiKey;
+  } else {
+    const aiSettings = await UserAISettings.findOne({ where: { user_id: req.user!.id } });
+    if (!aiSettings) {
+      res.status(400).json({ error: 'No AI provider configured. Go to AI Settings first.' });
+      return;
+    }
+    const aiPlain = (aiSettings as any).get({ plain: true });
+    provider = reqProvider || aiPlain.provider;
+    apiKey = aiPlain.encrypted_api_key ? decrypt(aiPlain.encrypted_api_key) : null;
+  }
 
   // Gather items
   const items = await RetroItem.findAll({ where: { session_code: code } });
@@ -375,7 +380,7 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
   );
 
   try {
-    const raw = await callAI(provider, apiKey, prompt);
+    const raw = await callAIFreeform(provider, apiKey, prompt);
     const parsed = parseRetroAIResponse(raw);
 
     // Update session status

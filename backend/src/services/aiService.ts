@@ -248,7 +248,7 @@ async function callCodexCLI(prompt: string): Promise<string> {
 
 // ─── API Providers ────────────────────────────────────────────────────────────
 
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
+async function callGemini(prompt: string, apiKey: string, enforceEstimationSchema = true): Promise<string> {
   const estimateSchema: Schema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -291,9 +291,9 @@ async function callGemini(prompt: string, apiKey: string): Promise<string> {
     model: geminiModel,
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: estimateSchema,
+      ...(enforceEstimationSchema ? { responseSchema: estimateSchema } : {}),
       temperature: 0.2,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
     },
   });
   const result = await model.generateContent(prompt);
@@ -338,6 +338,23 @@ export async function callAI(
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
+}
+
+/**
+ * Same as callAI but for freeform JSON prompts (e.g. retro analysis).
+ * For Gemini, skips the estimation schema enforcement so the model follows
+ * the prompt's own JSON structure instructions — same behaviour as CLI providers.
+ */
+export async function callAIFreeform(
+  provider: string,
+  apiKey: string | null,
+  prompt: string,
+): Promise<string> {
+  if (provider === 'gemini') {
+    if (!apiKey) throw new Error('Gemini requires an API key');
+    return callGemini(prompt, apiKey, false);
+  }
+  return callAI(provider, apiKey, prompt);
 }
 
 export function getProductionAISettings(): { provider: string; apiKey: string } | null {
