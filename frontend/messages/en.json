@@ -258,7 +258,9 @@
     "revokeModerator": "Revoke moderator",
     "selfModerator": "Co-Moderator",
     "moderatorGranted": "You are now the Co-Moderator",
-    "moderatorRevoked": "Your moderator role has been revoked"
+    "moderatorRevoked": "Your moderator role has been revoked",
+    "scoringProgress": "Scoring Progress",
+    "scoringProgressTooltip": "{scored} of {total} items scored ({percent}%)"
   },
   "workItemList": {
     "loading": "Fetching work items from Azure DevOps…",

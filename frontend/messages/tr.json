@@ -258,7 +258,9 @@
     "revokeModerator": "Moderatörlüğü geri al",
     "selfModerator": "Ortak Moderatör",
     "moderatorGranted": "Artık Ortak Moderatörsünüz",
-    "moderatorRevoked": "Moderatör rolünüz geri alındı"
+    "moderatorRevoked": "Moderatör rolünüz geri alındı",
+    "scoringProgress": "Puanlama İlerlemesi",
+    "scoringProgressTooltip": "{total} öğeden {scored} tanesi puanlandı (%{percent})"
   },
   "workItemList": {
     "loading": "Azure DevOps'tan iş öğeleri yükleniyor…",
