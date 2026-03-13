@@ -614,6 +614,32 @@ export default function RoomClient({ room, user, locale }: Props) {
 
       {/* ── Main content ── */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col">
+        {/* ── Scoring progress bar ── */}
+        {workItems.length > 0 && (() => {
+          const scoredCount = workItems.filter((wi) => wi.storyPoints != null).length;
+          const pct = Math.round((scoredCount / workItems.length) * 100);
+          return (
+            <div className="mb-5 group relative">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-gray-400 dark:text-slate-500 text-xs">{t('scoringProgress')}</span>
+                <span className="font-mono text-gray-400 dark:text-slate-500 text-xs">{scoredCount}/{workItems.length}</span>
+              </div>
+              <div className="h-1 rounded-full bg-gray-200 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-indigo-500 dark:bg-indigo-500 transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+                <span className="inline-block px-2.5 py-1 rounded-md bg-gray-900 dark:bg-slate-700 text-white text-xs shadow-lg">
+                  {t('scoringProgressTooltip', { scored: scoredCount, total: workItems.length, percent: pct })}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
         {view === 'list' ? (
           <>
             <div className="flex items-center justify-between mb-5">
