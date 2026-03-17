@@ -327,7 +327,7 @@ export default function WorkItemDetail({
       <div className={`flex-1 min-h-0 ${scoringActive ? 'grid grid-cols-12 gap-6' : 'flex flex-col'}`}>
 
         {/* ── Left / Detail ────────────────────────────────────────────────── */}
-        <div className={`flex flex-col gap-5 overflow-y-auto min-h-0 ${scoringActive ? 'col-span-7' : 'w-full'}`}>
+        <div className={`flex flex-col gap-5 overflow-y-auto min-h-0 ${scoringActive ? 'col-span-8' : 'w-full'}`}>
 
           {/* Header */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
@@ -423,19 +423,19 @@ export default function WorkItemDetail({
 
         {/* ── Right / Scoring Panel ────────────────────────────────────────── */}
         {scoringActive && (
-          <div className="col-span-5 flex flex-col gap-4 min-h-0">
+          <div className="col-span-4 flex flex-col gap-4 min-h-0">
 
             {/* Card selector – shown before AND after reveal so users can update their vote */}
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
                 {revealed ? t('updateVote') : (myVote?.hasVoted ? t('yourVote') : t('pickScore'))}
               </p>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-1.5">
                 {FIBONACCI.map((n) => (
                   <button
                     key={n}
                     onClick={() => onCastVote(n)}
-                    className={`h-12 rounded-lg text-sm font-bold transition-all border ${
+                    className={`h-10 rounded-lg text-sm font-bold transition-all border ${
                       myScore === n
                         ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
                         : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
