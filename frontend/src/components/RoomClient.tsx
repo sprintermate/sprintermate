@@ -408,21 +408,38 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleUpdateWorkItem = useCallback(async (score: number, aiScore: number | null) => {
     if (!currentWorkItem) return;
-    const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items/${currentWorkItem.id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storyPoints: score, aiScore }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
+
+    if (user.isGuest) {
+      // Guest users cannot use authenticated HTTP endpoints — use the socket path instead.
+      // The server will proceed under the room owner's credentials.
+      await new Promise<void>((resolve, reject) => {
+        socketRef.current?.emit(
+          'work:save_score',
+          { code: room.code, workItemId: currentWorkItem.id, storyPoints: score, aiScore },
+          (result: { ok: true } | { error: string }) => {
+            if ('error' in result) reject(new Error(result.error));
+            else resolve();
+          },
+        );
+      });
+    } else {
+      const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items/${currentWorkItem.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storyPoints: score, aiScore }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
     }
+
     // Update local state so the UI reflects the new score immediately
     const updated = { ...currentWorkItem, storyPoints: score };
     setCurrentWorkItem(updated);
     setWorkItems((prev) => prev.map((wi) => wi.id === currentWorkItem.id ? updated : wi));
-  }, [currentWorkItem, room.code]);
+  }, [currentWorkItem, room.code, user.isGuest]);
 
   // Close context menu on outside click
   useEffect(() => {

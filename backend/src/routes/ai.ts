@@ -192,12 +192,13 @@ router.post('/test', requireAuth, aiRateLimit, async (req, res) => {
 });
 
 // ─── POST /api/ai/estimate ────────────────────────────────────────────────────
-router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
+// No requireAuth — guest delegated moderators call this using the room owner's AI settings.
+router.post('/estimate', aiRateLimit, async (req, res) => {
   let projectId: string | null = null;
   let workItemIdNum: number | null = null;
 
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id ?? null;
     const { roomCode, workItemId, locale } = req.body as { roomCode?: string; workItemId?: number; locale?: string };
 
     if (!roomCode || workItemId === undefined) {
@@ -205,7 +206,7 @@ router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
       return;
     }
 
-    // Resolve AI provider and key (production: use env; dev: use user settings)
+    // Resolve AI provider and key (production: use env; dev: use user or room-owner settings)
     let provider: string;
     let apiKey: string | null;
 
@@ -214,7 +215,20 @@ router.post('/estimate', requireAuth, aiRateLimit, async (req, res) => {
       provider = prodSettings.provider;
       apiKey = prodSettings.apiKey;
     } else {
-      const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
+      // First try the logged-in user's settings, then fall back to the room owner's settings
+      // (needed when a guest delegated moderator calls this endpoint).
+      let aiSettings = userId
+        ? await UserAISettings.findOne({ where: { user_id: userId } })
+        : null;
+
+      if (!aiSettings) {
+        // Fetch the room to find the original owner
+        const roomForOwner = await Room.findOne({ where: { code: roomCode } });
+        if (roomForOwner) {
+          aiSettings = await UserAISettings.findOne({ where: { user_id: roomForOwner.moderator_id } });
+        }
+      }
+
       if (!aiSettings) {
         res.status(400).json({ error: 'No AI provider configured. Please configure AI settings first.' });
         return;

@@ -1,6 +1,10 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { randomUUID } from 'crypto';
 import type { AIEstimateResult } from '../services/aiService';
+import { updateWorkItemStoryPoints, patAuthHeader } from '../services/azDevops';
+import { Room, Project, WorkItemScoreRecord } from '../db/schema';
+import { decrypt } from '../utils/crypto';
 import { setIO } from './ioInstance';
 import { childLogger } from '../utils/logger';
 
@@ -82,6 +86,18 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
 
 function isActiveModerator(room: RoomState, userId: string): boolean {
   return userId === (room.delegatedModerator ?? room.moderatorId);
+}
+
+/** Returns the userId of whoever currently holds moderator control (delegated or original). */
+export function getActiveModerator(code: string): string | null {
+  const room = rooms.get(code);
+  if (!room) return null;
+  return room.delegatedModerator ?? room.moderatorId;
+}
+
+/** Returns the original room creator's userId (never changes after room creation). */
+export function getOriginalModerator(code: string): string | null {
+  return rooms.get(code)?.moderatorId ?? null;
 }
 
 // ─── Helper serialisers ───────────────────────────────────────────────────────
@@ -339,6 +355,96 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 
       room.delegatedModerator = userId;
       io.to(code).emit('moderator:updated', { delegatedModerator: userId });
+    });
+
+    // ── work:save_score ────────────────────────────────────────────────────────
+    // Delegated (or original) moderator saves story points to ADO and DB.
+    // Used by guest moderators who cannot call authenticated HTTP endpoints.
+    socket.on('work:save_score', async (
+      data: { code: string; workItemId: number; storyPoints: number; aiScore?: number | null },
+      callback: (result: { ok: true } | { error: string }) => void,
+    ) => {
+      const { code, workItemId, storyPoints, aiScore } = data;
+      const room = rooms.get(code);
+      if (!room) {
+        callback({ error: 'Room not found' });
+        return;
+      }
+
+      const participant = room.participants.get(socket.id);
+      if (!participant || !isActiveModerator(room, participant.userId)) {
+        callback({ error: 'Only the active moderator can save scores' });
+        return;
+      }
+
+      if (!Number.isFinite(storyPoints) || storyPoints <= 0) {
+        callback({ error: 'storyPoints must be a positive number' });
+        return;
+      }
+
+      try {
+        const roomRow = await Room.findOne({ where: { code } });
+        if (!roomRow) { callback({ error: 'Room not found in database' }); return; }
+
+        const projectRow = await Project.findOne({ where: { id: roomRow.project_id } });
+        if (!projectRow) { callback({ error: 'No project associated with this room' }); return; }
+
+        const project = projectRow.get({ plain: true }) as any;
+
+        if (!project.encrypted_pat) {
+          callback({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
+          return;
+        }
+
+        let pat: string;
+        try {
+          pat = decrypt(project.encrypted_pat);
+        } catch {
+          callback({ error: 'Failed to decrypt project credentials' });
+          return;
+        }
+
+        const authHeader = patAuthHeader(pat);
+
+        await updateWorkItemStoryPoints(
+          project.organization,
+          project.name,
+          Number(workItemId),
+          storyPoints,
+          authHeader,
+        );
+
+        // Upsert WorkItemScoreRecord — always under the original room owner's user_id
+        if (aiScore != null && Number.isFinite(aiScore)) {
+          const now = new Date().toISOString();
+          const existing = await WorkItemScoreRecord.findOne({
+            where: { project_id: roomRow.project_id, work_item_id: Number(workItemId) },
+          });
+          if (existing) {
+            await existing.update({
+              ai_score: aiScore,
+              user_avg_score: storyPoints,
+              sprint_id: roomRow.sprint_id ?? null,
+              updated_at: now,
+            });
+          } else {
+            await WorkItemScoreRecord.create({
+              id: randomUUID(),
+              project_id: roomRow.project_id,
+              work_item_id: Number(workItemId),
+              ai_score: aiScore,
+              user_avg_score: storyPoints,
+              sprint_id: roomRow.sprint_id ?? null,
+              created_at: now,
+              updated_at: now,
+            });
+          }
+        }
+
+        callback({ ok: true });
+      } catch (err: any) {
+        callback({ error: err.message ?? 'Failed to save score' });
+      }
     });
 
     // ── moderator:revoke ──────────────────────────────────────────────────────

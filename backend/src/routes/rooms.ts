@@ -4,6 +4,7 @@ import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, Room, WorkItemScoreRecord } from '../db/schema';
 import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
+import { getActiveModerator } from '../socket/index';
 
 const router = Router();
 
@@ -92,7 +93,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     return;
   }
 
-  if (room.moderator_id !== userId) {
+  if (room.moderator_id !== userId && getActiveModerator(room.code) !== userId) {
     res.status(403).json({ error: 'Only the moderator can delete this room' });
     return;
   }
@@ -259,7 +260,7 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
     return;
   }
 
-  if (room.moderator_id !== userId) {
+  if (room.moderator_id !== userId && getActiveModerator(room.code) !== userId) {
     res.status(403).json({ error: 'Only the moderator can update work items' });
     return;
   }
