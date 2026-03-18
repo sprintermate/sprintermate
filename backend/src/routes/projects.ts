@@ -189,11 +189,16 @@ router.get('/:id/sprints', async (req, res) => {
   // Return cached sprints if available
   const cached = await Sprint.findAll({
     where: { project_id: project.id },
-    order: [['name', 'ASC']],
   });
 
   if (cached.length > 0) {
-    res.json(cached.map(s => s.get({ plain: true })));
+    const sorted = cached.map((s: any) => s.get({ plain: true })).sort((a: any, b: any) => {
+      if (!a.start_date && !b.start_date) return a.name.localeCompare(b.name);
+      if (!a.start_date) return 1;
+      if (!b.start_date) return -1;
+      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+    });
+    res.json(sorted);
     return;
   }
 
@@ -227,10 +232,15 @@ router.get('/:id/sprints', async (req, res) => {
 
     const rows = await Sprint.findAll({
       where: { project_id: project.id },
-      order: [['name', 'ASC']],
     });
 
-    res.json(rows.map(s => s.get({ plain: true })));
+    const sorted = rows.map((s: any) => s.get({ plain: true })).sort((a: any, b: any) => {
+      if (!a.start_date && !b.start_date) return a.name.localeCompare(b.name);
+      if (!a.start_date) return 1;
+      if (!b.start_date) return -1;
+      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+    });
+    res.json(sorted);
   } catch (err: any) {
     const msg: string = err?.message ?? '';
     const isAuthErr =
