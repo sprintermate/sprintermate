@@ -3,7 +3,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { randomUUID } from 'crypto';
 import type { AIEstimateResult } from '../services/aiService';
 import { updateWorkItemStoryPoints, patAuthHeader } from '../services/azDevops';
-import { Room, Project, WorkItemScoreRecord } from '../db/schema';
+import { Room, Project, WorkItemScoreRecord, WorkItemAIEstimate } from '../db/schema';
 import { decrypt } from '../utils/crypto';
 import { setIO } from './ioInstance';
 import { childLogger } from '../utils/logger';
@@ -54,6 +54,8 @@ interface RoomState {
   delegatedModerator: string | null;
   /** userIds of participants currently on coffee break — persists across resets/navigations */
   coffeeBreaks: Set<string>;
+  /** DB project_id — lazily populated on first room:join to allow querying saved AI estimates */
+  projectId: string | null;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -76,6 +78,7 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       aiEstimate: null,
       delegatedModerator: null,
       coffeeBreaks: new Set(),
+      projectId: null,
     };
     rooms.set(code, state);
   }
@@ -129,6 +132,16 @@ function buildRoomSnapshot(room: RoomState) {
   };
 }
 
+/** Serialise a WorkItemAIEstimate DB row plain object to AIEstimateResult */
+function serializeAIEstimateRow(plain: any): AIEstimateResult {
+  return {
+    'story-point': plain.story_point,
+    confidence: plain.confidence,
+    analysis: plain.analysis,
+    'similar-items': JSON.parse(plain.similar_items ?? '[]'),
+  } as AIEstimateResult;
+}
+
 // ─── Socket initialisation ────────────────────────────────────────────────────
 
 export function initSocket(httpServer: HttpServer): SocketIOServer {
@@ -147,7 +160,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     log.info('client connected', { socketId: socket.id });
 
     // ── room:join ─────────────────────────────────────────────────────────────
-    socket.on('room:join', (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
+    socket.on('room:join', async (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
       const { code, userId, displayName, moderatorId } = data;
       if (!code || !userId || !displayName) return;
 
@@ -167,8 +180,24 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.participants.set(socket.id, { userId, displayName, socketId: socket.id });
       socket.join(code);
 
-      // Send current room state to the joiner
-      socket.emit('room:state', buildRoomSnapshot(room));
+      // Lazily populate projectId so we can load saved AI estimates for any participant (incl. guests)
+      if (!room.projectId) {
+        const dbRoom = await Room.findOne({ where: { code } });
+        if (dbRoom) room.projectId = (dbRoom as any).project_id ?? null;
+      }
+
+      // Load all saved AI estimates for this project so late joiners / delegated moderators have them
+      let savedEstimates: Array<{ workItemId: number; estimate: AIEstimateResult }> = [];
+      if (room.projectId) {
+        const rows = await WorkItemAIEstimate.findAll({ where: { project_id: room.projectId } });
+        savedEstimates = rows.map((r: any) => ({
+          workItemId: r.get({ plain: true }).work_item_id,
+          estimate: serializeAIEstimateRow(r.get({ plain: true })),
+        }));
+      }
+
+      // Send current room state + saved AI estimates to the joiner
+      socket.emit('room:state', { ...buildRoomSnapshot(room), savedEstimates });
 
       // Broadcast updated participant list to all others
       io.to(code).emit('room:participants_changed', {
@@ -206,7 +235,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 
     // ── session:start_scoring ─────────────────────────────────────────────────
     // Moderator clicks "Start Scoring" → transitions all users to scoring mode
-    socket.on('session:start_scoring', (data: { code: string }) => {
+    socket.on('session:start_scoring', async (data: { code: string }) => {
       const { code } = data;
       const room = rooms.get(code);
       if (!room) return;
@@ -225,8 +254,19 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         }
       }
 
+      // Look up saved AI estimate for the current work item so all participants (incl. guests)
+      // get it even if they missed the batch-estimation socket events
+      let savedAiEstimate: AIEstimateResult | null = null;
+      if (room.projectId && room.currentWorkItem) {
+        const row = await WorkItemAIEstimate.findOne({
+          where: { project_id: room.projectId, work_item_id: room.currentWorkItem.id },
+        });
+        if (row) savedAiEstimate = serializeAIEstimateRow((row as any).get({ plain: true }));
+      }
+
       io.to(code).emit('session:start_scoring', {
         workItem: room.currentWorkItem,
+        savedAiEstimate,
       });
 
       // If any coffee-break votes were restored, broadcast the updated vote list
@@ -340,6 +380,25 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       // coffeeBreaks intentionally preserved across resets
 
       io.to(code).emit('session:reset', {});
+    });
+
+    // ── round:reset ───────────────────────────────────────────────────────────
+    // Moderator resets the current round back to pre-scoring state (stays on same work item)
+    socket.on('round:reset', (data: { code: string }) => {
+      const { code } = data;
+      const room = rooms.get(code);
+      if (!room) return;
+
+      const participant = room.participants.get(socket.id);
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
+
+      room.scoringActive = false;
+      room.votes         = new Map();
+      room.revealed      = false;
+      room.aiEstimate    = null;
+      // currentWorkItem preserved; coffeeBreaks preserved
+
+      io.to(code).emit('round:reset', {});
     });
 
     // ── moderator:grant ───────────────────────────────────────────────────────

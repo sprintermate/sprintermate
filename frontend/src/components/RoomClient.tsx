@@ -173,6 +173,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       revealed: boolean;
       aiEstimate?: AIEstimateResult | null;
       delegatedModerator?: string | null;
+      savedEstimates?: Array<{ workItemId: number; estimate: AIEstimateResult }>;
     }) => {
       setParticipants(data.participants);
       setCurrentWorkItem(data.currentWorkItem);
@@ -181,6 +182,10 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(data.revealed);
       setAiEstimate(data.aiEstimate ?? null);
       setDelegatedModerator(data.delegatedModerator ?? null);
+      // Populate saved AI estimates from the join snapshot (covers late joiners and guests)
+      if (data.savedEstimates?.length) {
+        setSavedAiEstimates(new Map(data.savedEstimates.map((d) => [d.workItemId, d.estimate])));
+      }
       // Restore coffee-break state from persisted vote
       const ownVote = data.votes.find((v) => v.userId === user.id);
       if (ownVote?.score === SCORE_COFFEE) {
@@ -206,12 +211,16 @@ export default function RoomClient({ room, user, locale }: Props) {
       setAiError(null);
     });
 
-    socket.on('session:start_scoring', () => {
+    socket.on('session:start_scoring', (data: { workItem?: WorkItem | null; savedAiEstimate?: AIEstimateResult | null }) => {
       setScoringActive(true);
       setVotes([]);
       setRevealed(false);
       setStats(null);
       setAiError(null);
+      // Sync saved AI estimate for current item so all clients (incl. guests / delegated mods) have it
+      if (data.savedAiEstimate && data.workItem?.id) {
+        setSavedAiEstimates((prev) => new Map(prev).set(data.workItem!.id, data.savedAiEstimate!));
+      }
       // Restore coffee-break vote automatically if user was on coffee break
       if (coffeeBreakRef.current) {
         setMyScore(SCORE_COFFEE);
@@ -234,6 +243,17 @@ export default function RoomClient({ room, user, locale }: Props) {
 
     socket.on('session:reset', () => {
       setCurrentWorkItem(null);
+      setScoringActive(false);
+      setVotes([]);
+      setRevealed(false);
+      setStats(null);
+      setMyScore(null);
+      setAiEstimate(null);
+      setAiError(null);
+    });
+
+    socket.on('round:reset', () => {
+      // Keep currentWorkItem — rewind round to pre-scoring state
       setScoringActive(false);
       setVotes([]);
       setRevealed(false);
@@ -404,6 +424,10 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleReset = useCallback(() => {
     socketRef.current?.emit('session:reset', { code: room.code });
+  }, [room.code]);
+
+  const handleRoundReset = useCallback(() => {
+    socketRef.current?.emit('round:reset', { code: room.code });
   }, [room.code]);
 
   const handleUpdateWorkItem = useCallback(async (score: number, aiScore: number | null) => {
@@ -704,24 +728,33 @@ export default function RoomClient({ room, user, locale }: Props) {
             userId={user.id}
             scoringActive={scoringActive}
             revealed={revealed}
-            votes={votes}
+            votes={
+              scoringActive && !revealed
+                ? participants.map((p) => {
+                    const v = votes.find((vt) => vt.userId === p.userId);
+                    return v ?? { userId: p.userId, displayName: p.displayName, hasVoted: false, score: null };
+                  })
+                : votes
+            }
             stats={stats}
             myScore={myScore}
             onStartScoring={handleStartScoring}
             onCastVote={handleCastVote}
             onReveal={handleReveal}
             onReset={handleReset}
+            onRoundReset={handleRoundReset}
             onBack={handleBack}
             onNextItem={isEffectiveModerator ? handleNextItem : undefined}
             onPrevItem={isEffectiveModerator ? handlePrevItem : undefined}
             hasNext={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) < workItems.length - 1 && workItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
             hasPrev={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
             onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
-            aiEstimate={revealed ? aiEstimate : null}
+            aiEstimate={isEffectiveModerator ? aiEstimate : revealed ? aiEstimate : null}
             aiLoading={aiLoading}
             aiError={aiError}
             savedAiEstimate={savedAiEstimates.get(currentWorkItem.id) ?? null}
             isBeingBatchEstimated={estimatingItems.has(currentWorkItem.id)}
+            onReanalyze={isEffectiveModerator ? handleAIEstimate : undefined}
           />
         ) : null}
       </main>

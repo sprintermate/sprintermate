@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, Room, WorkItemScoreRecord } from '../db/schema';
-import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints } from '../services/azDevops';
+import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints, addWorkItemComment } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { getActiveModerator } from '../socket/index';
 
@@ -327,6 +327,73 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err: any) {
     res.status(502).json({ error: err.message ?? 'Failed to update work item in Azure DevOps' });
+  }
+});
+
+/** POST /api/rooms/:code/work-items/:workItemId/comments — add a comment to an ADO work item (moderator only) */
+router.post('/:code/work-items/:workItemId/comments', requireAuth, async (req, res) => {
+  const { code, workItemId } = req.params;
+  const { text } = req.body as { text?: string };
+
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    res.status(400).json({ error: 'text is required' });
+    return;
+  }
+  if (text.length > 10000) {
+    res.status(400).json({ error: 'Comment text must be 10000 characters or fewer' });
+    return;
+  }
+
+  const parsedWorkItemId = Number(workItemId);
+  if (!Number.isFinite(parsedWorkItemId) || parsedWorkItemId <= 0) {
+    res.status(400).json({ error: 'Invalid work item id' });
+    return;
+  }
+
+  const userId = req.user!.id;
+  const room = await Room.findOne({ where: { code } });
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+
+  if (room.moderator_id !== userId && getActiveModerator(room.code) !== userId) {
+    res.status(403).json({ error: 'Only the moderator can add comments' });
+    return;
+  }
+
+  const project = await Project.findOne({ where: { id: room.project_id } });
+  if (!project) {
+    res.status(422).json({ error: 'Room has no associated project' });
+    return;
+  }
+
+  const projectPlain = project.get({ plain: true }) as any;
+  let authHeader: string;
+  if (projectPlain.encrypted_pat) {
+    try {
+      const pat = decrypt(projectPlain.encrypted_pat);
+      authHeader = patAuthHeader(pat);
+    } catch {
+      res.status(500).json({ error: 'Failed to decrypt project credentials' });
+      return;
+    }
+  } else {
+    res.status(401).json({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
+    return;
+  }
+
+  try {
+    await addWorkItemComment(
+      projectPlain.organization,
+      projectPlain.name,
+      parsedWorkItemId,
+      text.trim(),
+      authHeader,
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(502).json({ error: err.message ?? 'Failed to add comment to Azure DevOps' });
   }
 });
 
