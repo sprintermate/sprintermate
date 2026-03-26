@@ -92,8 +92,30 @@
     "signingIn": "Giriş yapılıyor…",
     "noAccount": "Hesabınız yok mu?",
     "register": "Kayıt ol",
+    "forgotPassword": "Şifrenizi mi unuttunuz?",
     "error": {
       "invalid_credentials": "Geçersiz e-posta veya şifre.",
+      "network_error": "Bir ağ hatası oluştu. Bağlantınızı kontrol edin.",
+      "unknown": "Beklenmeyen bir hata oluştu."
+    }
+  },
+  "forgotPassword": {
+    "title": "Şifrenizi sıfırlayın",
+    "description": "E-posta adresinizi girin ve yeni şifrenizi belirleyin.",
+    "emailLabel": "E-posta",
+    "emailPlaceholder": "siz@ornek.com",
+    "newPasswordLabel": "Yeni şifre",
+    "newPasswordPlaceholder": "En az 8 karakter",
+    "confirmPasswordLabel": "Yeni şifreyi onayla",
+    "confirmPasswordPlaceholder": "Yeni şifrenizi tekrar girin",
+    "submit": "Şifreyi sıfırla",
+    "submitting": "Sıfırlanıyor…",
+    "backToLogin": "Girişe geri dön",
+    "success": "Şifreniz güncellendi. Artık giriş yapabilirsiniz.",
+    "error": {
+      "not_found": "Bu e-posta adresine ait hesap bulunamadı.",
+      "password_mismatch": "Şifreler eşleşmiyor.",
+      "weak_password": "Şifre en az 8 karakter olmalıdır.",
       "network_error": "Bir ağ hatası oluştu. Bağlantınızı kontrol edin.",
       "unknown": "Beklenmeyen bir hata oluştu."
     }
