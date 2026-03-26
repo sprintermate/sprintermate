@@ -120,34 +120,6 @@ router.get('/me', (req: Request, res: Response) => {
   res.json(req.user);
 });
 
-// POST /api/auth/reset-password
-router.post('/reset-password', async (req: Request, res: Response) => {
-  const { email, newPassword } = req.body as { email?: string; newPassword?: string };
-
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: 'email and newPassword are required' });
-  }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
-
-  try {
-    const user = await User.findOne({ where: { email: email.toLowerCase().trim() } });
-    if (!user) {
-      return res.status(404).json({ error: 'No account found with this email address' });
-    }
-
-    const password_hash = await bcrypt.hash(newPassword, 12);
-    await user.update({ password_hash });
-
-    log.info('password reset', { userId: user.id });
-    return res.json({ ok: true });
-  } catch (err) {
-    log.error('reset-password error', { err });
-    return res.status(500).json({ error: 'Password reset failed' });
-  }
-});
-
 // POST /api/auth/logout
 router.post('/logout', (_req: Request, res: Response) => {
   res.clearCookie('token', getCookieOptions());
