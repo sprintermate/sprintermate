@@ -13,6 +13,8 @@ import roomsRouter from './routes/rooms';
 import aiRouter from './routes/ai';
 import metricsRouter from './routes/metrics';
 import retroRouter from './routes/retro';
+// TEMP: one-time admin password reset — REMOVE AFTER USE
+import adminResetRouter from './routes/adminReset';
 import requestLogger from './middleware/requestLogger';
 import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
@@ -109,6 +111,8 @@ export function createApp(): Application {
   app.use('/api/ai', aiRouter);
   app.use('/api/metrics', metricsRouter);
   app.use('/api/retro', retroRouter);
+  // TEMP: one-time admin password reset — REMOVE AFTER USE
+  app.use('/api/admin', adminResetRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
