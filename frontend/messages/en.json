@@ -92,8 +92,30 @@
     "signingIn": "Signing in…",
     "noAccount": "Don't have an account?",
     "register": "Register",
+    "forgotPassword": "Forgot your password?",
     "error": {
       "invalid_credentials": "Invalid email or password.",
+      "network_error": "A network error occurred. Please check your connection.",
+      "unknown": "An unexpected error occurred."
+    }
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "description": "Enter your email and choose a new password.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "newPasswordLabel": "New password",
+    "newPasswordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm new password",
+    "confirmPasswordPlaceholder": "Repeat your new password",
+    "submit": "Reset password",
+    "submitting": "Resetting…",
+    "backToLogin": "Back to sign in",
+    "success": "Your password has been updated. You can now sign in.",
+    "error": {
+      "not_found": "No account found with this email address.",
+      "password_mismatch": "Passwords do not match.",
+      "weak_password": "Password must be at least 8 characters.",
       "network_error": "A network error occurred. Please check your connection.",
       "unknown": "An unexpected error occurred."
     }
