@@ -29,6 +29,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
       DB_CHOICE: ${DB_CHOICE:-sqlite}
       POSTGRES_DB_HOST: postgres
       POSTGRES_DB_PORT: "5432"
