@@ -79,6 +79,14 @@ export default function LoginForm({ locale }: Props) {
           placeholder={t('passwordPlaceholder')}
           className="w-full px-4 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:focus:ring-indigo-500 focus:border-transparent transition"
         />
+        <div className="flex justify-end">
+          <a
+            href={`/${locale}/forgot-password`}
+            className="text-xs text-cyan-600 hover:text-cyan-500 dark:text-indigo-400 dark:hover:text-indigo-300 underline underline-offset-2"
+          >
+            {t('forgotPassword')}
+          </a>
+        </div>
       </div>
 
       {error && (
