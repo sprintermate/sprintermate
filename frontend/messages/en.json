@@ -276,7 +276,14 @@
     "cancelEstimateAll": "Cancel",
     "showAiEstimates": "Show AI estimates",
     "hideAiEstimates": "Hide AI estimates",
-    "hasAIEstimate": "AI estimate available (click 👁 to reveal)"
+    "hasAIEstimate": "AI estimate available (click 👁 to reveal)",
+    "filterAllTypes": "All Types",
+    "filterAllAssignees": "All Assignees",
+    "filterAllStates": "All States",
+    "clearFilters": "Clear filters",
+    "filterAllScored": "All (scored/unscored)",
+    "filterUnscored": "Unscored (no points)",
+    "filterScored": "Scored (has points)"
   },
   "workItemDetail": {
     "backToList": "Back to list",

@@ -13,6 +13,13 @@ export interface WorkItem {
   assignedTo: string | null;
 }
 
+export interface WorkItemFilters {
+  type: string;
+  assignedTo: string;
+  state: string;
+  scored?: string; // '', 'scored', 'unscored'
+}
+
 interface Props {
   items: WorkItem[];
   loading: boolean;
@@ -24,6 +31,11 @@ interface Props {
   estimatingItems?: Set<number>;
   isEstimatingAll?: boolean;
   savedAiEstimates?: Map<number, AIEstimateResult>;
+  adoOrg?: string;
+  adoProject?: string;
+  filters?: WorkItemFilters;
+  onFiltersChange?: (f: WorkItemFilters) => void;
+  showScoredFilter?: boolean;
 }
 
 function stateColor(state: string): string {
@@ -55,12 +67,21 @@ export default function WorkItemList({
   estimatingItems,
   isEstimatingAll,
   savedAiEstimates,
+  adoOrg,
+  adoProject,
+  filters,
+  onFiltersChange,
 }: Props) {
   const t = useTranslations('workItemList');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'id' | 'title' | 'state' | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [showAiEstimates, setShowAiEstimates] = useState(false);
+
+  // Compute unique options for filter dropdowns from the full item list
+  const typeOptions = [...new Set(items.map((i) => i.workItemType))].filter(Boolean).sort();
+  const assignedOptions = [...new Set(items.map((i) => i.assignedTo ?? ''))].filter(Boolean).sort();
+  const stateOptions = [...new Set(items.map((i) => i.state))].filter(Boolean).sort();
 
   function toggleSort(key: 'id' | 'title' | 'state') {
     if (sortKey === key) setSortAsc((v) => !v);
@@ -72,6 +93,13 @@ export default function WorkItemList({
       !search ||
       i.title.toLowerCase().includes(search.toLowerCase()) ||
       String(i.id).includes(search),
+    )
+    .filter((i) => !filters?.type || i.workItemType === filters.type)
+    .filter((i) => !filters?.assignedTo || i.assignedTo === filters.assignedTo)
+    .filter((i) => !filters?.state || i.state === filters.state)
+    .filter((i) => !filters?.scored ||
+      (filters.scored === 'scored' && i.storyPoints != null) ||
+      (filters.scored === 'unscored' && i.storyPoints == null)
     )
     .sort((a, b) => {
       if (sortKey === null) return 0; // preserve ADO order
@@ -120,6 +148,58 @@ export default function WorkItemList({
 
   return (
     <div className="flex flex-col gap-4">
+
+      {/* Filter dropdowns */}
+      {onFiltersChange && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={filters?.type ?? ''}
+            onChange={(e) => onFiltersChange({ ...(filters ?? { type: '', assignedTo: '', state: '', scored: '' }), type: e.target.value })}
+            className="h-8 pl-2 pr-7 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="">{t('filterAllTypes')}</option>
+            {typeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select
+            value={filters?.assignedTo ?? ''}
+            onChange={(e) => onFiltersChange({ ...(filters ?? { type: '', assignedTo: '', state: '', scored: '' }), assignedTo: e.target.value })}
+            className="h-8 pl-2 pr-7 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="">{t('filterAllAssignees')}</option>
+            {assignedOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select
+            value={filters?.state ?? ''}
+            onChange={(e) => onFiltersChange({ ...(filters ?? { type: '', assignedTo: '', state: '', scored: '' }), state: e.target.value })}
+            className="h-8 pl-2 pr-7 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="">{t('filterAllStates')}</option>
+            {stateOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          {/* Scored/Unscored filter */}
+          {typeof (filters as any)?.scored !== 'undefined' && (
+            <select
+              value={filters.scored ?? ''}
+              onChange={e => onFiltersChange({ ...(filters ?? { type: '', assignedTo: '', state: '', scored: '' }), scored: e.target.value })}
+              className="h-8 pl-2 pr-7 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">{t('filterAllScored')}</option>
+              <option value="unscored">{t('filterUnscored')}</option>
+              <option value="scored">{t('filterScored')}</option>
+            </select>
+          )}
+          {(filters?.type || filters?.assignedTo || filters?.state || filters?.scored) && (
+            <button
+              onClick={() => onFiltersChange({ type: '', assignedTo: '', state: '', scored: '' })}
+              className="h-8 px-2 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-600 transition-colors"
+              title={t('clearFilters')}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Search bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -211,7 +291,21 @@ export default function WorkItemList({
                 onClick={() => onSelectItem(item)}
                 className="bg-white hover:bg-gray-50 dark:bg-slate-950 dark:hover:bg-slate-900/60 cursor-pointer transition-colors group"
               >
-                <td className="px-4 py-3 text-gray-400 dark:text-slate-500 font-mono text-xs">{item.id}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  {adoOrg && adoProject ? (
+                    <a
+                      href={`https://dev.azure.com/${adoOrg}/${adoProject}/_workitems/edit/${item.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-gray-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors"
+                    >
+                      {item.id}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 dark:text-slate-500">{item.id}</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-0.5 min-w-0">
                     <span className="text-gray-900 dark:text-white font-medium group-hover:text-cyan-600 dark:group-hover:text-indigo-300 transition-colors truncate max-w-xs md:max-w-sm lg:max-w-lg">

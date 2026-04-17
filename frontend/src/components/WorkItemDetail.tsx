@@ -97,6 +97,8 @@ export interface AIEstimateResult {
 interface Props {
   workItem: WorkItem;
   roomCode: string;
+  adoOrg?: string;
+  adoProject?: string;
   isModerator: boolean;
   userId: string;
   scoringActive: boolean;
@@ -135,6 +137,8 @@ function initials(name: string): string {
 export default function WorkItemDetail({
   workItem,
   roomCode,
+  adoOrg,
+  adoProject,
   isModerator,
   userId,
   scoringActive,
@@ -407,7 +411,19 @@ export default function WorkItemDetail({
           {/* Header */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
             <div className="flex items-start gap-3 flex-wrap">
-              <span className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
+              {adoOrg && adoProject ? (
+                <a
+                  href={`https://dev.azure.com/${adoOrg}/${adoProject}/_workitems/edit/${workItem.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5 hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors"
+                >
+                  #{workItem.id}
+                </a>
+              ) : (
+                <span className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
+              )}
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-snug">{workItem.title}</h2>
                 <div className="flex flex-wrap gap-2 mt-2">

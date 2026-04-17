@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
-import WorkItemList, { type WorkItem } from './WorkItemList';
+import WorkItemList, { type WorkItem, type WorkItemFilters } from './WorkItemList';
 import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult, SCORE_COFFEE } from './WorkItemDetail';
 import { ThemeToggle } from './ThemeProvider';
 
@@ -98,6 +98,30 @@ export default function RoomClient({ room, user, locale }: Props) {
   const isEffectiveModerator = delegatedModerator !== null
     ? user.id === delegatedModerator
     : room.isModerator;
+
+  // ── Work item filter state (persists across detail navigation) ──────────────
+
+  const [workItemFilters, setWorkItemFilters] = useState<WorkItemFilters & { scored?: string }>({
+    type: '',
+    assignedTo: '',
+    state: '',
+    scored: '', // '', 'scored', 'unscored'
+  });
+
+  const filteredWorkItems = useMemo(
+    () =>
+      workItems.filter(
+        (wi) =>
+          (!workItemFilters.type || wi.workItemType === workItemFilters.type) &&
+          (!workItemFilters.assignedTo || wi.assignedTo === workItemFilters.assignedTo) &&
+          (!workItemFilters.state || wi.state === workItemFilters.state) &&
+          (!workItemFilters.scored ||
+            (workItemFilters.scored === 'scored' && wi.storyPoints != null) ||
+            (workItemFilters.scored === 'unscored' && wi.storyPoints == null)
+          ),
+      ),
+    [workItems, workItemFilters],
+  );
 
   // View: 'list' or 'item'
   const view = currentWorkItem ? 'item' : 'list';
@@ -500,19 +524,19 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleNextItem = useCallback(() => {
     if (!currentWorkItem) return;
-    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
-    if (idx >= 0 && idx < workItems.length - 1) {
-      handleSelectItem(workItems[idx + 1]!);
+    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx >= 0 && idx < filteredWorkItems.length - 1) {
+      handleSelectItem(filteredWorkItems[idx + 1]!);
     }
-  }, [currentWorkItem, workItems, handleSelectItem]);
+  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
 
   const handlePrevItem = useCallback(() => {
     if (!currentWorkItem) return;
-    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
     if (idx > 0) {
-      handleSelectItem(workItems[idx - 1]!);
+      handleSelectItem(filteredWorkItems[idx - 1]!);
     }
-  }, [currentWorkItem, workItems, handleSelectItem]);
+  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -717,6 +741,11 @@ export default function RoomClient({ room, user, locale }: Props) {
                 estimatingItems={estimatingItems}
                 isEstimatingAll={isEstimatingAll}
                 savedAiEstimates={savedAiEstimates}
+                adoOrg={room.organization}
+                adoProject={room.projectName}
+                filters={workItemFilters}
+                onFiltersChange={setWorkItemFilters}
+                showScoredFilter
               />
             )}
           </>
@@ -724,6 +753,8 @@ export default function RoomClient({ room, user, locale }: Props) {
           <WorkItemDetail
             workItem={currentWorkItem}
             roomCode={room.code}
+            adoOrg={room.organization}
+            adoProject={room.projectName}
             isModerator={isEffectiveModerator}
             userId={user.id}
             scoringActive={scoringActive}
@@ -746,8 +777,8 @@ export default function RoomClient({ room, user, locale }: Props) {
             onBack={handleBack}
             onNextItem={isEffectiveModerator ? handleNextItem : undefined}
             onPrevItem={isEffectiveModerator ? handlePrevItem : undefined}
-            hasNext={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) < workItems.length - 1 && workItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
-            hasPrev={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
+            hasNext={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) < filteredWorkItems.length - 1 && filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
+            hasPrev={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
             onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
             aiEstimate={isEffectiveModerator ? aiEstimate : revealed ? aiEstimate : null}
             aiLoading={aiLoading}
