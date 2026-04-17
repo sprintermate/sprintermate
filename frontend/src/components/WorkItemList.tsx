@@ -177,7 +177,7 @@ export default function WorkItemList({
             {stateOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           {/* Scored/Unscored filter */}
-          {typeof (filters as any)?.scored !== 'undefined' && (
+          {typeof filters !== 'undefined' && typeof filters.scored !== 'undefined' && (
             <select
               value={filters.scored ?? ''}
               onChange={e => onFiltersChange({ ...(filters ?? { type: '', assignedTo: '', state: '', scored: '' }), scored: e.target.value })}
