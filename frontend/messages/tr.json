@@ -278,7 +278,14 @@
     "cancelEstimateAll": "İptal Et",
     "showAiEstimates": "Yapay zeka tahminlerini göster",
     "hideAiEstimates": "Yapay zeka tahminlerini gizle",
-    "hasAIEstimate": "Yapay zeka tahmini mevcut (görmek için 👁 tıklayın)"
+    "hasAIEstimate": "Yapay zeka tahmini mevcut (görmek için 👁 tıklayın)",
+    "filterAllTypes": "Tüm Türler",
+    "filterAllAssignees": "Tüm Kişiler",
+    "filterAllStates": "Tüm Durumlar",
+    "clearFilters": "Filtreleri temizle",
+    "filterAllScored": "Hepsi (puanlı/puansız)",
+    "filterUnscored": "Puansız (henüz puanlanmamış)",
+    "filterScored": "Puanlanmış (puanı var)"
   },
   "workItemDetail": {
     "backToList": "Listeye dön",
