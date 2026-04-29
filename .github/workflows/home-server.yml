@@ -7,14 +7,25 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    strategy:
+      matrix:
+        # Define your server labels and their corresponding paths
+        include:
+          - server-label: pi
+            app-path: /home/berkslv/sprintermate
+          - server-label: dt
+            app-path: /home/dtpamxtribe/projects/sprintermate
+
+    # This forces the job to run on BOTH servers in parallel
+    runs-on: [self-hosted, "${{ matrix.server-label }}"]
+    
     steps:
       - name: Pull latest changes
-        working-directory: /home/berkslv/sprintermate
+        working-directory: ${{ matrix.app-path }}
         run: git pull origin main
 
       - name: Build and restart containers
-        working-directory: /home/berkslv/sprintermate
+        working-directory: ${{ matrix.app-path }}
         run: |
           docker compose -f docker-compose.prod.yml build --no-cache
           docker compose -f docker-compose.prod.yml up -d --remove-orphans
