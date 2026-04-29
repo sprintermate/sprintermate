@@ -49,6 +49,31 @@ async function runMigrations(): Promise<void> {
         : "SELECT name FROM pragma_table_info('retro_sessions') WHERE name='project_id'",
       run: "ALTER TABLE retro_sessions ADD COLUMN project_id TEXT",
     },
+    // Azure OpenAI columns on user_ai_settings
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='user_ai_settings' AND column_name='encrypted_endpoint'"
+        : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='encrypted_endpoint'",
+      run: "ALTER TABLE user_ai_settings ADD COLUMN encrypted_endpoint TEXT",
+    },
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='user_ai_settings' AND column_name='azure_organization'"
+        : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='azure_organization'",
+      run: "ALTER TABLE user_ai_settings ADD COLUMN azure_organization TEXT",
+    },
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='user_ai_settings' AND column_name='azure_api_version'"
+        : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='azure_api_version'",
+      run: "ALTER TABLE user_ai_settings ADD COLUMN azure_api_version TEXT",
+    },
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='user_ai_settings' AND column_name='azure_deployment_name'"
+        : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='azure_deployment_name'",
+      run: "ALTER TABLE user_ai_settings ADD COLUMN azure_deployment_name TEXT",
+    },
   ];
 
   for (const m of migrations) {

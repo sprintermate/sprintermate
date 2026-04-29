@@ -15,6 +15,7 @@ import {
   extractJSON,
   getProductionAISettings,
   type AIEstimateResult,
+  type AzureAIOptions,
   type ReferenceScoreItem,
   type PreviousSprintItem,
 } from '../services/aiService';
@@ -30,7 +31,7 @@ import { getIO } from '../socket/ioInstance';
 const router = Router();
 
 const CLI_PROVIDERS = new Set(['claude', 'copilot', 'codex']);
-const API_PROVIDERS = new Set(['gemini', 'chatgpt']);
+const API_PROVIDERS = new Set(['gemini', 'chatgpt', 'azure-openai']);
 const ALL_PROVIDERS = new Set([...CLI_PROVIDERS, ...API_PROVIDERS]);
 
 // ─── In-memory estimation lock ────────────────────────────────────────────────
@@ -97,8 +98,21 @@ async function persistEstimate(projectId: string, workItemId: number, result: AI
 // ─── GET /api/ai/settings ─────────────────────────────────────────────────────
 router.get('/settings', requireAuth, async (req, res) => {
   try {
-    if (process.env.NODE_ENV === 'production') {
-      res.json({ provider: 'gemini', hasApiKey: true, productionMode: true });
+    // If server-level AI env vars are set, reflect them directly (works in any NODE_ENV)
+    const serverSettings = getProductionAISettings();
+    if (serverSettings) {
+      res.json({
+        provider: serverSettings.provider,
+        hasApiKey: true,
+        serverManaged: true,
+        // Expose non-secret Azure fields so the UI can display them
+        ...(serverSettings.azureOptions ? {
+          hasEndpoint: true,
+          azureOrganization: serverSettings.azureOptions.organization ?? null,
+          azureApiVersion: serverSettings.azureOptions.apiVersion,
+          azureDeploymentName: serverSettings.azureOptions.deploymentName,
+        } : {}),
+      });
       return;
     }
 
@@ -113,6 +127,11 @@ router.get('/settings', requireAuth, async (req, res) => {
     res.json({
       provider: settings.provider,
       hasApiKey: !!settings.encrypted_api_key,
+      // Azure-specific fields (endpoint is secret — only expose existence flag)
+      hasEndpoint: !!settings.encrypted_endpoint,
+      azureOrganization: settings.azure_organization ?? null,
+      azureApiVersion: settings.azure_api_version ?? null,
+      azureDeploymentName: settings.azure_deployment_name ?? null,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'Failed to get AI settings' });
@@ -121,13 +140,27 @@ router.get('/settings', requireAuth, async (req, res) => {
 
 // ─── PUT /api/ai/settings ─────────────────────────────────────────────────────
 router.put('/settings', requireAuth, async (req, res) => {
-  if (process.env.NODE_ENV === 'production') {
-    res.status(403).json({ error: 'AI provider configuration is managed by the server in production.' });
+  if (getProductionAISettings()) {
+    res.status(403).json({ error: 'AI provider configuration is managed by server environment variables.' });
     return;
   }
   try {
     const userId = req.user!.id;
-    const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
+    const {
+      provider,
+      apiKey,
+      azureEndpoint,
+      azureOrganization,
+      azureApiVersion,
+      azureDeploymentName,
+    } = req.body as {
+      provider?: string;
+      apiKey?: string;
+      azureEndpoint?: string;
+      azureOrganization?: string;
+      azureApiVersion?: string;
+      azureDeploymentName?: string;
+    };
 
     if (!provider || !ALL_PROVIDERS.has(provider)) {
       res.status(400).json({ error: `Invalid provider. Must be one of: ${[...ALL_PROVIDERS].join(', ')}` });
@@ -139,15 +172,46 @@ router.put('/settings', requireAuth, async (req, res) => {
       return;
     }
 
+    if (provider === 'azure-openai') {
+      if (!azureEndpoint) {
+        res.status(400).json({ error: 'Azure endpoint URL is required for Azure OpenAI' });
+        return;
+      }
+      if (!azureDeploymentName) {
+        res.status(400).json({ error: 'Azure deployment name is required for Azure OpenAI' });
+        return;
+      }
+      if (!azureApiVersion) {
+        res.status(400).json({ error: 'Azure API version is required for Azure OpenAI' });
+        return;
+      }
+    }
+
     let encryptedApiKey: string | null = null;
     if (apiKey) {
       encryptedApiKey = encrypt(apiKey);
+    }
+
+    // Encrypt endpoint only for Azure; clear Azure columns for other providers
+    let encryptedEndpoint: string | null = null;
+    let orgValue: string | null = null;
+    let apiVersionValue: string | null = null;
+    let deploymentValue: string | null = null;
+    if (provider === 'azure-openai') {
+      encryptedEndpoint = azureEndpoint ? encrypt(azureEndpoint) : null;
+      orgValue = azureOrganization ?? null;
+      apiVersionValue = azureApiVersion ?? null;
+      deploymentValue = azureDeploymentName ?? null;
     }
 
     const existing = await UserAISettings.findOne({ where: { user_id: userId } });
     if (existing) {
       existing.provider = provider;
       existing.encrypted_api_key = encryptedApiKey;
+      existing.encrypted_endpoint = encryptedEndpoint;
+      existing.azure_organization = orgValue;
+      existing.azure_api_version = apiVersionValue;
+      existing.azure_deployment_name = deploymentValue;
       await existing.save();
     } else {
       await UserAISettings.create({
@@ -155,6 +219,10 @@ router.put('/settings', requireAuth, async (req, res) => {
         user_id: userId,
         provider,
         encrypted_api_key: encryptedApiKey,
+        encrypted_endpoint: encryptedEndpoint,
+        azure_organization: orgValue,
+        azure_api_version: apiVersionValue,
+        azure_deployment_name: deploymentValue,
         created_at: new Date().toISOString(),
       });
     }
@@ -170,9 +238,22 @@ router.post('/test', requireAuth, aiRateLimit, async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
     res.status(403).json({ success: false, error: 'AI provider testing is not available in production.' });
     return;
-  }
-  try {
-    const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
+  }  try {
+    const {
+      provider,
+      apiKey,
+      azureEndpoint,
+      azureOrganization,
+      azureApiVersion,
+      azureDeploymentName,
+    } = req.body as {
+      provider?: string;
+      apiKey?: string;
+      azureEndpoint?: string;
+      azureOrganization?: string;
+      azureApiVersion?: string;
+      azureDeploymentName?: string;
+    };
 
     if (!provider || !ALL_PROVIDERS.has(provider)) {
       res.status(400).json({ success: false, error: 'Invalid provider' });
@@ -184,7 +265,21 @@ router.post('/test', requireAuth, aiRateLimit, async (req, res) => {
       return;
     }
 
-    await testAIConnection(provider, apiKey ?? null);
+    let azureOptions: AzureAIOptions | undefined;
+    if (provider === 'azure-openai') {
+      if (!azureEndpoint || !azureDeploymentName || !azureApiVersion) {
+        res.status(400).json({ success: false, error: 'Azure endpoint, deployment name, and API version are required' });
+        return;
+      }
+      azureOptions = {
+        endpoint: azureEndpoint,
+        deploymentName: azureDeploymentName,
+        apiVersion: azureApiVersion,
+        organization: azureOrganization,
+      };
+    }
+
+    await testAIConnection(provider, apiKey ?? null, azureOptions);
     res.json({ success: true });
   } catch (err: any) {
     res.json({ success: false, error: err.message ?? 'AI test failed' });
@@ -209,11 +304,13 @@ router.post('/estimate', aiRateLimit, async (req, res) => {
     // Resolve AI provider and key (production: use env; dev: use user or room-owner settings)
     let provider: string;
     let apiKey: string | null;
+    let azureOptions: AzureAIOptions | undefined;
 
     const prodSettings = getProductionAISettings();
     if (prodSettings) {
       provider = prodSettings.provider;
       apiKey = prodSettings.apiKey;
+      azureOptions = prodSettings.azureOptions;
     } else {
       // First try the logged-in user's settings, then fall back to the room owner's settings
       // (needed when a guest delegated moderator calls this endpoint).
@@ -235,6 +332,19 @@ router.post('/estimate', aiRateLimit, async (req, res) => {
       }
       provider = aiSettings.provider;
       apiKey = aiSettings.encrypted_api_key ? decrypt(aiSettings.encrypted_api_key) : null;
+
+      if (provider === 'azure-openai') {
+        if (!aiSettings.encrypted_endpoint || !aiSettings.azure_deployment_name || !aiSettings.azure_api_version) {
+          res.status(400).json({ error: 'Azure OpenAI settings are incomplete. Please reconfigure AI settings.' });
+          return;
+        }
+        azureOptions = {
+          endpoint: decrypt(aiSettings.encrypted_endpoint),
+          deploymentName: aiSettings.azure_deployment_name,
+          apiVersion: aiSettings.azure_api_version,
+          organization: aiSettings.azure_organization ?? undefined,
+        };
+      }
     }
 
     // Load room, then its associated project and sprint
@@ -363,7 +473,7 @@ router.post('/estimate', aiRateLimit, async (req, res) => {
 
     // Build prompt and call AI
     const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems, locale);
-    const raw = await callAI(provider, apiKey, prompt);
+    const raw = await callAI(provider, apiKey, prompt, azureOptions);
     const result = extractJSON(raw);
 
     // Persist result to DB
@@ -432,11 +542,13 @@ router.post('/estimate-all', requireAuth, aiRateLimit, async (req, res) => {
     // Resolve AI provider and key (production: use env; dev: use user settings)
     let provider: string;
     let apiKey: string | null;
+    let azureOptions: AzureAIOptions | undefined;
 
     const prodSettings = getProductionAISettings();
     if (prodSettings) {
       provider = prodSettings.provider;
       apiKey = prodSettings.apiKey;
+      azureOptions = prodSettings.azureOptions;
     } else {
       const aiSettings = await UserAISettings.findOne({ where: { user_id: userId } });
       if (!aiSettings) {
@@ -445,6 +557,19 @@ router.post('/estimate-all', requireAuth, aiRateLimit, async (req, res) => {
       }
       provider = aiSettings.provider;
       apiKey = aiSettings.encrypted_api_key ? decrypt(aiSettings.encrypted_api_key) : null;
+
+      if (provider === 'azure-openai') {
+        if (!aiSettings.encrypted_endpoint || !aiSettings.azure_deployment_name || !aiSettings.azure_api_version) {
+          res.status(400).json({ error: 'Azure OpenAI settings are incomplete. Please reconfigure AI settings.' });
+          return;
+        }
+        azureOptions = {
+          endpoint: decrypt(aiSettings.encrypted_endpoint),
+          deploymentName: aiSettings.azure_deployment_name,
+          apiVersion: aiSettings.azure_api_version,
+          organization: aiSettings.azure_organization ?? undefined,
+        };
+      }
     }
 
     const room = await Room.findOne({ where: { code: roomCode } });
@@ -522,6 +647,7 @@ router.post('/estimate-all', requireAuth, aiRateLimit, async (req, res) => {
         roomCode,
         provider,
         apiKey,
+        azureOptions,
         authHeader,
         locale,
       });
@@ -560,12 +686,13 @@ interface BatchEstimationOpts {
   roomCode: string;
   provider: string;
   apiKey: string | null;
+  azureOptions?: AzureAIOptions;
   authHeader: string;
   locale?: string;
 }
 
 async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
-  const { items, project, sprint, roomCode, provider, apiKey, authHeader, locale } = opts;
+  const { items, project, sprint, roomCode, provider, apiKey, azureOptions, authHeader, locale } = opts;
   const io = getIO();
   const BATCH_SIZE = 3;
 
@@ -639,7 +766,7 @@ async function runBatchEstimation(opts: BatchEstimationOpts): Promise<void> {
 
       try {
         const prompt = buildEstimationPrompt(workItem, referenceScores, previousSprintItems, locale);
-        const raw = await callAI(provider, apiKey, prompt);
+        const raw = await callAI(provider, apiKey, prompt, azureOptions);
         const result = extractJSON(raw);
 
         await persistEstimate(project.id, workItem.id, result);

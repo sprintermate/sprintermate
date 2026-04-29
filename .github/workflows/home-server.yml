@@ -13,8 +13,10 @@ jobs:
         include:
           - server-label: pi
             app-path: /home/berkslv/sprintermate
+            compose-file: docker-compose.pi.yml
           - server-label: dt
             app-path: /home/dtpamxtribe/projects/sprintermate
+            compose-file: docker-compose.dt.yml
 
     # This forces the job to run on BOTH servers in parallel
     runs-on: [self-hosted, "${{ matrix.server-label }}"]
@@ -27,5 +29,5 @@ jobs:
       - name: Build and restart containers
         working-directory: ${{ matrix.app-path }}
         run: |
-          docker compose -f docker-compose.prod.yml build --no-cache
-          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          docker compose -f ${{ matrix.compose-file }} build --no-cache
+          docker compose -f ${{ matrix.compose-file }} up -d --remove-orphans

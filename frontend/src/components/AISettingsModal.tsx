@@ -23,16 +23,27 @@ export default function AISettingsModal({ onClose }: Props) {
   const t = useTranslations('aiSettings');
 
   const PROVIDERS: Provider[] = [
-    { id: 'copilot', label: 'GitHub Copilot', description: t('providerCopilotDesc'), requiresKey: false, icon: '🐙' },
-    { id: 'claude',  label: 'Claude CLI',     description: t('providerClaudeDesc'),  requiresKey: false, icon: '🤖' },
-    { id: 'codex',   label: 'Codex CLI',      description: t('providerCodexDesc'),   requiresKey: false, icon: '⚡' },
-    { id: 'gemini',  label: 'Gemini',         description: t('providerGeminiDesc'),  requiresKey: true,  icon: '💎' },
-    { id: 'chatgpt', label: 'ChatGPT',        description: t('providerChatGPTDesc'), requiresKey: true,  icon: '🧠' },
+    { id: 'copilot',      label: 'GitHub Copilot', description: t('providerCopilotDesc'),     requiresKey: false, icon: '🐙' },
+    { id: 'claude',       label: 'Claude CLI',     description: t('providerClaudeDesc'),      requiresKey: false, icon: '🤖' },
+    { id: 'codex',        label: 'Codex CLI',      description: t('providerCodexDesc'),       requiresKey: false, icon: '⚡' },
+    { id: 'gemini',       label: 'Gemini',         description: t('providerGeminiDesc'),      requiresKey: true,  icon: '💎' },
+    { id: 'chatgpt',      label: 'ChatGPT',        description: t('providerChatGPTDesc'),     requiresKey: true,  icon: '🧠' },
+    { id: 'azure-openai', label: 'Azure OpenAI',   description: t('providerAzureOpenAIDesc'), requiresKey: true,  icon: '☁️' },
   ];
 
+  // ── Common state ─────────────────────────────────────────────────────────────
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [hasExistingKey, setHasExistingKey] = useState(false);
+
+  // ── Azure-specific state ──────────────────────────────────────────────────────
+  const [azureEndpoint, setAzureEndpoint] = useState('');
+  const [hasExistingEndpoint, setHasExistingEndpoint] = useState(false);
+  const [azureOrganization, setAzureOrganization] = useState('');
+  const [azureDeploymentName, setAzureDeploymentName] = useState('');
+  const [azureApiVersion, setAzureApiVersion] = useState('');
+
+  // ── UI state ──────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -45,9 +56,20 @@ export default function AISettingsModal({ onClose }: Props) {
       try {
         const res = await fetch(`${BACKEND}/api/ai/settings`, { credentials: 'include' });
         if (res.ok) {
-          const data = await res.json() as { provider: string | null; hasApiKey: boolean };
+          const data = await res.json() as {
+            provider: string | null;
+            hasApiKey: boolean;
+            hasEndpoint?: boolean;
+            azureOrganization?: string | null;
+            azureApiVersion?: string | null;
+            azureDeploymentName?: string | null;
+          };
           setSelectedProvider(data.provider);
           setHasExistingKey(data.hasApiKey);
+          setHasExistingEndpoint(data.hasEndpoint ?? false);
+          setAzureOrganization(data.azureOrganization ?? '');
+          setAzureApiVersion(data.azureApiVersion ?? '');
+          setAzureDeploymentName(data.azureDeploymentName ?? '');
         }
       } finally {
         setLoading(false);
@@ -58,18 +80,40 @@ export default function AISettingsModal({ onClose }: Props) {
 
   const currentProvider = PROVIDERS.find((p) => p.id === selectedProvider);
   const needsKey = currentProvider?.requiresKey ?? false;
+  const isAzure = selectedProvider === 'azure-openai';
 
+  // ── Validation helpers ────────────────────────────────────────────────────────
+  function validateAzureFields(forTest = false): string | null {
+    if (!isAzure) return null;
+    if (!azureEndpoint && !hasExistingEndpoint) return t('errorRequiresEndpoint');
+    if (needsKey && !apiKey && !hasExistingKey) return forTest ? t('errorEnterKeyToTest') : t('errorRequiresKey');
+    if (!azureDeploymentName) return t('errorRequiresDeployment');
+    if (!azureApiVersion) return t('errorRequiresApiVersion');
+    return null;
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!selectedProvider) return;
-    if (needsKey && !apiKey && !hasExistingKey) {
+
+    if (!isAzure && needsKey && !apiKey && !hasExistingKey) {
       setSaveError(t('errorRequiresKey'));
       return;
     }
+    const azureErr = validateAzureFields(false);
+    if (azureErr) { setSaveError(azureErr); return; }
+
     setSaving(true);
     setSaveError(null);
     try {
       const body: Record<string, string> = { provider: selectedProvider };
       if (apiKey) body.apiKey = apiKey;
+      if (isAzure) {
+        if (azureEndpoint) body.azureEndpoint = azureEndpoint;
+        body.azureOrganization = azureOrganization;
+        body.azureDeploymentName = azureDeploymentName;
+        body.azureApiVersion = azureApiVersion;
+      }
 
       const res = await fetch(`${BACKEND}/api/ai/settings`, {
         method: 'PUT',
@@ -82,7 +126,9 @@ export default function AISettingsModal({ onClose }: Props) {
         throw new Error(data.error ?? 'Save failed');
       }
       setHasExistingKey(!!apiKey || hasExistingKey);
+      if (isAzure) setHasExistingEndpoint(!!azureEndpoint || hasExistingEndpoint);
       setApiKey('');
+      setAzureEndpoint('');
       onClose();
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
@@ -91,19 +137,30 @@ export default function AISettingsModal({ onClose }: Props) {
     }
   }
 
+  // ── Test ──────────────────────────────────────────────────────────────────────
   async function handleTest() {
     if (!selectedProvider) return;
-    if (needsKey && !apiKey && !hasExistingKey) {
+
+    if (!isAzure && needsKey && !apiKey && !hasExistingKey) {
       setTestError(t('errorEnterKeyToTest'));
       setTestStatus('error');
       return;
     }
+    const azureErr = validateAzureFields(true);
+    if (azureErr) { setTestError(azureErr); setTestStatus('error'); return; }
+
     setTesting(true);
     setTestStatus('idle');
     setTestError(null);
     try {
       const body: Record<string, string> = { provider: selectedProvider };
       if (apiKey) body.apiKey = apiKey;
+      if (isAzure) {
+        if (azureEndpoint) body.azureEndpoint = azureEndpoint;
+        body.azureOrganization = azureOrganization;
+        body.azureDeploymentName = azureDeploymentName;
+        body.azureApiVersion = azureApiVersion;
+      }
 
       const res = await fetch(`${BACKEND}/api/ai/test`, {
         method: 'POST',
@@ -126,14 +183,23 @@ export default function AISettingsModal({ onClose }: Props) {
     }
   }
 
+  // ── Provider switch ───────────────────────────────────────────────────────────
   function handleProviderChange(id: string) {
     setSelectedProvider(id);
     setApiKey('');
     setHasExistingKey(false);
+    setAzureEndpoint('');
+    setHasExistingEndpoint(false);
+    setAzureOrganization('');
+    setAzureDeploymentName('');
+    setAzureApiVersion('');
     setTestStatus('idle');
     setTestError(null);
     setSaveError(null);
   }
+
+  // ── Shared input class ────────────────────────────────────────────────────────
+  const inputCls = 'w-full px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 dark:focus:border-violet-500 dark:focus:ring-violet-500/30 transition';
 
   const modal = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 dark:bg-black/70 backdrop-blur-sm">
@@ -215,9 +281,70 @@ export default function AISettingsModal({ onClose }: Props) {
                 ))}
               </div>
 
-              {/* API Key input */}
+              {/* ── Azure-specific fields ───────────────────────────────────── */}
+              {isAzure && (
+                <div className="space-y-3 pt-1">
+                  {/* API URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
+                      {t('azureEndpointLabel')}
+                    </label>
+                    <input
+                      type="password"
+                      value={azureEndpoint}
+                      onChange={(e) => { setAzureEndpoint(e.target.value); setTestStatus('idle'); }}
+                      placeholder={hasExistingEndpoint ? t('azureEndpointPlaceholderSaved') : t('azureEndpointPlaceholder')}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {/* Organization */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
+                      {t('azureOrganizationLabel')}
+                    </label>
+                    <input
+                      type="text"
+                      value={azureOrganization}
+                      onChange={(e) => { setAzureOrganization(e.target.value); setTestStatus('idle'); }}
+                      placeholder={t('azureOrganizationPlaceholder')}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {/* Deployment Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
+                      {t('azureDeploymentLabel')}
+                    </label>
+                    <input
+                      type="text"
+                      value={azureDeploymentName}
+                      onChange={(e) => { setAzureDeploymentName(e.target.value); setTestStatus('idle'); }}
+                      placeholder={t('azureDeploymentPlaceholder')}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  {/* API Version */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
+                      {t('azureApiVersionLabel')}
+                    </label>
+                    <input
+                      type="text"
+                      value={azureApiVersion}
+                      onChange={(e) => { setAzureApiVersion(e.target.value); setTestStatus('idle'); }}
+                      placeholder={t('azureApiVersionPlaceholder')}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* ── API Token (all providers that need a key) ───────────────── */}
               {selectedProvider && needsKey && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 block">
                     {t('apiKeyLabel')}
                   </label>
@@ -226,7 +353,7 @@ export default function AISettingsModal({ onClose }: Props) {
                     value={apiKey}
                     onChange={(e) => { setApiKey(e.target.value); setTestStatus('idle'); }}
                     placeholder={hasExistingKey ? t('apiKeyPlaceholderSaved') : t('apiKeyPlaceholder')}
-                    className="w-full px-3 py-2.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-600 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 dark:focus:border-violet-500 dark:focus:ring-violet-500/30 transition"
+                    className={inputCls}
                   />
                 </div>
               )}

@@ -1,10 +1,22 @@
 import { spawn } from 'child_process';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import type { Schema } from '@google/generative-ai';
-import OpenAI from 'openai';
+import OpenAI, { AzureOpenAI } from 'openai';
 import type { AdoWorkItem } from './azDevops';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+/** Extra configuration required when using the Azure OpenAI provider. */
+export interface AzureAIOptions {
+  /** Full Azure resource endpoint, e.g. https://my-resource.openai.azure.com/ */
+  endpoint: string;
+  /** Deployment name as configured in Azure AI Studio, e.g. "gpt-4o" */
+  deploymentName: string;
+  /** Azure OpenAI REST API version, e.g. "2024-02-01" */
+  apiVersion: string;
+  /** Azure resource / organisation name (informational; passed to SDK for logging) */
+  organization?: string;
+}
 
 export interface SimilarItem {
   url: string;
@@ -315,12 +327,32 @@ async function callChatGPT(prompt: string, apiKey: string): Promise<string> {
   return text;
 }
 
+async function callAzureOpenAI(prompt: string, apiKey: string, opts: AzureAIOptions): Promise<string> {
+  const client = new AzureOpenAI({
+    apiKey,
+    endpoint: opts.endpoint,
+    apiVersion: opts.apiVersion,
+    deployment: opts.deploymentName,
+    ...(opts.organization ? { organization: opts.organization } : {}),
+  });
+  const response = await client.chat.completions.create({
+    model: opts.deploymentName,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.2,
+    max_completion_tokens: 1024,
+  });
+  const text = response.choices[0]?.message?.content ?? '';
+  if (!text) throw new Error('Azure OpenAI returned empty response');
+  return text;
+}
+
 // ─── Main Dispatcher ──────────────────────────────────────────────────────────
 
 export async function callAI(
   provider: string,
   apiKey: string | null,
   prompt: string,
+  azureOptions?: AzureAIOptions,
 ): Promise<string> {
   switch (provider) {
     case 'claude':
@@ -335,6 +367,10 @@ export async function callAI(
     case 'chatgpt':
       if (!apiKey) throw new Error('ChatGPT requires an API key');
       return callChatGPT(prompt, apiKey);
+    case 'azure-openai':
+      if (!apiKey) throw new Error('Azure OpenAI requires an API key');
+      if (!azureOptions) throw new Error('Azure OpenAI requires endpoint, deployment name, and API version');
+      return callAzureOpenAI(prompt, apiKey, azureOptions);
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
   }
@@ -349,31 +385,65 @@ export async function callAIFreeform(
   provider: string,
   apiKey: string | null,
   prompt: string,
+  azureOptions?: AzureAIOptions,
 ): Promise<string> {
   if (provider === 'gemini') {
     if (!apiKey) throw new Error('Gemini requires an API key');
     return callGemini(prompt, apiKey, false);
   }
-  return callAI(provider, apiKey, prompt);
+  return callAI(provider, apiKey, prompt, azureOptions);
 }
 
-export function getProductionAISettings(): { provider: string; apiKey: string } | null {
-  if (process.env.NODE_ENV !== 'production') return null;
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('[production] GEMINI_API_KEY is not set. AI features are unavailable.');
-  return { provider: 'gemini', apiKey };
+export function getProductionAISettings(): { provider: string; apiKey: string; azureOptions?: AzureAIOptions } | null {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const azureKey = process.env.AZURE_OPENAI_API_KEY;
+
+  // In development neither key is mandatory — return null to use per-user DB settings.
+  // But if either key IS set, treat it as a server-level override (useful for dev/self-hosted too).
+  if (!geminiKey && !azureKey) return null;
+
+  if (geminiKey && azureKey) {
+    throw new Error(
+      'Both GEMINI_API_KEY and AZURE_OPENAI_API_KEY are set. Configure exactly one AI provider.',
+    );
+  }
+
+  if (geminiKey) {
+    return { provider: 'gemini', apiKey: geminiKey };
+  }
+
+  // Azure OpenAI
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const deploymentName = process.env.AZURE_OPENAI_DEPLOYMENT;
+  const apiVersion = process.env.AZURE_OPENAI_API_VERSION;
+  if (!endpoint || !deploymentName || !apiVersion) {
+    throw new Error(
+      'AZURE_OPENAI_API_KEY is set but AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, or AZURE_OPENAI_API_VERSION is missing.',
+    );
+  }
+  return {
+    provider: 'azure-openai',
+    apiKey: azureKey!,
+    azureOptions: {
+      endpoint,
+      deploymentName,
+      apiVersion,
+      organization: process.env.AZURE_OPENAI_ORGANIZATION,
+    },
+  };
 }
 
 /** Simple connectivity test — verify the AI provider responds with anything. */
 export async function testAIConnection(
   provider: string,
   apiKey: string | null,
+  azureOptions?: AzureAIOptions,
 ): Promise<void> {
   // CLI tools (copilot, claude, codex) have their own output style and won't
   // reliably return structured JSON for a test prompt, so we just verify that
   // we get a non-empty response back without an error.
   const testPrompt = 'Say hello in one sentence.';
-  const raw = await callAI(provider, apiKey, testPrompt);
+  const raw = await callAI(provider, apiKey, testPrompt, azureOptions);
   if (!raw.trim()) {
     throw new Error('AI returned an empty response');
   }
