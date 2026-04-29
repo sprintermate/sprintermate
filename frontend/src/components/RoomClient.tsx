@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
-import WorkItemList, { type WorkItem } from './WorkItemList';
+import WorkItemList, { type WorkItem, type WorkItemFilters } from './WorkItemList';
 import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult, SCORE_COFFEE } from './WorkItemDetail';
 import { ThemeToggle } from './ThemeProvider';
 
@@ -99,6 +99,30 @@ export default function RoomClient({ room, user, locale }: Props) {
     ? user.id === delegatedModerator
     : room.isModerator;
 
+  // ── Work item filter state (persists across detail navigation) ──────────────
+
+  const [workItemFilters, setWorkItemFilters] = useState<WorkItemFilters & { scored?: string }>({
+    type: '',
+    assignedTo: '',
+    state: '',
+    scored: '', // '', 'scored', 'unscored'
+  });
+
+  const filteredWorkItems = useMemo(
+    () =>
+      workItems.filter(
+        (wi) =>
+          (!workItemFilters.type || wi.workItemType === workItemFilters.type) &&
+          (!workItemFilters.assignedTo || wi.assignedTo === workItemFilters.assignedTo) &&
+          (!workItemFilters.state || wi.state === workItemFilters.state) &&
+          (!workItemFilters.scored ||
+            (workItemFilters.scored === 'scored' && wi.storyPoints != null) ||
+            (workItemFilters.scored === 'unscored' && wi.storyPoints == null)
+          ),
+      ),
+    [workItems, workItemFilters],
+  );
+
   // View: 'list' or 'item'
   const view = currentWorkItem ? 'item' : 'list';
 
@@ -173,6 +197,7 @@ export default function RoomClient({ room, user, locale }: Props) {
       revealed: boolean;
       aiEstimate?: AIEstimateResult | null;
       delegatedModerator?: string | null;
+      savedEstimates?: Array<{ workItemId: number; estimate: AIEstimateResult }>;
     }) => {
       setParticipants(data.participants);
       setCurrentWorkItem(data.currentWorkItem);
@@ -181,6 +206,10 @@ export default function RoomClient({ room, user, locale }: Props) {
       setRevealed(data.revealed);
       setAiEstimate(data.aiEstimate ?? null);
       setDelegatedModerator(data.delegatedModerator ?? null);
+      // Populate saved AI estimates from the join snapshot (covers late joiners and guests)
+      if (data.savedEstimates?.length) {
+        setSavedAiEstimates(new Map(data.savedEstimates.map((d) => [d.workItemId, d.estimate])));
+      }
       // Restore coffee-break state from persisted vote
       const ownVote = data.votes.find((v) => v.userId === user.id);
       if (ownVote?.score === SCORE_COFFEE) {
@@ -206,12 +235,16 @@ export default function RoomClient({ room, user, locale }: Props) {
       setAiError(null);
     });
 
-    socket.on('session:start_scoring', () => {
+    socket.on('session:start_scoring', (data: { workItem?: WorkItem | null; savedAiEstimate?: AIEstimateResult | null }) => {
       setScoringActive(true);
       setVotes([]);
       setRevealed(false);
       setStats(null);
       setAiError(null);
+      // Sync saved AI estimate for current item so all clients (incl. guests / delegated mods) have it
+      if (data.savedAiEstimate && data.workItem?.id) {
+        setSavedAiEstimates((prev) => new Map(prev).set(data.workItem!.id, data.savedAiEstimate!));
+      }
       // Restore coffee-break vote automatically if user was on coffee break
       if (coffeeBreakRef.current) {
         setMyScore(SCORE_COFFEE);
@@ -234,6 +267,17 @@ export default function RoomClient({ room, user, locale }: Props) {
 
     socket.on('session:reset', () => {
       setCurrentWorkItem(null);
+      setScoringActive(false);
+      setVotes([]);
+      setRevealed(false);
+      setStats(null);
+      setMyScore(null);
+      setAiEstimate(null);
+      setAiError(null);
+    });
+
+    socket.on('round:reset', () => {
+      // Keep currentWorkItem — rewind round to pre-scoring state
       setScoringActive(false);
       setVotes([]);
       setRevealed(false);
@@ -406,23 +450,44 @@ export default function RoomClient({ room, user, locale }: Props) {
     socketRef.current?.emit('session:reset', { code: room.code });
   }, [room.code]);
 
+  const handleRoundReset = useCallback(() => {
+    socketRef.current?.emit('round:reset', { code: room.code });
+  }, [room.code]);
+
   const handleUpdateWorkItem = useCallback(async (score: number, aiScore: number | null) => {
     if (!currentWorkItem) return;
-    const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items/${currentWorkItem.id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storyPoints: score, aiScore }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
+
+    if (user.isGuest) {
+      // Guest users cannot use authenticated HTTP endpoints — use the socket path instead.
+      // The server will proceed under the room owner's credentials.
+      await new Promise<void>((resolve, reject) => {
+        socketRef.current?.emit(
+          'work:save_score',
+          { code: room.code, workItemId: currentWorkItem.id, storyPoints: score, aiScore },
+          (result: { ok: true } | { error: string }) => {
+            if ('error' in result) reject(new Error(result.error));
+            else resolve();
+          },
+        );
+      });
+    } else {
+      const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items/${currentWorkItem.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storyPoints: score, aiScore }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
     }
+
     // Update local state so the UI reflects the new score immediately
     const updated = { ...currentWorkItem, storyPoints: score };
     setCurrentWorkItem(updated);
     setWorkItems((prev) => prev.map((wi) => wi.id === currentWorkItem.id ? updated : wi));
-  }, [currentWorkItem, room.code]);
+  }, [currentWorkItem, room.code, user.isGuest]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -459,19 +524,19 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   const handleNextItem = useCallback(() => {
     if (!currentWorkItem) return;
-    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
-    if (idx >= 0 && idx < workItems.length - 1) {
-      handleSelectItem(workItems[idx + 1]!);
+    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    if (idx >= 0 && idx < filteredWorkItems.length - 1) {
+      handleSelectItem(filteredWorkItems[idx + 1]!);
     }
-  }, [currentWorkItem, workItems, handleSelectItem]);
+  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
 
   const handlePrevItem = useCallback(() => {
     if (!currentWorkItem) return;
-    const idx = workItems.findIndex((wi) => wi.id === currentWorkItem.id);
+    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
     if (idx > 0) {
-      handleSelectItem(workItems[idx - 1]!);
+      handleSelectItem(filteredWorkItems[idx - 1]!);
     }
-  }, [currentWorkItem, workItems, handleSelectItem]);
+  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -614,6 +679,32 @@ export default function RoomClient({ room, user, locale }: Props) {
 
       {/* ── Main content ── */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col">
+        {/* ── Scoring progress bar ── */}
+        {workItems.length > 0 && (() => {
+          const scoredCount = workItems.filter((wi) => wi.storyPoints != null).length;
+          const pct = Math.round((scoredCount / workItems.length) * 100);
+          return (
+            <div className="mb-5 group relative">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-gray-400 dark:text-slate-500 text-xs">{t('scoringProgress')}</span>
+                <span className="font-mono text-gray-400 dark:text-slate-500 text-xs">{scoredCount}/{workItems.length}</span>
+              </div>
+              <div className="h-1 rounded-full bg-gray-200 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-indigo-500 dark:bg-indigo-500 transition-all duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+                <span className="inline-block px-2.5 py-1 rounded-md bg-gray-900 dark:bg-slate-700 text-white text-xs shadow-lg">
+                  {t('scoringProgressTooltip', { scored: scoredCount, total: workItems.length, percent: pct })}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
         {view === 'list' ? (
           <>
             <div className="flex items-center justify-between mb-5">
@@ -650,6 +741,11 @@ export default function RoomClient({ room, user, locale }: Props) {
                 estimatingItems={estimatingItems}
                 isEstimatingAll={isEstimatingAll}
                 savedAiEstimates={savedAiEstimates}
+                adoOrg={room.organization}
+                adoProject={room.projectName}
+                filters={workItemFilters}
+                onFiltersChange={setWorkItemFilters}
+                showScoredFilter
               />
             )}
           </>
@@ -657,28 +753,39 @@ export default function RoomClient({ room, user, locale }: Props) {
           <WorkItemDetail
             workItem={currentWorkItem}
             roomCode={room.code}
+            adoOrg={room.organization}
+            adoProject={room.projectName}
             isModerator={isEffectiveModerator}
             userId={user.id}
             scoringActive={scoringActive}
             revealed={revealed}
-            votes={votes}
+            votes={
+              scoringActive && !revealed
+                ? participants.map((p) => {
+                    const v = votes.find((vt) => vt.userId === p.userId);
+                    return v ?? { userId: p.userId, displayName: p.displayName, hasVoted: false, score: null };
+                  })
+                : votes
+            }
             stats={stats}
             myScore={myScore}
             onStartScoring={handleStartScoring}
             onCastVote={handleCastVote}
             onReveal={handleReveal}
             onReset={handleReset}
+            onRoundReset={handleRoundReset}
             onBack={handleBack}
             onNextItem={isEffectiveModerator ? handleNextItem : undefined}
             onPrevItem={isEffectiveModerator ? handlePrevItem : undefined}
-            hasNext={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) < workItems.length - 1 && workItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
-            hasPrev={isEffectiveModerator ? workItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
+            hasNext={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) < filteredWorkItems.length - 1 && filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
+            hasPrev={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
             onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
-            aiEstimate={revealed ? aiEstimate : null}
+            aiEstimate={isEffectiveModerator ? aiEstimate : revealed ? aiEstimate : null}
             aiLoading={aiLoading}
             aiError={aiError}
             savedAiEstimate={savedAiEstimates.get(currentWorkItem.id) ?? null}
             isBeingBatchEstimated={estimatingItems.has(currentWorkItem.id)}
+            onReanalyze={isEffectiveModerator ? handleAIEstimate : undefined}
           />
         ) : null}
       </main>

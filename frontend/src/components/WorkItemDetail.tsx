@@ -97,6 +97,8 @@ export interface AIEstimateResult {
 interface Props {
   workItem: WorkItem;
   roomCode: string;
+  adoOrg?: string;
+  adoProject?: string;
   isModerator: boolean;
   userId: string;
   scoringActive: boolean;
@@ -119,6 +121,8 @@ interface Props {
   aiError?: string | null;
   savedAiEstimate?: AIEstimateResult | null;
   isBeingBatchEstimated?: boolean;
+  onReanalyze?: () => void;
+  onRoundReset?: () => void;
 }
 
 function initials(name: string): string {
@@ -133,6 +137,8 @@ function initials(name: string): string {
 export default function WorkItemDetail({
   workItem,
   roomCode,
+  adoOrg,
+  adoProject,
   isModerator,
   userId,
   scoringActive,
@@ -143,7 +149,6 @@ export default function WorkItemDetail({
   onStartScoring,
   onCastVote,
   onReveal,
-  onReset,
   onBack,
   onNextItem,
   onPrevItem,
@@ -155,12 +160,31 @@ export default function WorkItemDetail({
   aiError,
   savedAiEstimate,
   isBeingBatchEstimated,
+  onReanalyze,
+  onRoundReset,
 }: Props) {
   const t = useTranslations('workItemDetail');
   const myVote = votes.find((v) => v.userId === userId);
     // Show VoteDistributionBar after reveal
     const showVoteDistribution = revealed && votes.length > 0;
   const votedCount = votes.filter((v) => v.hasVoted).length;
+  // Sort votes: after reveal → highest score first, then ?, then ☕, null last
+  // During scoring → voted (hasVoted) first, not-voted last
+  const displayVotes = revealed
+    ? [...votes].sort((a, b) => {
+        const rank = (s: number | null): number => {
+          if (s === null) return -1000;
+          if (s > 0) return s;
+          if (s === SCORE_UNDECIDED) return -1;
+          if (s === SCORE_COFFEE) return -2;
+          return s;
+        };
+        return rank(b.score) - rank(a.score);
+      })
+    : [...votes].sort((a, b) => {
+        if (a.hasVoted === b.hasVoted) return 0;
+        return a.hasVoted ? -1 : 1;
+      });
   // Session-level estimate takes priority over persisted batch estimate
   const displayEstimate = aiEstimate ?? savedAiEstimate ?? null;
 
@@ -174,6 +198,12 @@ export default function WorkItemDetail({
   const [comments, setComments] = useState<WorkItemComment[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  // ADO comment modal state
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   // Fetch full work item detail on mount
   useEffect(() => {
@@ -214,6 +244,41 @@ export default function WorkItemDetail({
       setShowUpdateModal(false);
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function handleAddComment() {
+    if (!commentText.trim()) return;
+    setCommentSaving(true);
+    setCommentError(null);
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}/work-items/${workItem.id}/comments`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: commentText.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string } | unknown) && typeof data === 'object' && data !== null && 'error' in data && typeof (data as { error?: string }).error === 'string'
+          ? (data as { error: string }).error
+          : t('addCommentError'));
+      }
+      setComments((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: commentText.trim(),
+          createdBy: 'You',
+          createdDate: new Date().toISOString(),
+        },
+      ]);
+      setCommentText('');
+      setShowCommentModal(false);
+    } catch (err: unknown) {
+      setCommentError(err instanceof Error ? err.message : t('addCommentError'));
+    } finally {
+      setCommentSaving(false);
     }
   }
 
@@ -296,28 +361,42 @@ export default function WorkItemDetail({
               {votedCount > 0 ? t('revealVotesWithCount', { count: votedCount }) : t('revealVotes')}
             </button>
           )}
-          {isModerator && revealed && (
+          {isModerator && revealed && onUpdateWorkItem && (
+            <button
+              onClick={handleOpenUpdateModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              {t('updateWorkItem')}
+            </button>
+          )}
+          {isModerator && (
             <>
-              {onUpdateWorkItem && (
+              {revealed && onRoundReset && (
                 <button
-                  onClick={handleOpenUpdateModal}
+                  onClick={onRoundReset}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 text-sm font-medium transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {t('resetRound')}
+                </button>
+              )}
+              {workItem.id && (
+                <button
+                  onClick={() => { setCommentText(''); setCommentError(null); setShowCommentModal(true); }}
+                  title={t('addComment')}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
-                  {t('updateWorkItem')}
-                 </button>
+                  {t('addComment')}
+                </button>
               )}
-              <button
-                onClick={onReset}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-white text-sm font-medium transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {t('resetRound')}
-              </button>
             </>
           )}
         </div>
@@ -327,12 +406,24 @@ export default function WorkItemDetail({
       <div className={`flex-1 min-h-0 ${scoringActive ? 'grid grid-cols-12 gap-6' : 'flex flex-col'}`}>
 
         {/* ── Left / Detail ────────────────────────────────────────────────── */}
-        <div className={`flex flex-col gap-5 overflow-y-auto min-h-0 ${scoringActive ? 'col-span-7' : 'w-full'}`}>
+        <div className={`flex flex-col gap-5 overflow-y-auto min-h-0 ${scoringActive ? 'col-span-8' : 'w-full'}`}>
 
           {/* Header */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-5">
             <div className="flex items-start gap-3 flex-wrap">
-              <span className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
+              {adoOrg && adoProject ? (
+                <a
+                  href={`https://dev.azure.com/${adoOrg}/${adoProject}/_workitems/edit/${workItem.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5 hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors"
+                >
+                  #{workItem.id}
+                </a>
+              ) : (
+                <span className="font-mono text-gray-400 dark:text-slate-500 text-sm shrink-0 mt-0.5">#{workItem.id}</span>
+              )}
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-snug">{workItem.title}</h2>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -423,19 +514,19 @@ export default function WorkItemDetail({
 
         {/* ── Right / Scoring Panel ────────────────────────────────────────── */}
         {scoringActive && (
-          <div className="col-span-5 flex flex-col gap-4 min-h-0">
+          <div className="col-span-4 flex flex-col gap-4 min-h-0">
 
             {/* Card selector – shown before AND after reveal so users can update their vote */}
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
                 {revealed ? t('updateVote') : (myVote?.hasVoted ? t('yourVote') : t('pickScore'))}
               </p>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-1.5">
                 {FIBONACCI.map((n) => (
                   <button
                     key={n}
                     onClick={() => onCastVote(n)}
-                    className={`h-12 rounded-lg text-sm font-bold transition-all border ${
+                    className={`h-10 rounded-lg text-sm font-bold transition-all border ${
                       myScore === n
                         ? 'bg-cyan-600 border-cyan-500 dark:bg-indigo-600 dark:border-indigo-500 text-white scale-105 shadow-lg shadow-cyan-500/20 dark:shadow-indigo-500/20'
                         : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:hover:text-white'
@@ -512,9 +603,12 @@ export default function WorkItemDetail({
             {/* AI Estimate panel — shown only after reveal */}
             {revealed && (displayEstimate || isBeingBatchEstimated) && (
               <div className="rounded-xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 dark:from-violet-900/40 dark:to-indigo-900/20 dark:border-violet-500/30 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base leading-none">✨</span>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">{t('aiEstimate')}</p>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">✨</span>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-violet-300">{t('aiEstimate')}</p>
+                  </div>
+
                 </div>
 
                 {isBeingBatchEstimated && !displayEstimate ? (
@@ -589,6 +683,21 @@ export default function WorkItemDetail({
                         </ul>
                       </div>
                     )}
+                    {/* Re-run AI estimate button */}
+                    {isModerator && onReanalyze && (
+                      <div className="mt-3 flex justify-center">
+                        <button
+                          onClick={onReanalyze}
+                          disabled={aiLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/30 shadow-md shadow-violet-500/20"
+                        >
+                          {aiLoading
+                            ? <div className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                            : <span className="text-sm leading-none">⚡</span>}
+                          <span>{aiLoading ? t('analyzing') : t('reanalyze')}</span>
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -597,33 +706,13 @@ export default function WorkItemDetail({
             {/* Participant votes */}
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-4 flex-1 overflow-y-auto">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-3">
-                {votedCount > 0 ? t('votesWithCount', { voted: votedCount, total: votes.length }) : t('votes')}
+                {votes.length > 0 ? t('votesWithCount', { voted: votedCount, total: votes.length }) : t('votes')}
               </p>
               {votes.length === 0 && !(scoringActive && (aiLoading || isBeingBatchEstimated || displayEstimate)) ? (
                 <p className="text-gray-400 dark:text-slate-600 text-xs text-center py-4">{t('noParticipants')}</p>
               ) : (
                 <ul className="space-y-2">
-                  {votes.map((v) => (
-                    <li key={v.userId} className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 dark:bg-slate-700 dark:border-slate-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-slate-300 shrink-0">
-                        {initials(v.displayName)}
-                      </div>
-                      <span className="flex-1 text-sm text-gray-700 dark:text-slate-300 truncate">{v.displayName}</span>
-                      {revealed && v.score !== null ? (
-                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300 font-bold text-sm">
-                          {v.score === SCORE_UNDECIDED ? '?' : v.score === SCORE_COFFEE ? '☕' : v.score}
-                        </span>
-                      ) : v.hasVoted ? (
-                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 border border-green-200 text-green-600 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </span>
-                      ) : (
-                        <span className="w-8 h-8 flex items-center justify-center text-gray-300 dark:text-slate-600 text-xs">…</span>
-                      )}
-                    </li>
-                  ))}
+                  {/* AI row — always at top */}
                   {scoringActive && (aiLoading || isBeingBatchEstimated || displayEstimate) && (
                     <li className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-xs text-white shrink-0">
@@ -647,6 +736,37 @@ export default function WorkItemDetail({
                       ) : null}
                     </li>
                   )}
+                  {displayVotes.map((v) => (
+                    <li key={v.userId} className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 dark:bg-slate-700 dark:border-slate-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-slate-300 shrink-0">
+                        {initials(v.displayName)}
+                      </div>
+                      <span className={`flex-1 text-sm truncate ${
+                        revealed
+                          ? 'text-gray-700 dark:text-slate-300'
+                          : v.hasVoted
+                            ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                            : 'text-red-500 dark:text-red-400'
+                      }`}>{v.displayName}</span>
+                      {revealed && v.score !== null ? (
+                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300 font-bold text-sm">
+                          {v.score === SCORE_UNDECIDED ? '?' : v.score === SCORE_COFFEE ? '☕' : v.score}
+                        </span>
+                      ) : v.hasVoted ? (
+                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 border border-green-200 text-green-600 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span className="w-8 h-8 flex items-center justify-center text-red-400 dark:text-red-500">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </span>
+                      )}
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
@@ -712,6 +832,59 @@ export default function WorkItemDetail({
                 className="flex-1 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
                 {updating ? t('savingToAdo') : t('saveToAdo')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add ADO Comment Modal ── */}
+      {showCommentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-base">{t('addCommentTitle')}</h3>
+                <p className="text-gray-500 dark:text-slate-400 text-xs mt-0.5 truncate max-w-[18rem]">
+                  #{workItem.id} · {workItem.title}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white transition-colors ml-3 shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder={t('addCommentPlaceholder')}
+              maxLength={10000}
+              rows={5}
+              className="w-full rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white text-sm px-3 py-2 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+
+            {commentError && (
+              <p className="text-red-500 dark:text-red-400 text-xs mb-3">{commentError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCommentModal(false)}
+                className="flex-1 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium transition-colors"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleAddComment}
+                disabled={!commentText.trim() || commentSaving}
+                className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+              >
+                {commentSaving ? t('addCommentSaving') : t('addCommentSave')}
               </button>
             </div>
           </div>

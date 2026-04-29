@@ -11,6 +11,7 @@ import WorkItemScoreRecord from './models/WorkItemScoreRecord';
 import RetroSession from './models/RetroSession';
 import RetroItem from './models/RetroItem';
 import RetroAction from './models/RetroAction';
+import PasswordResetCode from './models/PasswordResetCode';
 
 // Define associations
 Project.hasMany(Sprint, { foreignKey: 'project_id', onDelete: 'CASCADE' });
@@ -67,4 +68,4 @@ export async function initSchema(): Promise<void> {
   log.info('schema synced');
 }
 
-export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode };

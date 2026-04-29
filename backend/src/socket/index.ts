@@ -1,6 +1,10 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { randomUUID } from 'crypto';
 import type { AIEstimateResult } from '../services/aiService';
+import { updateWorkItemStoryPoints, patAuthHeader } from '../services/azDevops';
+import { Room, Project, WorkItemScoreRecord, WorkItemAIEstimate } from '../db/schema';
+import { decrypt } from '../utils/crypto';
 import { setIO } from './ioInstance';
 import { childLogger } from '../utils/logger';
 
@@ -50,6 +54,8 @@ interface RoomState {
   delegatedModerator: string | null;
   /** userIds of participants currently on coffee break — persists across resets/navigations */
   coffeeBreaks: Set<string>;
+  /** DB project_id — lazily populated on first room:join to allow querying saved AI estimates */
+  projectId: string | null;
 }
 
 // ─── In-memory state ──────────────────────────────────────────────────────────
@@ -72,6 +78,7 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
       aiEstimate: null,
       delegatedModerator: null,
       coffeeBreaks: new Set(),
+      projectId: null,
     };
     rooms.set(code, state);
   }
@@ -82,6 +89,18 @@ function getOrCreateRoom(code: string, moderatorId: string): RoomState {
 
 function isActiveModerator(room: RoomState, userId: string): boolean {
   return userId === (room.delegatedModerator ?? room.moderatorId);
+}
+
+/** Returns the userId of whoever currently holds moderator control (delegated or original). */
+export function getActiveModerator(code: string): string | null {
+  const room = rooms.get(code);
+  if (!room) return null;
+  return room.delegatedModerator ?? room.moderatorId;
+}
+
+/** Returns the original room creator's userId (never changes after room creation). */
+export function getOriginalModerator(code: string): string | null {
+  return rooms.get(code)?.moderatorId ?? null;
 }
 
 // ─── Helper serialisers ───────────────────────────────────────────────────────
@@ -113,6 +132,16 @@ function buildRoomSnapshot(room: RoomState) {
   };
 }
 
+/** Serialise a WorkItemAIEstimate DB row plain object to AIEstimateResult */
+function serializeAIEstimateRow(plain: any): AIEstimateResult {
+  return {
+    'story-point': plain.story_point,
+    confidence: plain.confidence,
+    analysis: plain.analysis,
+    'similar-items': JSON.parse(plain.similar_items ?? '[]'),
+  } as AIEstimateResult;
+}
+
 // ─── Socket initialisation ────────────────────────────────────────────────────
 
 export function initSocket(httpServer: HttpServer): SocketIOServer {
@@ -131,7 +160,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     log.info('client connected', { socketId: socket.id });
 
     // ── room:join ─────────────────────────────────────────────────────────────
-    socket.on('room:join', (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
+    socket.on('room:join', async (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
       const { code, userId, displayName, moderatorId } = data;
       if (!code || !userId || !displayName) return;
 
@@ -151,8 +180,24 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       room.participants.set(socket.id, { userId, displayName, socketId: socket.id });
       socket.join(code);
 
-      // Send current room state to the joiner
-      socket.emit('room:state', buildRoomSnapshot(room));
+      // Lazily populate projectId so we can load saved AI estimates for any participant (incl. guests)
+      if (!room.projectId) {
+        const dbRoom = await Room.findOne({ where: { code } });
+        if (dbRoom) room.projectId = (dbRoom as any).project_id ?? null;
+      }
+
+      // Load all saved AI estimates for this project so late joiners / delegated moderators have them
+      let savedEstimates: Array<{ workItemId: number; estimate: AIEstimateResult }> = [];
+      if (room.projectId) {
+        const rows = await WorkItemAIEstimate.findAll({ where: { project_id: room.projectId } });
+        savedEstimates = rows.map((r: any) => ({
+          workItemId: r.get({ plain: true }).work_item_id,
+          estimate: serializeAIEstimateRow(r.get({ plain: true })),
+        }));
+      }
+
+      // Send current room state + saved AI estimates to the joiner
+      socket.emit('room:state', { ...buildRoomSnapshot(room), savedEstimates });
 
       // Broadcast updated participant list to all others
       io.to(code).emit('room:participants_changed', {
@@ -190,7 +235,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 
     // ── session:start_scoring ─────────────────────────────────────────────────
     // Moderator clicks "Start Scoring" → transitions all users to scoring mode
-    socket.on('session:start_scoring', (data: { code: string }) => {
+    socket.on('session:start_scoring', async (data: { code: string }) => {
       const { code } = data;
       const room = rooms.get(code);
       if (!room) return;
@@ -209,8 +254,19 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         }
       }
 
+      // Look up saved AI estimate for the current work item so all participants (incl. guests)
+      // get it even if they missed the batch-estimation socket events
+      let savedAiEstimate: AIEstimateResult | null = null;
+      if (room.projectId && room.currentWorkItem) {
+        const row = await WorkItemAIEstimate.findOne({
+          where: { project_id: room.projectId, work_item_id: room.currentWorkItem.id },
+        });
+        if (row) savedAiEstimate = serializeAIEstimateRow((row as any).get({ plain: true }));
+      }
+
       io.to(code).emit('session:start_scoring', {
         workItem: room.currentWorkItem,
+        savedAiEstimate,
       });
 
       // If any coffee-break votes were restored, broadcast the updated vote list
@@ -326,6 +382,25 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       io.to(code).emit('session:reset', {});
     });
 
+    // ── round:reset ───────────────────────────────────────────────────────────
+    // Moderator resets the current round back to pre-scoring state (stays on same work item)
+    socket.on('round:reset', (data: { code: string }) => {
+      const { code } = data;
+      const room = rooms.get(code);
+      if (!room) return;
+
+      const participant = room.participants.get(socket.id);
+      if (!participant || !isActiveModerator(room, participant.userId)) return;
+
+      room.scoringActive = false;
+      room.votes         = new Map();
+      room.revealed      = false;
+      room.aiEstimate    = null;
+      // currentWorkItem preserved; coffeeBreaks preserved
+
+      io.to(code).emit('round:reset', {});
+    });
+
     // ── moderator:grant ───────────────────────────────────────────────────────
     // Main moderator grants temporary moderator rights to a participant
     socket.on('moderator:grant', (data: { code: string; userId: string }) => {
@@ -339,6 +414,96 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
 
       room.delegatedModerator = userId;
       io.to(code).emit('moderator:updated', { delegatedModerator: userId });
+    });
+
+    // ── work:save_score ────────────────────────────────────────────────────────
+    // Delegated (or original) moderator saves story points to ADO and DB.
+    // Used by guest moderators who cannot call authenticated HTTP endpoints.
+    socket.on('work:save_score', async (
+      data: { code: string; workItemId: number; storyPoints: number; aiScore?: number | null },
+      callback: (result: { ok: true } | { error: string }) => void,
+    ) => {
+      const { code, workItemId, storyPoints, aiScore } = data;
+      const room = rooms.get(code);
+      if (!room) {
+        callback({ error: 'Room not found' });
+        return;
+      }
+
+      const participant = room.participants.get(socket.id);
+      if (!participant || !isActiveModerator(room, participant.userId)) {
+        callback({ error: 'Only the active moderator can save scores' });
+        return;
+      }
+
+      if (!Number.isFinite(storyPoints) || storyPoints <= 0) {
+        callback({ error: 'storyPoints must be a positive number' });
+        return;
+      }
+
+      try {
+        const roomRow = await Room.findOne({ where: { code } });
+        if (!roomRow) { callback({ error: 'Room not found in database' }); return; }
+
+        const projectRow = await Project.findOne({ where: { id: roomRow.project_id } });
+        if (!projectRow) { callback({ error: 'No project associated with this room' }); return; }
+
+        const project = projectRow.get({ plain: true }) as any;
+
+        if (!project.encrypted_pat) {
+          callback({ error: 'No ADO credentials available. Add a Personal Access Token (PAT) to the project.' });
+          return;
+        }
+
+        let pat: string;
+        try {
+          pat = decrypt(project.encrypted_pat);
+        } catch {
+          callback({ error: 'Failed to decrypt project credentials' });
+          return;
+        }
+
+        const authHeader = patAuthHeader(pat);
+
+        await updateWorkItemStoryPoints(
+          project.organization,
+          project.name,
+          Number(workItemId),
+          storyPoints,
+          authHeader,
+        );
+
+        // Upsert WorkItemScoreRecord — always under the original room owner's user_id
+        if (aiScore != null && Number.isFinite(aiScore)) {
+          const now = new Date().toISOString();
+          const existing = await WorkItemScoreRecord.findOne({
+            where: { project_id: roomRow.project_id, work_item_id: Number(workItemId) },
+          });
+          if (existing) {
+            await existing.update({
+              ai_score: aiScore,
+              user_avg_score: storyPoints,
+              sprint_id: roomRow.sprint_id ?? null,
+              updated_at: now,
+            });
+          } else {
+            await WorkItemScoreRecord.create({
+              id: randomUUID(),
+              project_id: roomRow.project_id,
+              work_item_id: Number(workItemId),
+              ai_score: aiScore,
+              user_avg_score: storyPoints,
+              sprint_id: roomRow.sprint_id ?? null,
+              created_at: now,
+              updated_at: now,
+            });
+          }
+        }
+
+        callback({ ok: true });
+      } catch (err: any) {
+        callback({ error: err.message ?? 'Failed to save score' });
+      }
     });
 
     // ── moderator:revoke ──────────────────────────────────────────────────────

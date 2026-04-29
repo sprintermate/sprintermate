@@ -91,8 +91,7 @@
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "noAccount": "Don't have an account?",
-    "register": "Register",
-    "error": {
+    "register": "Register",    "forgotPassword": "Forgot your password?",    "error": {
       "invalid_credentials": "Invalid email or password.",
       "network_error": "A network error occurred. Please check your connection.",
       "unknown": "An unexpected error occurred."
@@ -258,7 +257,9 @@
     "revokeModerator": "Revoke moderator",
     "selfModerator": "Co-Moderator",
     "moderatorGranted": "You are now the Co-Moderator",
-    "moderatorRevoked": "Your moderator role has been revoked"
+    "moderatorRevoked": "Your moderator role has been revoked",
+    "scoringProgress": "Scoring Progress",
+    "scoringProgressTooltip": "{scored} of {total} items scored ({percent}%)"
   },
   "workItemList": {
     "loading": "Fetching work items from Azure DevOps…",
@@ -275,7 +276,14 @@
     "cancelEstimateAll": "Cancel",
     "showAiEstimates": "Show AI estimates",
     "hideAiEstimates": "Hide AI estimates",
-    "hasAIEstimate": "AI estimate available (click 👁 to reveal)"
+    "hasAIEstimate": "AI estimate available (click 👁 to reveal)",
+    "filterAllTypes": "All Types",
+    "filterAllAssignees": "All Assignees",
+    "filterAllStates": "All States",
+    "clearFilters": "Clear filters",
+    "filterAllScored": "All (scored/unscored)",
+    "filterUnscored": "Unscored (no points)",
+    "filterScored": "Scored (has points)"
   },
   "workItemDetail": {
     "backToList": "Back to list",
@@ -316,14 +324,24 @@
     "modalDesc": "Select the final story points to save to Azure DevOps:",
     "modalSelected": "Selected: {score} story points",
     "cancel": "Cancel",
-    "saveToAdo": "Save to Azure DevOps",
+    "saveToAdo": "Save",
     "savingToAdo": "Saving…",
     "prevItem": "Previous",
     "nextItem": "Next",
     "voteUndecided": "Undecided",
     "voteUndecidedHint": "I'm not sure yet",
     "voteCoffee": "Break",
-    "voteCoffeeHint": "Coffee break — I'll stay on break until I vote again"
+    "voteCoffeeHint": "Coffee break — I'll stay on break until I vote again",
+    "addComment": "Add Comment",
+    "addCommentTitle": "Add Comment to Azure DevOps",
+    "addCommentPlaceholder": "Write your comment...",
+    "addCommentSave": "Add",
+    "addCommentSaving": "Adding...",
+    "addCommentError": "Failed to add comment",
+    "reanalyze": "Re-analyze with AI",
+    "reanalyzeLabel": "Analyze",
+    "resetRoundLabel": "Reset",
+    "addCommentLabel": "Comment"
   },
   "guestJoin": {
     "title": "Join Room",
@@ -463,5 +481,36 @@
     "signInLink": "Sign in",
     "errorTooShort": "Name must be at least 2 characters.",
     "errorTooLong": "Name must be less than 64 characters."
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "description": "Enter your email and we'll send you a 6-digit code to reset your password.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "sendCode": "Send Reset Code",
+    "sending": "Sending\u2026",
+    "codeSent": "A 6-digit code has been sent to your email.",
+    "codeLabel": "Reset Code",
+    "codePlaceholder": "Enter 6-digit code",
+    "newPasswordLabel": "New Password",
+    "newPasswordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm New Password",
+    "confirmPasswordPlaceholder": "Repeat your new password",
+    "resetPassword": "Reset Password",
+    "resetting": "Resetting\u2026",
+    "success": "Your password has been reset successfully!",
+    "backToLogin": "Back to Sign In",
+    "resendCode": "Resend code",
+    "codeExpired": "Code expired. Please request a new one.",
+    "timeRemaining": "{seconds}s remaining",
+    "error": {
+      "invalid_code": "Invalid code. Please check and try again.",
+      "expired_or_invalid": "Code has expired or is invalid. Please request a new one.",
+      "too_many_attempts": "Too many failed attempts. Please request a new code.",
+      "weak_password": "Password must be at least 8 characters.",
+      "password_mismatch": "Passwords do not match.",
+      "network_error": "A network error occurred. Please check your connection.",
+      "unknown": "An unexpected error occurred."
+    }
   }
 }

@@ -25,6 +25,7 @@
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",
     "pg-hstore": "^2.3.4",
+    "resend": "^6.10.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.7.5",
     "sqlite3": "^5.1.7",

@@ -555,6 +555,38 @@ export async function updateWorkItemStoryPoints(
   }
 }
 
+/**
+ * Adds a comment to a specific ADO work item.
+ */
+export async function addWorkItemComment(
+  organization: string,
+  project: string,
+  workItemId: number,
+  text: string,
+  authHeader: string,
+): Promise<void> {
+  const url =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/_apis/wit/workItems/${workItemId}/comments?api-version=7.1-preview.4`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: authHeader,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ text }),
+    redirect: 'error',
+  });
+
+  if (!res.ok) {
+    const errText = (await res.text()).slice(0, 200);
+    throw new Error(`ADO add comment error ${res.status}: ${errText}`);
+  }
+}
+
 // ─── Sprint Metrics ───────────────────────────────────────────────────────────
 
 export interface SprintMetrics {
