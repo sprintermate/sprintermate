@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import CreateRoomModal from './CreateRoomModal';
 import CreateRetroModal from './CreateRetroModal';
+import AnalysisChat from './AnalysisChat';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -48,7 +49,7 @@ interface Props {
   locale: string;
 }
 
-type ActiveTab = 'rooms' | 'projects' | 'retros';
+type ActiveTab = 'rooms' | 'projects' | 'retros' | 'analysis';
 
 interface RetroSessionSummary {
   id: string;
@@ -330,6 +331,16 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           }`}
         >
           {rt('tabRetro')}
+        </button>
+        <button
+          onClick={() => setActiveTab('analysis')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === 'analysis'
+              ? 'border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300'
+              : 'border-transparent text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
+          }`}
+        >
+          {t('tabAnalysis')}
         </button>
       </div>
 
@@ -685,6 +696,11 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
             </div>
           )}
         </section>
+      )}
+
+      {/* ── ANALYSIS TAB (full-screen overlay) ── */}
+      {activeTab === 'analysis' && (
+        <AnalysisChat projects={projects} onClose={() => setActiveTab('rooms')} />
       )}
 
       {/* Modals */}

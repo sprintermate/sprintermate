@@ -163,7 +163,8 @@
     "validationError": "Her referans puanın bir başlığı ve geçerli sayısal bir hikaye puanı değeri olmalıdır.",
     "viewMetrics": "Metrikler",
     "metricsWip": "Bu ekrandaki geliştirmeler devam etmektedir.",
-    "ok": "Tamam"
+    "ok": "Tamam",
+    "tabAnalysis": "Analiz Ajanı"
   },
   "createRoom": {
     "title": "Oda Oluştur",
@@ -498,6 +499,28 @@
     "signInLink": "Giriş yap",
     "errorTooShort": "Ad en az 2 karakter olmalıdır.",
     "errorTooLong": "Ad 64 karakterden kısa olmalıdır."
+  },
+  "analysis": {
+    "tabTitle": "Analiz Ajanı",
+    "newChat": "Yeni Analiz",
+    "deleteChat": "Sohbeti Sil",
+    "renameChat": "Yeniden Adlandır",
+    "selectProject": "Proje",
+    "selectRepos": "Depolar",
+    "searchRepos": "Depo seçin...",
+    "attachFile": "Dosya Ekle",
+    "sendMessage": "Gönder",
+    "typePlaceholder": "Analiz edilecek iş gereksinimini açıklayın...",
+    "loading": "Analiz ediliyor...",
+    "noSessions": "Henüz analiz oturumu yok",
+    "noSessionsDesc": "Belgelerinizden ve depolarınızdan iş analizi bilgileri almak için yeni bir analiz başlatın.",
+    "deleteConfirm": "Bu analiz oturumu silinsin mi?",
+    "repoLoading": "Depolar yükleniyor...",
+    "noRepos": "Depo bulunamadı",
+    "fileSelected": "Dosya eklendi",
+    "fileTooLarge": "Dosya boyutu 10MB sınırını aşıyor",
+    "copyOutput": "Panoya kopyala",
+    "copied": "Kopyalandı!"
   },
   "forgotPassword": {
     "title": "Şifrenizi sıfırlayın",
