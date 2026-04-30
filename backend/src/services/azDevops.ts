@@ -1290,3 +1290,133 @@ export async function validatePat(pat: string): Promise<boolean> {
   );
   return res.ok;
 }
+
+// ─── Repository Listing ──────────────────────────────────────────────────────
+
+export interface AdoRepository {
+  id: string;
+  name: string;
+  defaultBranch: string | null;
+  webUrl: string;
+}
+
+/**
+ * Build candidate Git API base URLs for an ADO organization.
+ * dev.azure.com first; {org}.visualstudio.com as fallback for legacy orgs.
+ */
+function adoGitBaseUrls(organization: string, project: string): string[] {
+  return [
+    `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/git`,
+    `https://${encodeURIComponent(organization)}.visualstudio.com/${encodeURIComponent(project)}/_apis/git`,
+  ];
+}
+
+/**
+ * Lists Git repositories for a given ADO project.
+ * Tries dev.azure.com first, falls back to visualstudio.com for legacy orgs.
+ */
+export async function listRepositories(
+  organization: string,
+  project: string,
+  authHeader: string,
+): Promise<AdoRepository[]> {
+  const bases = adoGitBaseUrls(organization, project);
+
+  for (let i = 0; i < bases.length; i++) {
+    const url = `${bases[i]}/repositories?api-version=7.1`;
+    log.info('listRepositories: trying %s', url);
+
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: authHeader, Accept: 'application/json' },
+        redirect: 'manual',
+      });
+
+      // Redirect means this domain doesn't serve the org — try next
+      if (res.status >= 300 && res.status < 400) {
+        log.info('listRepositories: redirect %d, trying next URL', res.status);
+        continue;
+      }
+
+      if (!res.ok) {
+        const text = (await res.text()).slice(0, 300);
+        log.warn('listRepositories: %d from %s: %s', res.status, url, text);
+        continue;
+      }
+
+      const data = await res.json() as { value?: any[] };
+      const items: any[] = data.value ?? [];
+
+      if (items.length > 0 || i === bases.length - 1) {
+        log.info('listRepositories: found %d repos', items.length);
+        return items.map((item: any) => ({
+          id: item.id ?? '',
+          name: item.name ?? '',
+          defaultBranch: item.defaultBranch ?? null,
+          webUrl: item.webUrl ?? '',
+        }));
+      }
+
+      log.info('listRepositories: empty result, trying next URL');
+    } catch (err: any) {
+      log.warn('listRepositories: fetch error: %s', err.message);
+      continue;
+    }
+  }
+
+  return [];
+}
+
+export interface AdoRepoItem {
+  path: string;
+  gitObjectType: string;
+  url: string;
+}
+
+/**
+ * Returns the file/folder tree for a given ADO Git repository.
+ * Uses recursionLevel=full to get all items. Optional scopePath to filter.
+ * Tries dev.azure.com first, falls back to visualstudio.com for legacy orgs.
+ */
+export async function getRepoFileTree(
+  organization: string,
+  project: string,
+  repoId: string,
+  authHeader: string,
+  scopePath?: string,
+): Promise<AdoRepoItem[]> {
+  const bases = adoGitBaseUrls(organization, project);
+
+  for (let i = 0; i < bases.length; i++) {
+    let url = `${bases[i]}/repositories/${encodeURIComponent(repoId)}/items?recursionLevel=full&api-version=7.1`;
+    if (scopePath) url += `&scopePath=${encodeURIComponent(scopePath)}`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: authHeader, Accept: 'application/json' },
+        redirect: 'manual',
+      });
+
+      if (res.status >= 300 && res.status < 400) continue;
+
+      if (!res.ok) {
+        const text = (await res.text()).slice(0, 300);
+        log.warn('getRepoFileTree: %d: %s', res.status, text);
+        continue;
+      }
+
+      const data = await res.json() as { value?: any[] };
+      const items: any[] = data.value ?? [];
+      return items.map((item: any) => ({
+        path: item.path ?? '',
+        gitObjectType: item.gitObjectType ?? 'blob',
+        url: item.url ?? '',
+      }));
+    } catch (err: any) {
+      log.warn('getRepoFileTree: fetch error: %s', err.message);
+      continue;
+    }
+  }
+
+  throw new Error('Failed to fetch repo file tree from Azure DevOps');
+}

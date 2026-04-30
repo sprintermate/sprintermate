@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, ReferenceScore } from '../db/schema';
-import { parseSprintUrl, listSprints, validatePat, patAuthHeader } from '../services/azDevops';
+import { parseSprintUrl, listSprints, validatePat, patAuthHeader, listRepositories } from '../services/azDevops';
 import { encrypt, decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -315,6 +315,31 @@ router.post('/:id/reference-scores', async (req, res) => {
   );
 
   res.status(201).json(created.map(s => s.get({ plain: true })));
+});
+
+/** GET /api/projects/:id/repositories — list ADO Git repositories for a project */
+router.get('/:id/repositories', async (req, res) => {
+  const userId = req.user!.id;
+  const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const plain = project.get({ plain: true }) as any;
+  if (!plain.encrypted_pat) {
+    res.status(400).json({ error: 'Project has no PAT configured. Please add a Personal Access Token first.' });
+    return;
+  }
+
+  try {
+    const pat = decrypt(plain.encrypted_pat);
+    const authHeader = patAuthHeader(pat);
+    const repos = await listRepositories(plain.organization, plain.name, authHeader);
+    res.json(repos);
+  } catch (err: any) {
+    res.status(502).json({ error: err.message ?? 'Failed to list repositories' });
+  }
 });
 
 export default router;
