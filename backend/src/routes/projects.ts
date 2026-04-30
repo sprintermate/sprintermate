@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, ReferenceScore } from '../db/schema';
-import { parseSprintUrl, listSprints, validatePat, patAuthHeader } from '../services/azDevops';
+import { parseSprintUrl, listSprints, validatePat, patAuthHeader, listRepos } from '../services/azDevops';
 import { encrypt, decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -315,6 +315,39 @@ router.post('/:id/reference-scores', async (req, res) => {
   );
 
   res.status(201).json(created.map(s => s.get({ plain: true })));
+});
+
+/** GET /api/projects/:id/repos — list Azure DevOps Git repositories for a project */
+router.get('/:id/repos', async (req, res) => {
+  const userId = req.user!.id;
+  const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const p = project.get({ plain: true });
+
+  if (!p.encrypted_pat) {
+    res.status(400).json({ error: 'No PAT configured for this project' });
+    return;
+  }
+
+  let pat: string;
+  try {
+    pat = decrypt(p.encrypted_pat);
+  } catch {
+    res.status(500).json({ error: 'Failed to decrypt PAT' });
+    return;
+  }
+
+  try {
+    const repos = await listRepos(p.organization, p.name, patAuthHeader(pat));
+    res.json(repos);
+  } catch (err: any) {
+    res.status(502).json({ error: err.message ?? 'Failed to list repos' });
+  }
 });
 
 export default router;

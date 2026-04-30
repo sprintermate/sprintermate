@@ -12,8 +12,10 @@ const nextConfig = {
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:4000';
     return [
-      { source: '/api/:path*',       destination: `${backendUrl}/api/:path*` },
-      { source: '/socket.io/:path*', destination: `${backendUrl}/socket.io/:path*` },
+      { source: '/api/:path*',        destination: `${backendUrl}/api/:path*` },
+      // socket.io initial polling handshake has no path segment — needs its own rule
+      { source: '/socket.io',          destination: `${backendUrl}/socket.io` },
+      { source: '/socket.io/:path*',   destination: `${backendUrl}/socket.io/:path*` },
     ];
   },
 };

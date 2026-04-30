@@ -159,6 +159,14 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
   io.on('connection', (socket: Socket) => {
     log.info('client connected', { socketId: socket.id });
 
+    // ── user:identify — join a private room for personal events (analysis progress, etc.)
+    socket.on('user:identify', (data: { userId: string }) => {
+      if (data?.userId) {
+        socket.join(`user:${data.userId}`);
+        log.info('user identified, joined personal room', { userId: data.userId, socketId: socket.id });
+      }
+    });
+
     // ── room:join ─────────────────────────────────────────────────────────────
     socket.on('room:join', async (data: { code: string; userId: string; displayName: string; moderatorId: string }) => {
       const { code, userId, displayName, moderatorId } = data;

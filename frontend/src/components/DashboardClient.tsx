@@ -48,7 +48,16 @@ interface Props {
   locale: string;
 }
 
-type ActiveTab = 'rooms' | 'projects' | 'retros';
+type ActiveTab = 'rooms' | 'projects' | 'retros' | 'analysis';
+
+interface AnalysisSummary {
+  id: string;
+  title: string;
+  pdf_filename: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 interface RetroSessionSummary {
   id: string;
@@ -63,6 +72,7 @@ interface RetroSessionSummary {
 export default function DashboardClient({ initialProjects, initialRooms, locale }: Props) {
   const t = useTranslations('dashboard');
   const rt = useTranslations('retro');
+  const at = useTranslations('analysis');
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('rooms');
   const [modalOpen, setModalOpen] = useState(false);
@@ -76,6 +86,11 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
   const [retros, setRetros] = useState<RetroSessionSummary[]>([]);
   const [retrosLoading, setRetrosLoading] = useState(false);
   const [deletingRetroCode, setDeletingRetroCode] = useState<string | null>(null);
+
+  // Analysis state
+  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
+  const [analysesLoading, setAnalysesLoading] = useState(false);
+  const [deletingAnalysisId, setDeletingAnalysisId] = useState<string | null>(null);
 
   // Join retro popup state
   const [joinCode, setJoinCode] = useState('');
@@ -92,9 +107,23 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
     }
   }, []);
 
+  const loadAnalyses = useCallback(async () => {
+    setAnalysesLoading(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/analysis`, { credentials: 'include' });
+      if (res.ok) setAnalyses(await res.json());
+    } finally {
+      setAnalysesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'retros' && retros.length === 0) loadRetros();
   }, [activeTab, retros.length, loadRetros]);
+
+  useEffect(() => {
+    if (activeTab === 'analysis' && analyses.length === 0) loadAnalyses();
+  }, [activeTab, analyses.length, loadAnalyses]);
 
   const handleJoinRetro = async () => {
     const code = joinCode.trim().toUpperCase();
@@ -109,6 +138,23 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
       setJoinError(rt('errorJoin'));
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleDeleteAnalysis = async (id: string) => {
+    if (!confirm(at('confirmDelete'))) return;
+    setDeletingAnalysisId(id);
+    try {
+      const res = await fetch(`${BACKEND}/api/analysis/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) { alert(at('errorDelete')); return; }
+      setAnalyses(prev => prev.filter(a => a.id !== id));
+    } catch {
+      alert(t('errorNetwork'));
+    } finally {
+      setDeletingAnalysisId(null);
     }
   };
 
@@ -330,6 +376,16 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           }`}
         >
           {rt('tabRetro')}
+        </button>
+        <button
+          onClick={() => setActiveTab('analysis')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === 'analysis'
+              ? 'border-cyan-500 text-cyan-600 dark:border-indigo-500 dark:text-indigo-300'
+              : 'border-transparent text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
+          }`}
+        >
+          {at('tabAnalysis')}
         </button>
       </div>
 
@@ -687,6 +743,83 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
         </section>
       )}
 
+      {/* ── ANALYSIS TAB ── */}
+      {activeTab === 'analysis' && (
+        <section>
+          <div className="flex flex-wrap gap-3 mb-6">
+            <button
+              onClick={() => router.push(`/${locale}/analysis`)}
+              className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+            >
+              {at('createAnalysis')}
+            </button>
+          </div>
+
+          {analysesLoading ? (
+            <p className="text-sm text-gray-400 dark:text-slate-500">{at('loading')}</p>
+          ) : analyses.length === 0 ? (
+            <div className="border border-dashed border-gray-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+              <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">📄</span>
+              </div>
+              <p className="text-gray-400 dark:text-slate-500 text-sm">{at('noAnalyses')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {analyses.map(a => (
+                <div
+                  key={a.id}
+                  className="relative flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 hover:border-violet-300 dark:hover:border-violet-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xl">📄</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{a.title}</p>
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 font-mono">{a.pdf_filename} · {new Date(a.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 pr-8">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-mono uppercase tracking-wide
+                      ${a.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300' :
+                        a.status === 'analyzing' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300' :
+                        a.status === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300' :
+                        'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}>
+                      {at(`status_${a.status}`)}
+                    </span>
+                    <a
+                      href={`/${locale}/analysis/${a.id}`}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
+                    >
+                      {at('open')}
+                    </a>
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={() => handleDeleteAnalysis(a.id)}
+                    disabled={deletingAnalysisId === a.id}
+                    title={at('delete')}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:text-slate-600 dark:hover:text-red-400 dark:hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                  >
+                    {deletingAnalysisId === a.id ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Modals */}
       {modalOpen && (
         <CreateRoomModal
@@ -701,8 +834,6 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           onClose={() => setRetroModalOpen(false)}
         />
       )}
-
-      {/* Join Retro Modal */}
       {joinRetroModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"

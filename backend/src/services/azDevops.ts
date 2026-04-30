@@ -1290,3 +1290,44 @@ export async function validatePat(pat: string): Promise<boolean> {
   );
   return res.ok;
 }
+
+// ─── Git Repositories ─────────────────────────────────────────────────────────
+
+export interface AdoRepo {
+  id: string;
+  name: string;
+  remoteUrl: string;
+  projectName: string;
+}
+
+/**
+ * Lists all Git repositories in a given ADO project.
+ */
+export async function listRepos(
+  organization: string,
+  project: string,
+  authHeader: string,
+): Promise<AdoRepo[]> {
+  const url =
+    `https://dev.azure.com/${encodeURIComponent(organization)}` +
+    `/${encodeURIComponent(project)}` +
+    `/_apis/git/repositories?api-version=7.1`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: authHeader, Accept: 'application/json' },
+    redirect: 'error',
+  });
+
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 200);
+    throw new Error(`ADO repos error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json() as { value?: any[] };
+  return (data.value ?? []).map((r: any): AdoRepo => ({
+    id: r.id ?? '',
+    name: r.name ?? '',
+    remoteUrl: r.remoteUrl ?? '',
+    projectName: (r.project?.name as string) ?? project,
+  }));
+}

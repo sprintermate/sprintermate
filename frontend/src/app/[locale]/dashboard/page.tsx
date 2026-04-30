@@ -66,10 +66,8 @@ export default async function DashboardPage({ params }: Props) {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
   const user = await getUser(cookieHeader);
-
-  if (!user) {
-    redirect(`/${locale}/login`);
-  }
+  // If user is not logged in, use guest userId
+  const userId = user?.id ?? `guest:${Math.random().toString(36).slice(2, 10)}`;
 
   const [projects, rooms] = await Promise.all([
     getProjects(cookieHeader),
@@ -92,15 +90,17 @@ export default async function DashboardPage({ params }: Props) {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-cyan-600/30 border border-cyan-500/40 dark:bg-indigo-600/30 dark:border-indigo-500/40 flex items-center justify-center">
                 <span className="text-cyan-700 dark:text-indigo-300 text-xs font-medium">
-                  {user.displayName.charAt(0).toUpperCase()}
+                  {user ? user.displayName.charAt(0).toUpperCase() : 'G'}
                 </span>
               </div>
-              <span className="text-gray-700 dark:text-slate-300 text-sm hidden sm:block">{user.displayName}</span>
+              <span className="text-gray-700 dark:text-slate-300 text-sm hidden sm:block">{user?.displayName ?? 'Guest'}</span>
             </div>
 
             <ThemeToggle />
-            {process.env.NEXT_PUBLIC_IS_PRODUCTION_AI !== 'true' && <AISettingsButton />}
-            <LogoutButton locale={locale} />
+            {user && process.env.NEXT_PUBLIC_IS_PRODUCTION_AI !== 'true' && <AISettingsButton />}
+            {user ? <LogoutButton locale={locale} /> : (
+              <a href={`/${locale}/login`} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">{t('login')}</a>
+            )}
           </div>
         </div>
       </header>
@@ -110,13 +110,13 @@ export default async function DashboardPage({ params }: Props) {
         {/* Welcome */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {t('welcome', { name: user.displayName })}
+            {t('welcome', { name: user?.displayName ?? 'Guest' })}
           </h1>
-          <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">{user.email}</p>
+          <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm">{user?.email ?? ''}</p>
         </div>
 
         <DashboardClient
-          user={user}
+          user={user ?? { id: userId, displayName: 'Guest', email: '' }}
           initialProjects={projects}
           initialRooms={rooms}
           locale={locale}
