@@ -242,6 +242,7 @@
     "providerGeminiDesc": "Google Gemini API — enter your API key from Google AI Studio",
     "providerChatGPTDesc": "OpenAI GPT-4o-mini API — enter your OpenAI API key",
     "providerAzureOpenAIDesc": "Azure OpenAI Service — enter your Azure endpoint, deployment, and API token",
+    "providerOpencodeDesc": "OpenCode AI — uses a local opencode server (opencode binary must be installed on the server)",
     "azureEndpointLabel": "API URL",
     "azureEndpointPlaceholder": "https://your-resource.openai.azure.com/",
     "azureEndpointPlaceholderSaved": "••••••••• (saved — enter new URL to replace)",
@@ -500,6 +501,8 @@
   },
   "analysis": {
     "tabTitle": "Analysis Agent",
+    "pageTitle": "Business Analysis Agent",
+    "downloadMd": "Download .md",
     "newChat": "New Analysis",
     "deleteChat": "Delete Chat",
     "renameChat": "Rename",
@@ -518,7 +521,28 @@
     "fileSelected": "File attached",
     "fileTooLarge": "File size exceeds 10MB limit",
     "copyOutput": "Copy to clipboard",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "agentLabel": "Agent",
+    "agentDefault": "Default Agent",
+    "manageAgents": "Manage Agents"
+  },
+  "agentPrompts": {
+    "title": "My Agents",
+    "new": "New Agent",
+    "newAgentTitle": "New Agent",
+    "selectAgent": "Select an agent",
+    "selectAgentOrNew": "Select an agent from the list or create a new one.",
+    "name": "Agent Name",
+    "namePlaceholder": "e.g. Business Analyst",
+    "markdownContent": "Agent Markdown",
+    "markdownPlaceholder": "Define the agent role, rules, and output format in Markdown...",
+    "loadDefault": "Load Default Template",
+    "save": "Save",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this agent prompt?",
+    "saved": "Saved",
+    "saveError": "Save failed",
+    "noAgents": "No agents yet"
   },
   "forgotPassword": {
     "title": "Reset your password",

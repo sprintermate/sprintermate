@@ -18,6 +18,9 @@ ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+# Install opencode CLI globally so the SDK can start a local server
+RUN npm install -g opencode-ai || true
+
 COPY --from=builder /app/dist ./dist
 
 # SQLite data directory

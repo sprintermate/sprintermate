@@ -2,6 +2,7 @@ import { childLogger } from '../utils/logger';
 import { callAIFreeform, getProductionAISettings, type AzureAIOptions } from './aiService';
 import { decrypt } from '../utils/crypto';
 import { UserAISettings } from '../db/schema';
+import { runAnalysisWithOpenCode } from './opencodeService';
 
 const log = childLogger('analysisAgent');
 
@@ -12,6 +13,8 @@ export interface AnalysisInput {
   pdfText?: string;
   repoContext?: string;
   locale?: string;
+  /** Custom agent prompt markdown; overrides the hardcoded SYSTEM_TEMPLATE when set */
+  agentMarkdown?: string;
 }
 
 interface ResolvedAISettings {
@@ -112,7 +115,7 @@ export function buildAnalysisPrompt(input: AnalysisInput): string {
   const language = input.locale === 'tr' ? 'Turkish' : 'English';
 
   const lines: string[] = [];
-  lines.push(SYSTEM_TEMPLATE);
+  lines.push(input.agentMarkdown ?? SYSTEM_TEMPLATE);
   lines.push('');
   lines.push(`Write ALL output in ${language}.`);
   lines.push('');
@@ -138,7 +141,7 @@ export function buildAnalysisPrompt(input: AnalysisInput): string {
   lines.push(`## 📤 OUTPUT FORMAT
 
 IMPORTANT: You MUST respond with a well-structured HTML output. Use the following HTML template exactly.
-Do NOT use markdown. Return ONLY the HTML content, no code fences, no explanation.
+Do NOT use markdown. Return ONLY the HTML content, no code fences, no explanation. (LEGACY HTML FORMAT)
 
 <div class="analysis-output">
   <div class="analysis-section">
@@ -207,6 +210,96 @@ Do NOT use markdown. Return ONLY the HTML content, no code fences, no explanatio
 - Test ekibi senaryo yazabilmeli
 - Developer'a bağımlı kalınmamalı
 - DB isimleri uydurulmamalı (kritik)`);
+
+  return lines.join('\n');
+}
+
+// ─── MD Prompt Builder (new format, used by opencode + all providers when md=true) ──
+
+export function buildAnalysisMDPrompt(input: AnalysisInput): string {
+  const language = input.locale === 'tr' ? 'Turkish' : 'English';
+  const lines: string[] = [];
+
+  lines.push(input.agentMarkdown ?? SYSTEM_TEMPLATE);
+  lines.push('');
+  lines.push(`Write ALL output in ${language}.`);
+  lines.push('');
+
+  lines.push('## 📥 INPUT');
+  lines.push('');
+  lines.push('### User Request:');
+  lines.push(input.userMessage);
+  lines.push('');
+
+  if (input.pdfText) {
+    lines.push('### Attached Document (PDF):');
+    lines.push(input.pdfText.slice(0, 15_000));
+    lines.push('');
+  }
+
+  if (input.repoContext) {
+    lines.push('### Repo Context:');
+    lines.push(input.repoContext.slice(0, 20_000));
+    lines.push('');
+  }
+
+  lines.push(`## 📤 OUTPUT FORMAT
+
+IMPORTANT: Respond ONLY with the following Markdown document structure. No preamble, no code fences, no explanation outside the document.
+
+# 📝 Requirement Summary
+
+[Short description of the business problem and objective]
+
+---
+
+# 🖥️ Affected Screens / Modules
+
+- [Screen or module name]
+
+---
+
+# 🗄️ DB Objects
+
+## Tables
+- [Table name — from repo context only]
+
+## Stored Procedures
+- [SP name — from repo context only]
+
+> ⚠️ All DB objects listed are based on repo context only. Items not found are marked as: *Not detected (not found in repo context)*
+
+---
+
+# 🔧 Requested Change
+
+- [New feature / Update / Bug fix — business level description]
+
+---
+
+# ⚠️ Impact Analysis
+
+- [Affected module or flow]
+- [Potential risk]
+- [Dependencies]
+
+---
+
+# 🧪 Test Cases
+
+## ✅ Positive Scenarios
+- [Happy path scenario]
+
+## ❌ Negative Scenarios
+- [Error or rejection scenario]
+
+## ⚡ Edge Cases
+- [Boundary condition]
+
+## 🎯 SUCCESS CRITERIA
+- Business analyst can read and understand directly
+- Test team can write test cases immediately
+- DB object names are never invented (critical)`);
 
   return lines.join('\n');
 }
@@ -312,9 +405,15 @@ export async function runAnalysis(
 ): Promise<string> {
   const settings = await resolveAISettings(userId);
 
-  const prompt = buildAnalysisPrompt(input);
-
   log.info('Running analysis for user=%s provider=%s', userId, settings.provider);
+
+  // ── OpenCode provider: use the SDK / local server ──────────────────────────
+  if (settings.provider === 'opencode') {
+    return runAnalysisWithOpenCode(input, input.agentMarkdown);
+  }
+
+  // ── All other providers: use MD prompt format ─────────────────────────────
+  const prompt = buildAnalysisMDPrompt(input);
 
   const raw = await callAIFreeform(
     settings.provider,
@@ -323,19 +422,38 @@ export async function runAnalysis(
     settings.azureOptions,
   );
 
-  // Try to extract HTML from the response
-  let html = raw.trim();
+  let md = raw.trim();
 
-  // If wrapped in code fences, extract the content
-  const fenceMatch = html.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  // Strip code fences if present
+  const fenceMatch = md.match(/```(?:markdown|md)?\s*([\s\S]*?)```/i);
   if (fenceMatch) {
-    html = fenceMatch[1].trim();
+    md = fenceMatch[1].trim();
   }
 
-  // If the response doesn't contain our expected div, wrap it
-  if (!html.includes('analysis-output') && !html.includes('analysis-section')) {
+  return md;
+}
+
+/**
+ * Legacy HTML analysis — kept for backward-compat with old stored messages.
+ * @deprecated Use runAnalysis() which now returns Markdown.
+ */
+export async function runAnalysisLegacyHTML(
+  userId: string,
+  input: AnalysisInput,
+): Promise<string> {
+  const settings = await resolveAISettings(userId);
+  const prompt = buildAnalysisPrompt(input);
+  const raw = await callAIFreeform(
+    settings.provider,
+    settings.apiKey,
+    prompt,
+    settings.azureOptions,
+  );
+  let html = raw.trim();
+  const fenceMatch = html.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) html = fenceMatch[1].trim();
+  if (!html.includes('analysis-output')) {
     html = `<div class="analysis-output"><div class="analysis-section">${html}</div></div>`;
   }
-
   return html;
 }

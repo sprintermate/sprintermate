@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import multer from 'multer';
 import requireAuth from '../middleware/requireAuth';
-import { Project, AnalysisSession, AnalysisMessage } from '../db/schema';
+import { Project, AnalysisSession, AnalysisMessage, UserAgentPrompt } from '../db/schema';
 import { listRepositories, getRepoFileTree, patAuthHeader } from '../services/azDevops';
 import { runAnalysis, parsePDF, buildRepoContext } from '../services/analysisAgent';
 import { decrypt } from '../utils/crypto';
@@ -189,11 +189,12 @@ router.post('/sessions/:id/messages', upload.single('file'), async (req, res) =>
     return;
   }
 
-  const { message, projectId, repoIds: repoIdsRaw, locale } = req.body as {
+  const { message, projectId, repoIds: repoIdsRaw, locale, agentPromptId } = req.body as {
     message?: string;
     projectId?: string;
     repoIds?: string;
     locale?: string;
+    agentPromptId?: string;
   };
 
   if (!message?.trim()) {
@@ -274,11 +275,23 @@ router.post('/sessions/:id/messages', upload.single('file'), async (req, res) =>
 
   // 5. Run AI analysis
   try {
+    // Resolve custom agent markdown if provided
+    let agentMarkdown: string | undefined;
+    if (agentPromptId) {
+      const agentRow = await UserAgentPrompt.findOne({
+        where: { id: agentPromptId, user_id: userId },
+      });
+      if (agentRow) {
+        agentMarkdown = agentRow.get('markdown') as string;
+      }
+    }
+
     const aiResponse = await runAnalysis(userId, {
       userMessage: message,
       pdfText,
       repoContext,
       locale: locale ?? 'tr',
+      agentMarkdown,
     });
 
     // 6. Save assistant message

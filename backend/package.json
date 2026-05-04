@@ -10,6 +10,7 @@
   "dependencies": {
     "@datalust/winston-seq": "^2.0.0",
     "@google/generative-ai": "^0.24.1",
+    "@opencode-ai/sdk": "^1.14.33",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "cookie-parser": "^1.4.7",

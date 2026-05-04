@@ -244,6 +244,7 @@
     "providerGeminiDesc": "Google Gemini API — Google AI Studio'dan API anahtarınızı girin",
     "providerChatGPTDesc": "OpenAI GPT-4o-mini API — OpenAI API anahtarınızı girin",
     "providerAzureOpenAIDesc": "Azure OpenAI Servisi — Azure endpoint, deployment ve API tokenınızı girin",
+    "providerOpencodeDesc": "OpenCode AI — lokal opencode server kullanır (sunucuda opencode binary kurulu olmalı)",
     "azureEndpointLabel": "API URL",
     "azureEndpointPlaceholder": "https://kaynaginiz.openai.azure.com/",
     "azureEndpointPlaceholderSaved": "••••••••• (kaydedildi — değiştirmek için yeni URL girin)",
@@ -502,6 +503,8 @@
   },
   "analysis": {
     "tabTitle": "Analiz Ajanı",
+    "pageTitle": "İş Analizi Ajanı",
+    "downloadMd": ".md İndir",
     "newChat": "Yeni Analiz",
     "deleteChat": "Sohbeti Sil",
     "renameChat": "Yeniden Adlandır",
@@ -520,7 +523,28 @@
     "fileSelected": "Dosya eklendi",
     "fileTooLarge": "Dosya boyutu 10MB sınırını aşıyor",
     "copyOutput": "Panoya kopyala",
-    "copied": "Kopyalandı!"
+    "copied": "Kopyalandı!",
+    "agentLabel": "Ajan",
+    "agentDefault": "Varsayılan Ajan",
+    "manageAgents": "Ajanları Yönet"
+  },
+  "agentPrompts": {
+    "title": "Ajanlarım",
+    "new": "Yeni Ajan",
+    "newAgentTitle": "Yeni Ajan",
+    "selectAgent": "Ajan seçin",
+    "selectAgentOrNew": "Listeden bir ajan seçin veya yeni bir tane oluşturun.",
+    "name": "Ajan Adı",
+    "namePlaceholder": "örn. İş Analisti",
+    "markdownContent": "Ajan Markdown",
+    "markdownPlaceholder": "Ajan rolünü, kurallarını ve çıktı formatını Markdown olarak tanımlayın...",
+    "loadDefault": "Varsayılan Şablonu Yükle",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "deleteConfirm": "Bu ajan promptunu sil?",
+    "saved": "Kaydedildi",
+    "saveError": "Kaydetme başarısız",
+    "noAgents": "Henüz ajan yok"
   },
   "forgotPassword": {
     "title": "Şifrenizi sıfırlayın",

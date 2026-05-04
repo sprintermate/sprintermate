@@ -1,6 +1,7 @@
 import sequelize from './database';
 import { childLogger } from '../utils/logger';
 import User from './models/User';
+import UserAgentPrompt from './models/UserAgentPrompt';
 import Project from './models/Project';
 import Sprint from './models/Sprint';
 import Room from './models/Room';
@@ -41,12 +42,17 @@ WorkItemScoreRecord.belongsTo(Project, { foreignKey: 'project_id' });
 User.hasMany(RetroSession, { foreignKey: 'created_by', onDelete: 'CASCADE' });
 RetroSession.belongsTo(User, { foreignKey: 'created_by' });
 
+
 // Analysis agent associations
 User.hasMany(AnalysisSession, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 AnalysisSession.belongsTo(User, { foreignKey: 'user_id' });
 AnalysisSession.belongsTo(Project, { foreignKey: 'project_id' });
 AnalysisSession.hasMany(AnalysisMessage, { foreignKey: 'session_id', onDelete: 'CASCADE' });
 AnalysisMessage.belongsTo(AnalysisSession, { foreignKey: 'session_id' });
+
+// UserAgentPrompt associations
+User.hasMany(UserAgentPrompt, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+UserAgentPrompt.belongsTo(User, { foreignKey: 'user_id' });
 
 async function runMigrations(): Promise<void> {
   // Add columns that may be missing from existing DBs (safe, idempotent)
@@ -102,4 +108,4 @@ export async function initSchema(): Promise<void> {
   log.info('schema synced');
 }
 
-export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode, AnalysisSession, AnalysisMessage };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode, AnalysisSession, AnalysisMessage, UserAgentPrompt };
