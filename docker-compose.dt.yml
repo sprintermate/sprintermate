@@ -56,7 +56,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      BACKEND_URL: http://backend:4000
     depends_on:
       backend:
         condition: service_healthy
