@@ -513,7 +513,7 @@
     "searchRepos": "Depo seçin...",
     "attachFile": "Dosya Ekle",
     "sendMessage": "Gönder",
-    "typePlaceholder": "Analiz edilecek iş gereksinimini açıklayın...",
+    "typePlaceholder": "Analiz edilecek iş gereksinimini açıklayın veya PDF yükleyin…",
     "loading": "Analiz ediliyor...",
     "noSessions": "Henüz analiz oturumu yok",
     "noSessionsDesc": "Belgelerinizden ve depolarınızdan iş analizi bilgileri almak için yeni bir analiz başlatın.",
@@ -526,7 +526,16 @@
     "copied": "Kopyalandı!",
     "agentLabel": "Ajan",
     "agentDefault": "Varsayılan Ajan",
-    "manageAgents": "Ajanları Yönet"
+    "manageAgents": "Ajanları Yönet",
+    "step1Title": "PDF Analizi",
+    "step2Title": "Kod & DB Analizi",
+    "step3Title": "Çıktı Üretimi",
+    "stepWaiting": "Bekliyor",
+    "stepRunning": "Çalışıyor…",
+    "stepDone": "Tamamlandı",
+    "stepError": "Hata",
+    "pipelineCompleted": "Analiz tamamlandı!",
+    "pdfFileLabel": "PDF Belgesi"
   },
   "agentPrompts": {
     "title": "Ajanlarım",

@@ -243,19 +243,19 @@ function callCLI(
   });
 }
 
-async function callClaudeCLI(prompt: string): Promise<string> {
+async function callClaudeCLI(prompt: string, timeoutMs?: number): Promise<string> {
   // Claude CLI non-interactive mode: pipe prompt via stdin to avoid multi-line arg issues
-  return callCLI('claude', ['--print'], { stdinData: prompt });
+  return callCLI('claude', ['--print'], { stdinData: prompt, ...(timeoutMs !== undefined ? { timeoutMs } : {}) });
 }
 
-async function callCopilotCLI(prompt: string): Promise<string> {
+async function callCopilotCLI(prompt: string, timeoutMs?: number): Promise<string> {
   // Pipe prompt via stdin to avoid Windows cmd.exe argument length limits
-  return callCLI('copilot', ['--model', 'gpt-4.1'], { stdinData: prompt });
+  return callCLI('copilot', ['--model', 'gpt-4.1'], { stdinData: prompt, ...(timeoutMs !== undefined ? { timeoutMs } : {}) });
 }
 
-async function callCodexCLI(prompt: string): Promise<string> {
+async function callCodexCLI(prompt: string, timeoutMs?: number): Promise<string> {
   // Codex CLI: pipe prompt via stdin for non-interactive mode
-  return callCLI('codex', [], { stdinData: prompt });
+  return callCLI('codex', [], { stdinData: prompt, ...(timeoutMs !== undefined ? { timeoutMs } : {}) });
 }
 
 // ─── API Providers ────────────────────────────────────────────────────────────
@@ -353,14 +353,15 @@ export async function callAI(
   apiKey: string | null,
   prompt: string,
   azureOptions?: AzureAIOptions,
+  timeoutMs?: number,
 ): Promise<string> {
   switch (provider) {
     case 'claude':
-      return callClaudeCLI(prompt);
+      return callClaudeCLI(prompt, timeoutMs);
     case 'copilot':
-      return callCopilotCLI(prompt);
+      return callCopilotCLI(prompt, timeoutMs);
     case 'codex':
-      return callCodexCLI(prompt);
+      return callCodexCLI(prompt, timeoutMs);
     case 'gemini':
       if (!apiKey) throw new Error('Gemini requires an API key');
       return callGemini(prompt, apiKey);
@@ -386,12 +387,13 @@ export async function callAIFreeform(
   apiKey: string | null,
   prompt: string,
   azureOptions?: AzureAIOptions,
+  timeoutMs?: number,
 ): Promise<string> {
   if (provider === 'gemini') {
     if (!apiKey) throw new Error('Gemini requires an API key');
     return callGemini(prompt, apiKey, false);
   }
-  return callAI(provider, apiKey, prompt, azureOptions);
+  return callAI(provider, apiKey, prompt, azureOptions, timeoutMs);
 }
 
 export function getProductionAISettings(): { provider: string; apiKey: string; azureOptions?: AzureAIOptions } | null {

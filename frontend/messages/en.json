@@ -511,7 +511,7 @@
     "searchRepos": "Select repositories...",
     "attachFile": "Attach File",
     "sendMessage": "Send",
-    "typePlaceholder": "Describe the business requirement to analyze...",
+    "typePlaceholder": "Describe the business requirement to analyze, or upload a PDF…",
     "loading": "Analyzing...",
     "noSessions": "No analysis sessions yet",
     "noSessionsDesc": "Start a new analysis to get business insights from your documents and repositories.",
@@ -524,7 +524,16 @@
     "copied": "Copied!",
     "agentLabel": "Agent",
     "agentDefault": "Default Agent",
-    "manageAgents": "Manage Agents"
+    "manageAgents": "Manage Agents",
+    "step1Title": "PDF Analysis",
+    "step2Title": "Code & DB Analysis",
+    "step3Title": "Output Generation",
+    "stepWaiting": "Waiting",
+    "stepRunning": "Running…",
+    "stepDone": "Completed",
+    "stepError": "Error",
+    "pipelineCompleted": "Analysis complete!",
+    "pdfFileLabel": "PDF Document"
   },
   "agentPrompts": {
     "title": "My Agents",

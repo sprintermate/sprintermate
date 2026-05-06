@@ -361,35 +361,58 @@ export function buildRepoContext(
   for (const repo of repoTrees) {
     lines.push(`\n=== Repository: ${repo.repoName} ===\n`);
 
-    // Group items by key folders
+    // Group items by key DB folders
     const tables = repo.items.filter(i => /\/Tables\//i.test(i.path) && i.gitObjectType === 'blob');
     const sps = repo.items.filter(i => /\/StoredProcedures?\//i.test(i.path) && i.gitObjectType === 'blob');
     const views = repo.items.filter(i => /\/Views\//i.test(i.path) && i.gitObjectType === 'blob');
     const functions = repo.items.filter(i => /\/Functions?\//i.test(i.path) && i.gitObjectType === 'blob');
 
-    if (tables.length > 0) {
-      lines.push('📁 Tables:');
-      tables.forEach(t => lines.push(`  - ${t.path.split('/').pop()}`));
-    }
-    if (sps.length > 0) {
-      lines.push('📁 Stored Procedures:');
-      sps.forEach(s => lines.push(`  - ${s.path.split('/').pop()}`));
-    }
-    if (views.length > 0) {
-      lines.push('📁 Views:');
-      views.forEach(v => lines.push(`  - ${v.path.split('/').pop()}`));
-    }
-    if (functions.length > 0) {
-      lines.push('📁 Functions:');
-      functions.forEach(f => lines.push(`  - ${f.path.split('/').pop()}`));
-    }
+    const isDbRepo = tables.length > 0 || sps.length > 0 || views.length > 0 || functions.length > 0;
 
-    // If none of the DB folders found, list top-level structure
-    if (tables.length === 0 && sps.length === 0 && views.length === 0 && functions.length === 0) {
-      const folders = repo.items.filter(i => i.gitObjectType === 'tree').slice(0, 50);
-      if (folders.length > 0) {
-        lines.push('📁 Folder structure:');
-        folders.forEach(f => lines.push(`  - ${f.path}`));
+    if (isDbRepo) {
+      // Database.Project style repo — show SQL objects prominently
+      if (tables.length > 0) {
+        lines.push('📁 Tables:');
+        tables.forEach(t => lines.push(`  - ${t.path.split('/').pop()}`));
+      }
+      if (sps.length > 0) {
+        lines.push('📁 Stored Procedures:');
+        sps.forEach(s => lines.push(`  - ${s.path.split('/').pop()}`));
+      }
+      if (views.length > 0) {
+        lines.push('📁 Views:');
+        views.forEach(v => lines.push(`  - ${v.path.split('/').pop()}`));
+      }
+      if (functions.length > 0) {
+        lines.push('📁 Functions:');
+        functions.forEach(f => lines.push(`  - ${f.path.split('/').pop()}`));
+      }
+    } else {
+      // Code repo — list all source files grouped by directory
+      const allFiles = repo.items.filter(i => i.gitObjectType === 'blob').slice(0, 300);
+
+      if (allFiles.length > 0) {
+        // Group by top-level directory
+        const grouped = new Map<string, string[]>();
+        for (const file of allFiles) {
+          const parts = file.path.replace(/^\//, '').split('/');
+          const dir = parts.length > 1 ? parts[0] : '(root)';
+          const name = parts[parts.length - 1];
+          if (!grouped.has(dir)) grouped.set(dir, []);
+          grouped.get(dir)!.push(name);
+        }
+
+        for (const [dir, files] of grouped) {
+          lines.push(`📁 ${dir}/`);
+          files.forEach(f => lines.push(`  - ${f}`));
+        }
+      } else {
+        // Fallback: show folder structure
+        const folders = repo.items.filter(i => i.gitObjectType === 'tree').slice(0, 80);
+        if (folders.length > 0) {
+          lines.push('📁 Folder structure:');
+          folders.forEach(f => lines.push(`  - ${f.path}`));
+        }
       }
     }
   }
@@ -431,6 +454,305 @@ export async function runAnalysis(
   }
 
   return md;
+}
+
+// ─── Pipeline Types ──────────────────────────────────────────────────────────
+
+export interface PipelineInput {
+  userMessage: string;
+  pdfText?: string;
+  repoContext?: string;
+  locale?: string;
+}
+
+export type PipelineEvent =
+  | { type: 'step_start'; step: number; title: string }
+  | { type: 'step_done'; step: number; title: string; output: string }
+  | { type: 'complete'; steps: Array<{ step: number; title: string; output: string }> }
+  | { type: 'error'; step: number; title: string; message: string };
+
+export const PIPELINE_STEP_TITLES = [
+  'PDF Analizi',
+  'Kod & DB Analizi',
+  'Çıktı Üretimi',
+] as const;
+
+// ─── Pipeline Helpers ─────────────────────────────────────────────────────────
+
+function cleanFences(text: string): string {
+  const m = text.trim().match(/```(?:markdown|md)?\s*([\s\S]*?)```/i);
+  return m ? m[1].trim() : text.trim();
+}
+
+// ─── Step 1: Document Analyst ─────────────────────────────────────────────────
+
+function buildPipelineStep1Prompt(input: PipelineInput): string {
+  const lines: string[] = [];
+
+  const hasUserMessage = input.userMessage.trim().length > 0;
+
+  lines.push(`# 📄 ADIM 1: BELGE ANALİSTİ
+
+Sen kıdemli bir belge analisti olarak görev yapıyorsun. Görevin yorum katmadan, net ve yapılandırılmış biçimde belge içeriğini çıkarmaktır.
+
+## KURALLAR
+- Yorum katma, yalnızca çıkar ve yapılandır
+- Teknik implementasyon detaylarına girme
+- Tam ve eksiksiz listele
+- Türkçe çıktı üret
+
+## GÖREV
+${hasUserMessage
+    ? `Aşağıdaki iş gereksinimini ve varsa ekteki belgeyi analiz et. TÜM bilgileri şu kategorilere göre yapılandır:`
+    : `Ekteki PDF belgesini analiz et. Belgede bulunan TÜM bilgileri şu kategorilere göre yapılandır:`
+}
+1. Gereksinim Özeti (ne istendiğini kısaca açıkla)
+2. İş Kuralları (varsa tüm kural maddelerini listele)
+3. Süreçler / Akışlar (varsa adım adım akışları çıkar)
+4. Veri Alanları / Entities (formlar, tablolar, alanlar)
+5. Ekran / Modül Referansları (hangi ekranlardan bahsedildiğini listele)
+6. Kabul Kriterleri (varsa olduğu gibi aktar)
+7. Özel Notlar (başka önemli bilgiler)`);
+
+  if (hasUserMessage) {
+    lines.push(`
+## KULLANICI GEREKSİNİMİ
+${input.userMessage}`);
+  }
+
+  if (input.pdfText) {
+    lines.push(`
+## EKTEN ÇIKARILAN BELGE İÇERİĞİ
+${input.pdfText.slice(0, 15_000)}`);
+  } else if (!hasUserMessage) {
+    lines.push(`
+## NOT
+PDF belgesi veya kullanıcı gereksinimi sağlanmamış. Bu adımı atlayıp boş çıktı üret.`);
+  } else {
+    lines.push(`
+## NOT
+Ek PDF belgesi yüklenmemiş. Yalnızca kullanıcı gereksinimine göre analiz yap.`);
+  }
+
+  lines.push(`
+## ÇIKTI FORMATI
+Sadece Markdown belgesi üret. Kod bloğu, önsöz veya açıklama ekleme. Şu başlıkları kullan:
+
+# 📝 Gereksinim Özeti
+# 📋 İş Kuralları
+# 🔄 Süreçler & Akışlar
+# 📊 Veri Alanları
+# 🖥️ Ekran Referansları
+# ✅ Kabul Kriterleri
+# 📌 Özel Notlar`);
+
+  return lines.join('\n');
+}
+
+// ─── Step 2: Code & DB Analyst ────────────────────────────────────────────────
+
+function buildPipelineStep2Prompt(input: PipelineInput, step1Output: string): string {
+  const lines: string[] = [];
+  lines.push(`# 🗄️ ADIM 2: KOD & VERİTABANI ANALİSTİ
+
+Sen kıdemli bir teknik analistsin. Verilen repo context'ini inceleyerek teknik envanter oluşturacaksın.
+
+## KURALLAR
+- SADECE repo context'te bulunan nesneleri listele
+- Tahmin yürütme, olmayan şeyler için "Tespit edilemedi (repo context'te bulunamadı)" yaz
+- Türkçe çıktı üret
+- Kod yazma, SQL yazma, teknik implementasyon anlatma
+- Database.Project reposundaki Tables / StoredProcedures / Views / Functions klasörlerini özellikle tara
+- Diğer kod repoları için kaynak dosyaları (controllers, services, pages, components, models) listele
+
+## GÖREV
+Repo context'i inceleyerek şunları tespit et ve listele:
+1. **Tablolar** — Tables klasöründeki .sql dosyaları (Database.Project repo)
+2. **Stored Procedure'ler** — StoredProcedures / StoredProcedure klasöründeki dosyalar
+3. **View'lar** — Views klasöründeki dosyalar
+4. **Fonksiyonlar** — Functions klasöründeki dosyalar
+5. **Ekran / Modül İpuçları** — Klasör isimleri ve yapıdan çıkarılabilecek modüller (pages, controllers, services vb.)
+6. **Gereksinimle Bağlantılı Teknik Bileşenler** — Adım 1 bulgularına ve kullanıcı gereksinimine göre ilgili dosyalar
+
+## KULLANICI GEREKSİNİMİ (Bağlam için)
+${input.userMessage || '(PDF belgesinden çıkarılan gereksinim — bkz. Adım 1 çıktısı)'}
+
+## ADIM 1 ÇIKTISI (Bağlam için)
+${step1Output.slice(0, 5_000)}`);
+
+  if (input.repoContext) {
+    lines.push(`
+## REPO CONTEXT
+${input.repoContext.slice(0, 20_000)}`);
+  } else {
+    lines.push(`
+## NOT
+Repo context sağlanmamış. Bu adımda teknik envanter oluşturulamaz. Tüm başlıklar için "Repo context yüklenmedi" olarak belirt.`);
+  }
+
+  lines.push(`
+## ÇIKTI FORMATI
+Sadece Markdown belgesi üret. Kod bloğu veya açıklama ekleme. Şu başlıkları kullan:
+
+# 📁 Tablolar
+# 🔧 Stored Procedure'ler
+# 👁️ View'lar
+# ⚡ Fonksiyonlar
+# 🖥️ Ekran / Modül İpuçları
+# 🔗 Gereksinimle İlgili Teknik Bileşenler`);
+
+  return lines.join('\n');
+}
+
+// ─── Step 3: Output Formatter (combines Impact Analysis + Final Output) ────────
+
+const HARDCODED_OUTPUT_FORMAT = `# 📝 Gereksinim Özeti
+
+[Gereksinimin kısa açıklaması ve amacı]
+
+---
+
+# 🖥️ İlgili Ekran / Modül
+
+- [Etkilenen ekran veya modül adı]
+- [Servis veya bileşen adı]
+
+---
+
+# 🗄️ DB Nesneleri
+
+## Tablolar:
+- [Tablo adı — sadece repo context'ten]
+
+## Stored Procedure'ler:
+- [SP adı — sadece repo context'ten]
+
+> ⚠️ Tüm DB nesneleri yalnızca repo context'e göre listelenmiştir. Bulunamayanlar açıkça belirtilmiştir.
+
+---
+
+# 🔧 İstenilen Değişiklik
+
+- [Yeni geliştirme / Güncelleme / Bug fix — iş seviyesinde açıklama]
+
+---
+
+# ⚠️ Etki Analizi
+
+- [Etkilenen modül veya akış]
+- [Olası risk]
+- [Bağımlılıklar]
+
+---
+
+# 🧪 Test Case'ler
+
+## ✅ Pozitif
+
+- [Mutlu yol senaryosu 1]
+
+## ❌ Negatif
+
+- [Hata veya red senaryosu]
+
+## ⚠️ Edge
+
+- [Sınır koşulu]
+- [Eş zamanlı veya alışılmadık durum]`;
+
+function buildPipelineStep3Prompt(
+  input: PipelineInput,
+  step1Output: string,
+  step2Output: string,
+): string {
+  return `# 📋 ADIM 3: ÇIKTI ÜRETİCİ
+
+Sen kıdemli bir belge formatlayıcısın. Önceki 2 adımın bulgularını, belirlenen formata göre konsolide ederek son analiz belgesini üreteceksin. Etki analizini de bu çıktıya dahil et.
+
+## KURALLAR
+- Sadece önceki adımlardan gelen bilgileri kullan
+- Formatı AYNEN koru — başlık isimleri ve emoji'ler değişmez
+- Eksiksiz ve tam doldur; bilinmeyen alanlar için "Tespit edilemedi" yaz
+- Türkçe çıktı üret
+- Yorum katma, bulguları aktar
+- DB nesneleri için SADECE Adım 2'de tespit edilenleri yaz — uydurma
+
+## KULLANILACAK FORMAT (AYNEN KORU)
+${HARDCODED_OUTPUT_FORMAT}
+
+## ADIM 1 ÇIKTISI (Belge Analizi — Gereksinimler)
+${step1Output.slice(0, 8_000)}
+
+## ADIM 2 ÇIKTISI (Teknik Envanter — Kod & DB)
+${step2Output.slice(0, 8_000)}
+
+## KULLANICI GEREKSİNİMİ
+${input.userMessage || '(PDF belgesinden — bkz. Adım 1 özeti)'}
+
+## GÖREV
+Yukarıdaki tüm bilgileri kullanarak, BELİRTİLEN FORMAT'a AYNEN sadık kalarak kapsamlı ve eksiksiz son analiz belgesini üret.
+Sadece Markdown belgesi üret. Kod bloğu, önsöz veya açıklama ekleme.
+Etki analizini ⚠️ Etki Analizi bölümünde detaylı doldur.`;
+}
+
+// ─── Pipeline Runner ──────────────────────────────────────────────────────────
+
+export async function* runPipelineAnalysis(
+  userId: string,
+  input: PipelineInput,
+): AsyncGenerator<PipelineEvent> {
+  const settings = await resolveAISettings(userId);
+  const stepOutputs: string[] = [];
+  const PIPELINE_TIMEOUT_MS = 180_000; // 3 minutes per step for CLI providers
+
+  const promptBuilders: Array<() => string> = [
+    () => buildPipelineStep1Prompt(input),
+    () => buildPipelineStep2Prompt(input, stepOutputs[0] ?? ''),
+    () => buildPipelineStep3Prompt(input, stepOutputs[0] ?? '', stepOutputs[1] ?? ''),
+  ];
+
+  for (let i = 0; i < 3; i++) {
+    const step = i + 1;
+    const title = PIPELINE_STEP_TITLES[i];
+    yield { type: 'step_start', step, title };
+
+    try {
+      const prompt = promptBuilders[i]();
+      let raw: string;
+
+      if (settings.provider === 'opencode') {
+        raw = await runAnalysisWithOpenCode(
+          { userMessage: 'Lütfen analizi üret.', locale: input.locale },
+          prompt,
+        );
+      } else {
+        raw = await callAIFreeform(
+          settings.provider,
+          settings.apiKey,
+          prompt,
+          settings.azureOptions,
+          PIPELINE_TIMEOUT_MS,
+        );
+      }
+
+      const output = cleanFences(raw);
+      stepOutputs.push(output);
+      yield { type: 'step_done', step, title, output };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      yield { type: 'error', step, title, message };
+      return;
+    }
+  }
+
+  yield {
+    type: 'complete',
+    steps: PIPELINE_STEP_TITLES.map((title, i) => ({
+      step: i + 1,
+      title,
+      output: stepOutputs[i] ?? '',
+    })),
+  };
 }
 
 /**

@@ -4,7 +4,7 @@ import multer from 'multer';
 import requireAuth from '../middleware/requireAuth';
 import { Project, AnalysisSession, AnalysisMessage, UserAgentPrompt } from '../db/schema';
 import { listRepositories, getRepoFileTree, patAuthHeader } from '../services/azDevops';
-import { runAnalysis, parsePDF, buildRepoContext } from '../services/analysisAgent';
+import { runAnalysis, parsePDF, buildRepoContext, runPipelineAnalysis, type PipelineInput } from '../services/analysisAgent';
 import { decrypt } from '../utils/crypto';
 
 const router = Router();
@@ -326,5 +326,192 @@ router.post('/sessions/:id/messages', upload.single('file'), async (req, res) =>
     });
   }
 });
+
+// ─── Pipeline SSE ─────────────────────────────────────────────────────────────
+
+const pipelineUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['application/pdf', 'text/plain', 'text/markdown', 'text/csv'];
+    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(pdf|txt|md|csv)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type. Allowed: PDF, TXT, MD, CSV'));
+    }
+  },
+});
+
+/**
+ * POST /api/analysis/sessions/:id/pipeline
+ * Streams a 3-step pipeline analysis via SSE.
+ * Fields: message (optional if PDF attached), locale, projectId?, repoIds? (JSON), file? (PDF)
+ */
+router.post(
+  '/sessions/:id/pipeline',
+  pipelineUpload.fields([
+    { name: 'file', maxCount: 1 },
+  ]),
+  async (req, res) => {
+    const userId = req.user!.id;
+    const session = await AnalysisSession.findOne({
+      where: { id: req.params.id, user_id: userId },
+    });
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const { message, projectId, repoIds: repoIdsRaw, locale } = req.body as {
+      message?: string;
+      projectId?: string;
+      repoIds?: string;
+      locale?: string;
+    };
+
+    // ── Parse uploaded files ──────────────────────────────────────────────────
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    let pdfText: string | undefined;
+    let pdfAttachment: { name: string; type: string } | undefined;
+    const pdfFile = files?.file?.[0];
+    if (pdfFile) {
+      pdfAttachment = { name: pdfFile.originalname, type: pdfFile.mimetype };
+      if (pdfFile.mimetype === 'application/pdf') {
+        pdfText = await parsePDF(pdfFile.buffer);
+      } else {
+        pdfText = pdfFile.buffer.toString('utf-8');
+      }
+    }
+
+    // Require at least a message or a PDF file
+    if (!message?.trim() && !pdfFile) {
+      res.status(400).json({ error: 'message or PDF file is required' });
+      return;
+    }
+
+    // ── SSE headers ───────────────────────────────────────────────────────────
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const sendEvent = (data: object) => {
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      }
+    };
+
+    // ── Build repo context ────────────────────────────────────────────────────
+    let repoContext: string | undefined;
+    const repoIds: string[] = repoIdsRaw ? JSON.parse(repoIdsRaw) : [];
+    const effectiveProjectId = projectId || (session.get('project_id') as string | null);
+
+    if (repoIds.length > 0 && effectiveProjectId) {
+      try {
+        const project = await Project.findOne({ where: { id: effectiveProjectId, user_id: userId } });
+        if (project) {
+          const plain = project.get({ plain: true }) as any;
+          if (plain.encrypted_pat) {
+            const pat = decrypt(plain.encrypted_pat);
+            const authHeader = patAuthHeader(pat);
+            const allRepos = await listRepositories(plain.organization, plain.name, authHeader);
+            const repoNameMap = new Map(allRepos.map(r => [r.id, r.name]));
+            const repoTrees: Array<{ repoName: string; items: Array<{ path: string; gitObjectType: string }> }> = [];
+            for (const repoId of repoIds) {
+              const items = await getRepoFileTree(plain.organization, plain.name, repoId, authHeader);
+              repoTrees.push({ repoName: repoNameMap.get(repoId) ?? repoId, items });
+            }
+            repoContext = buildRepoContext(repoTrees);
+          }
+        }
+      } catch { /* continue without repo context */ }
+    }
+
+    // ── Save user message ─────────────────────────────────────────────────────
+    const now = new Date().toISOString();
+    const attachmentMeta: Array<{ name: string; type: string }> = [];
+    if (pdfAttachment) attachmentMeta.push(pdfAttachment);
+
+    const effectiveMessage = message?.trim() || (pdfFile ? `[PDF: ${pdfFile.originalname}]` : '');
+
+    const userMsg = await AnalysisMessage.create({
+      id: randomUUID(),
+      session_id: session.get('id'),
+      role: 'user',
+      content: effectiveMessage,
+      attachments: attachmentMeta.length > 0 ? JSON.stringify(attachmentMeta) : null,
+      created_at: now,
+    });
+
+    // Update session title + metadata
+    const msgCount = await AnalysisMessage.count({ where: { session_id: session.get('id') } });
+    if (msgCount === 1) {
+      const autoTitle = effectiveMessage.slice(0, 80) + (effectiveMessage.length > 80 ? '…' : '');
+      session.set('title', autoTitle);
+    }
+    if (effectiveProjectId) session.set('project_id', effectiveProjectId);
+    if (repoIds.length > 0) session.set('selected_repos', JSON.stringify(repoIds));
+    session.set('updated_at', new Date().toISOString());
+    await session.save();
+
+    // ── Stream pipeline ───────────────────────────────────────────────────────
+    const pipelineInput: PipelineInput = {
+      userMessage: message?.trim() || '',
+      pdfText,
+      repoContext,
+      locale: locale ?? 'tr',
+    };
+
+    try {
+      const completedSteps: Array<{ step: number; title: string; output: string }> = [];
+
+      for await (const event of runPipelineAnalysis(userId, pipelineInput)) {
+        sendEvent(event);
+
+        if (event.type === 'step_done') {
+          completedSteps.push({ step: event.step, title: event.title, output: event.output });
+        }
+
+        if (event.type === 'complete') {
+          // Save assistant message: content = step 3 output, attachments = full pipeline data
+          const step3Output = completedSteps.find(s => s.step === 3)?.output ?? '';
+          const pipelineMeta = JSON.stringify({
+            pipeline: true,
+            steps: event.steps,
+          });
+
+          const assistantMsg = await AnalysisMessage.create({
+            id: randomUUID(),
+            session_id: session.get('id'),
+            role: 'assistant',
+            content: step3Output,
+            attachments: pipelineMeta,
+            created_at: new Date().toISOString(),
+          });
+
+          sendEvent({ type: 'saved', messageId: assistantMsg.get('id') });
+        }
+
+        if (event.type === 'error') {
+          const errorContent = `# ❌ Analiz Hatası\n\nAdım ${event.step} (${event.title}) sırasında hata oluştu:\n\n${event.message}`;
+          await AnalysisMessage.create({
+            id: randomUUID(),
+            session_id: session.get('id'),
+            role: 'assistant',
+            content: errorContent,
+            attachments: null,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (err: any) {
+      sendEvent({ type: 'error', step: 0, title: 'Pipeline', message: err.message ?? 'Unexpected error' });
+    } finally {
+      if (!res.writableEnded) res.end();
+    }
+  },
+);
 
 export default router;

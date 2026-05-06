@@ -78,7 +78,7 @@ function buildUserPrompt(input: AnalysisInput): string {
 
 async function collectStreamedOutput(client: OpencodeClient, sessionId: string): Promise<string> {
   const chunks: string[] = [];
-  const deadline = Date.now() + 120_000; // 2 minute safety timeout
+  const deadline = Date.now() + 300_000; // 5 minute safety timeout
 
   try {
     const sub = await client.event.subscribe();
