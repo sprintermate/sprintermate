@@ -9,6 +9,7 @@ class RetroSession extends Model {
   declare project_id: string | null; // optional link to a Project
   declare theme: string;       // 'dark' | 'light'
   declare status: string;      // 'writing' | 'analyzing' | 'closed'
+  declare format: string;      // retro format template id
   declare duration_minutes: number;
   declare created_at: string;
 }
@@ -46,6 +47,11 @@ RetroSession.init(
       type: DataTypes.TEXT,
       allowNull: false,
       defaultValue: 'writing',
+    },
+    format: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: 'start-stop-continue',
     },
     duration_minutes: {
       type: DataTypes.INTEGER,

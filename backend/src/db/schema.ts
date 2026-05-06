@@ -83,6 +83,13 @@ async function runMigrations(): Promise<void> {
         : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='azure_deployment_name'",
       run: "ALTER TABLE user_ai_settings ADD COLUMN azure_deployment_name TEXT",
     },
+    // Retro format column
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='retro_sessions' AND column_name='format'"
+        : "SELECT name FROM pragma_table_info('retro_sessions') WHERE name='format'",
+      run: "ALTER TABLE retro_sessions ADD COLUMN format TEXT DEFAULT 'start-stop-continue'",
+    },
   ];
 
   for (const m of migrations) {
