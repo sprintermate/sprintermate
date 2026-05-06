@@ -1,21 +1,21 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LogoutButton from './LogoutButton';
+import { getRetroFormat, type RetroColumn } from '../lib/retroFormats';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type RetroCategory = 'well' | 'improve' | 'ideas';
-
 export interface RetroItem {
   id: string;
   session_code: string;
-  category: RetroCategory;
+  category: string;
   content: string;
   author_id: string;
   author_name: string;
@@ -45,6 +45,7 @@ export interface RetroSession {
   project_id: string | null;
   theme: string;
   status: string;
+  format: string;
   duration_minutes: number;
   created_at: string;
   isModerator: boolean;
@@ -76,17 +77,7 @@ interface Props {
   locale: string;
 }
 
-// ─── Column config ────────────────────────────────────────────────────────────
-
-const COLUMNS: { key: RetroCategory; labelKey: string; chalkColor: string; markerColor: string }[] = [
-  { key: 'well', labelKey: 'columnWell', chalkColor: 'text-emerald-300', markerColor: 'text-emerald-600' },
-  { key: 'improve', labelKey: 'columnImprove', chalkColor: 'text-rose-300', markerColor: 'text-rose-600' },
-  { key: 'ideas', labelKey: 'columnIdeas', chalkColor: 'text-yellow-300', markerColor: 'text-amber-600' },
-];
-
-// ─── Post-it card colours per column ─────────────────────────────────────────
-const POSTIT_DARK = { well: 'bg-emerald-900/70 border-emerald-600/50', improve: 'bg-rose-900/70 border-rose-600/50', ideas: 'bg-yellow-900/70 border-yellow-600/50' };
-const POSTIT_LIGHT = { well: 'bg-emerald-100 border-emerald-400', improve: 'bg-rose-100 border-rose-400', ideas: 'bg-amber-100 border-amber-400' };
+// ─── Column config — driven by format ─────────────────────────────────────────
 
 // ─── Timer ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +109,12 @@ function useTimer(durationMinutes: number, running: boolean) {
 
 function RetroBoard({ session: initialSession, user, locale }: Props) {
   const t = useTranslations('retro');
+  const router = useRouter();
   const socketRef = useRef<Socket | null>(null);
+
+  // Resolve format columns
+  const retroFormat = useMemo(() => getRetroFormat(initialSession.format), [initialSession.format]);
+  const columns: RetroColumn[] = retroFormat.columns;
 
   const [items, setItems] = useState<RetroItem[]>(initialSession.items);
   const [actions, setActions] = useState<RetroAction[]>(initialSession.actions);
@@ -144,9 +140,14 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     });
   }, [joinUrl]);
 
-  // Input state per column
-  const [draft, setDraft] = useState<Record<RetroCategory, string>>({ well: '', improve: '', ideas: '' });
-  const [addingTo, setAddingTo] = useState<RetroCategory | null>(null);
+  // Input state per column (dynamic keys)
+  const emptyDraft = useMemo(() => {
+    const d: Record<string, string> = {};
+    columns.forEach(c => { d[c.key] = ''; });
+    return d;
+  }, [columns]);
+  const [draft, setDraft] = useState<Record<string, string>>(emptyDraft);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // AI analysis state
@@ -214,7 +215,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
   }, [initialSession.code, user.displayName]);
 
   // ── Add item ───────────────────────────────────────────────────────────────
-  const handleAddItem = useCallback(async (category: RetroCategory) => {
+  const handleAddItem = useCallback(async (category: string) => {
     const content = draft[category].trim();
     if (!content) return;
     setSubmitting(true);
@@ -316,11 +317,12 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
         setActions(data.actions);
         setStatus('closed');
         setManualActions([]);
+        router.push(`/${locale}/dashboard`);
       }
     } finally {
       setSavingActions(false);
     }
-  }, [initialSession.code, acceptedIds, manualActions]);
+  }, [initialSession.code, acceptedIds, manualActions, locale, router]);
 
   // ── Load History ───────────────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
@@ -352,7 +354,19 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     ? 'bg-[radial-gradient(ellipse_at_top_left,_rgba(30,80,40,0.25)_0%,_transparent_60%)] bg-[length:1px_1px]'
     : 'bg-[radial-gradient(ellipse_at_top_right,_rgba(230,230,230,0.5)_0%,_transparent_60%)]';
 
-  const cardBg = isDark ? POSTIT_DARK : POSTIT_LIGHT;
+  // Build card background maps dynamically from format columns
+  const cardBgMap = useMemo(() => {
+    const dark: Record<string, string> = {};
+    const light: Record<string, string> = {};
+    columns.forEach(c => { dark[c.key] = c.darkCardBg; light[c.key] = c.lightCardBg; });
+    return { dark, light };
+  }, [columns]);
+  const cardBg = isDark ? cardBgMap.dark : cardBgMap.light;
+
+  // Dynamic grid columns count
+  const gridCols = columns.length <= 3 ? 'md:grid-cols-3'
+    : columns.length === 4 ? 'md:grid-cols-4'
+    : 'md:grid-cols-5';
 
   const timerColor = secondsLeft < 60 ? 'text-red-400' : isDark ? 'text-yellow-200' : 'text-yellow-700';
 
@@ -543,8 +557,8 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
 
       {/* ── Board columns ── */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {COLUMNS.map(col => {
+        <div className={`grid grid-cols-1 ${gridCols} gap-5`}>
+          {columns.map(col => {
             const colItems = items.filter(i => i.category === col.key);
             return (
               <div
@@ -553,7 +567,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
               >
                 {/* Column header */}
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className={`text-base font-bold ${isDark ? col.chalkColor : col.markerColor} tracking-wide`}>
+                  <h2 className={`text-base font-bold ${isDark ? col.darkColor : col.lightColor} tracking-wide`}>
                     {t(col.labelKey)}
                   </h2>
                   <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>

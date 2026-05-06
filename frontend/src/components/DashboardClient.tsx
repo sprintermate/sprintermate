@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import CreateRoomModal from './CreateRoomModal';
 import CreateRetroModal from './CreateRetroModal';
-import AnalysisChat from './AnalysisChat';
+import { RETRO_FORMATS } from '../lib/retroFormats';
+
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -49,7 +50,7 @@ interface Props {
   locale: string;
 }
 
-type ActiveTab = 'rooms' | 'projects' | 'retros' | 'analysis';
+type ActiveTab = 'rooms' | 'projects' | 'retros';
 
 interface RetroSessionSummary {
   id: string;
@@ -57,6 +58,7 @@ interface RetroSessionSummary {
   title: string;
   status: string;
   theme: string;
+  format: string;
   duration_minutes: number;
   created_at: string;
 }
@@ -70,6 +72,7 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
   const [retroModalOpen, setRetroModalOpen] = useState(false);
   const [joinRetroModalOpen, setJoinRetroModalOpen] = useState(false);
   const [metricsWipOpen, setMetricsWipOpen] = useState(false);
+
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
@@ -331,16 +334,6 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           }`}
         >
           {rt('tabRetro')}
-        </button>
-        <button
-          onClick={() => setActiveTab('analysis')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-            activeTab === 'analysis'
-              ? 'border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300'
-              : 'border-transparent text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300'
-          }`}
-        >
-          {t('tabAnalysis')}
         </button>
       </div>
 
@@ -654,7 +647,17 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                     <span className="text-xl">{r.theme === 'dark' ? '🌑' : '☀️'}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.title}</p>
-                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 font-mono">{r.code} · {new Date(r.created_at).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p className="text-xs text-gray-400 dark:text-slate-500 font-mono">{r.code} · {new Date(r.created_at).toLocaleDateString()}</p>
+                        {(() => {
+                          const fmt = RETRO_FORMATS.find(f => f.id === (r.format || 'start-stop-continue'));
+                          return fmt ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                              {fmt.emoji} {rt(fmt.nameKey)}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 pr-8">
@@ -696,11 +699,6 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
             </div>
           )}
         </section>
-      )}
-
-      {/* ── ANALYSIS TAB (full-screen overlay) ── */}
-      {activeTab === 'analysis' && (
-        <AnalysisChat projects={projects} onClose={() => setActiveTab('rooms')} />
       )}
 
       {/* Modals */}
@@ -758,6 +756,7 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
           </div>
         </div>
       )}
+
 
       {/* Metrics WIP Popup */}
       {metricsWipOpen && (
