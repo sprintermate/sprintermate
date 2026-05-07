@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN apk add --no-cache python3 make g++ && npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -16,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=development
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN apk add --no-cache python3 make g++ && npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
