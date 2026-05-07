@@ -13,6 +13,7 @@ import roomsRouter from './routes/rooms';
 import aiRouter from './routes/ai';
 import metricsRouter from './routes/metrics';
 import retroRouter from './routes/retro';
+import analysisRouter from './routes/analysis';
 import requestLogger from './middleware/requestLogger';
 import { User } from './db/schema';
 import type { JwtPayload } from './types/auth';
@@ -109,6 +110,7 @@ export function createApp(): Application {
   app.use('/api/ai', aiRouter);
   app.use('/api/metrics', metricsRouter);
   app.use('/api/retro', retroRouter);
+  app.use('/api/analysis', analysisRouter);
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

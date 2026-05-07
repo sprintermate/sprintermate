@@ -20,6 +20,7 @@ function buildRetroPrompt(
   items: Array<{ category: string; content: string }>,
   previousActions: Array<{ content: string }>,
   locale: string,
+  format?: string,
 ): string {
   const language = locale === 'tr' ? 'Turkish' : 'English';
   const lines: string[] = [];
@@ -27,28 +28,19 @@ function buildRetroPrompt(
   lines.push('You are an enthusiastic, witty Agile coach who truly cares about the team. Your tone is warm, encouraging, and occasionally humorous — like a great coach who keeps the retrospective energetic and insightful.');
   lines.push('');
 
-  const wellItems = items.filter(i => i.category === 'well');
-  const improveItems = items.filter(i => i.category === 'improve');
-  const ideasItems = items.filter(i => i.category === 'ideas');
+  // Group items by their category dynamically
+  const categoryGroups = new Map<string, string[]>();
+  for (const item of items) {
+    if (!categoryGroups.has(item.category)) categoryGroups.set(item.category, []);
+    categoryGroups.get(item.category)!.push(item.content);
+  }
 
-  lines.push('## This Sprint\'s Retrospective Items');
+  lines.push(`## This Sprint's Retrospective Items (format: ${format ?? 'start-stop-continue'})`);
   lines.push('');
 
-  if (wellItems.length > 0) {
-    lines.push('### 🎉 What Went Well');
-    wellItems.forEach(i => lines.push(`- ${i.content}`));
-    lines.push('');
-  }
-
-  if (improveItems.length > 0) {
-    lines.push('### 🔧 What Could Be Improved');
-    improveItems.forEach(i => lines.push(`- ${i.content}`));
-    lines.push('');
-  }
-
-  if (ideasItems.length > 0) {
-    lines.push('### 💡 Ideas for Next Sprint');
-    ideasItems.forEach(i => lines.push(`- ${i.content}`));
+  for (const [category, contents] of categoryGroups) {
+    lines.push(`### ${category}`);
+    contents.forEach(c => lines.push(`- ${c}`));
     lines.push('');
   }
 
@@ -105,8 +97,8 @@ function parseRetroAIResponse(raw: string): {
 
 // ─── POST /api/retro — create a new retro session ────────────────────────────
 router.post('/', requireAuth, async (req, res) => {
-  const { title, theme = 'dark', duration_minutes = 30, project_id = null } =
-    req.body as { title?: string; theme?: string; duration_minutes?: number; project_id?: string | null };
+  const { title, theme = 'dark', duration_minutes = 30, project_id = null, format = 'start-stop-continue' } =
+    req.body as { title?: string; theme?: string; duration_minutes?: number; project_id?: string | null; format?: string };
 
   if (!title || !title.trim()) {
     res.status(400).json({ error: 'title is required' });
@@ -125,6 +117,7 @@ router.post('/', requireAuth, async (req, res) => {
     project_id: project_id ?? null,
     theme,
     status: 'writing',
+    format,
     duration_minutes,
     created_at: now,
   } as any);
@@ -201,8 +194,8 @@ router.post('/:code/items', async (req, res) => {
   const { code } = req.params;
   const { category, content, author_name = 'Guest', author_id = null } = req.body as { category?: string; content?: string; author_name?: string; author_id?: string | null };
 
-  if (!category || !['well', 'improve', 'ideas'].includes(category)) {
-    res.status(400).json({ error: 'category must be well, improve, or ideas' });
+  if (!category || typeof category !== 'string') {
+    res.status(400).json({ error: 'category is required' });
     return;
   }
   if (!content || !content.trim()) {
@@ -377,6 +370,7 @@ router.post('/:code/analyze', requireAuth, async (req, res) => {
     items.map((i: any) => i.get({ plain: true })),
     previousActions,
     locale,
+    sessionPlain.format,
   );
 
   try {

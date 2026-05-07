@@ -12,6 +12,8 @@ import RetroSession from './models/RetroSession';
 import RetroItem from './models/RetroItem';
 import RetroAction from './models/RetroAction';
 import PasswordResetCode from './models/PasswordResetCode';
+import AnalysisSession from './models/AnalysisSession';
+import AnalysisMessage from './models/AnalysisMessage';
 
 // Define associations
 Project.hasMany(Sprint, { foreignKey: 'project_id', onDelete: 'CASCADE' });
@@ -38,6 +40,13 @@ WorkItemScoreRecord.belongsTo(Project, { foreignKey: 'project_id' });
 // Retro associations
 User.hasMany(RetroSession, { foreignKey: 'created_by', onDelete: 'CASCADE' });
 RetroSession.belongsTo(User, { foreignKey: 'created_by' });
+
+// Analysis agent associations
+User.hasMany(AnalysisSession, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+AnalysisSession.belongsTo(User, { foreignKey: 'user_id' });
+AnalysisSession.belongsTo(Project, { foreignKey: 'project_id' });
+AnalysisSession.hasMany(AnalysisMessage, { foreignKey: 'session_id', onDelete: 'CASCADE' });
+AnalysisMessage.belongsTo(AnalysisSession, { foreignKey: 'session_id' });
 
 async function runMigrations(): Promise<void> {
   // Add columns that may be missing from existing DBs (safe, idempotent)
@@ -74,6 +83,13 @@ async function runMigrations(): Promise<void> {
         : "SELECT name FROM pragma_table_info('user_ai_settings') WHERE name='azure_deployment_name'",
       run: "ALTER TABLE user_ai_settings ADD COLUMN azure_deployment_name TEXT",
     },
+    // Retro format column
+    {
+      check: dialect === 'postgres'
+        ? "SELECT column_name FROM information_schema.columns WHERE table_name='retro_sessions' AND column_name='format'"
+        : "SELECT name FROM pragma_table_info('retro_sessions') WHERE name='format'",
+      run: "ALTER TABLE retro_sessions ADD COLUMN format TEXT DEFAULT 'start-stop-continue'",
+    },
   ];
 
   for (const m of migrations) {
@@ -93,4 +109,4 @@ export async function initSchema(): Promise<void> {
   log.info('schema synced');
 }
 
-export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode, AnalysisSession, AnalysisMessage };
