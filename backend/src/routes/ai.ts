@@ -6,6 +6,7 @@ import { childLogger } from '../utils/logger';
 const log = childLogger('ai');
 import requireAuth from '../middleware/requireAuth';
 import aiRateLimit from '../middleware/aiRateLimit';
+import requireExternalApiKey from '../middleware/externalApiAuth';
 import { UserAISettings, Room, Project, Sprint, ReferenceScore, WorkItemAIEstimate } from '../db/schema';
 import { encrypt, decrypt } from '../utils/crypto';
 import {
@@ -22,6 +23,7 @@ import {
 import {
   listSprints,
   getWorkItemsForIteration,
+  getWorkItemDetail,
   patAuthHeader,
   buildWorkItemUrl,
   type AdoWorkItem,
@@ -486,6 +488,132 @@ router.post('/estimate', aiRateLimit, async (req, res) => {
   } finally {
     if (projectId !== null && workItemIdNum !== null) {
       unlockItem(projectId, workItemIdNum);
+    }
+  }
+});
+
+// ─── POST /api/ai/estimate/external ──────────────────────────────────────────
+// Headless endpoint gated by a shared secret (X-Api-Key header — see
+// middleware/externalApiAuth.ts) instead of a Sprintermate login. Lets an
+// external caller supply an ADO PAT + organization + project + work item id
+// directly and receive the same AIEstimateResult JSON shape produced by the
+// in-app estimation flow above.
+router.post('/estimate/external', requireExternalApiKey, aiRateLimit, async (req, res) => {
+  let lockedProjectId: string | null = null;
+  let workItemIdNum: number | null = null;
+
+  try {
+    const { pat, organization, project, workItemId, locale } = req.body as {
+      pat?: string;
+      organization?: string;
+      project?: string;
+      workItemId?: number;
+      locale?: string;
+    };
+
+    if (!pat || !organization || !project || workItemId === undefined) {
+      res.status(400).json({ error: 'pat, organization, project, and workItemId are required' });
+      return;
+    }
+
+    workItemIdNum = Number(workItemId);
+    if (!Number.isFinite(workItemIdNum) || workItemIdNum <= 0) {
+      res.status(400).json({ error: 'Invalid work item id' });
+      return;
+    }
+
+    // The provided PAT is used only in-memory for this request — never logged or persisted.
+    const authHeader = patAuthHeader(pat);
+
+    // Fetch the work item directly — no sprint/iteration lookup needed.
+    let workItem: AdoWorkItem;
+    try {
+      workItem = await getWorkItemDetail(organization, project, workItemIdNum, authHeader);
+    } catch (err: any) {
+      res.status(502).json({ error: err.message ?? 'Failed to fetch work item from Azure DevOps' });
+      return;
+    }
+
+    // Best-effort match against an existing Sprintermate project, to reuse its
+    // reference-score calibration anchors and (if no server AI is configured)
+    // its owner's AI provider settings. Previous-sprint history is intentionally
+    // skipped here — there's no bound Sprint to know which sprints precede this
+    // work item.
+    const matchedProjectRow = await Project.findOne({ where: { organization, name: project } });
+    const matchedProject = matchedProjectRow ? (matchedProjectRow.get({ plain: true }) as any) : null;
+
+    if (matchedProject) {
+      lockedProjectId = matchedProject.id;
+      lockItem(matchedProject.id, workItemIdNum);
+    }
+
+    // Resolve AI provider and key: server env first, else the matched project owner's settings.
+    let provider: string;
+    let apiKey: string | null;
+    let azureOptions: AzureAIOptions | undefined;
+
+    const prodSettings = getProductionAISettings();
+    if (prodSettings) {
+      provider = prodSettings.provider;
+      apiKey = prodSettings.apiKey;
+      azureOptions = prodSettings.azureOptions;
+    } else if (matchedProject) {
+      const aiSettings = await UserAISettings.findOne({ where: { user_id: matchedProject.user_id } });
+      if (!aiSettings) {
+        res.status(400).json({ error: 'No AI provider configured for the matched Sprintermate project owner, and no server-wide provider is set.' });
+        return;
+      }
+      provider = aiSettings.provider;
+      apiKey = aiSettings.encrypted_api_key ? decrypt(aiSettings.encrypted_api_key) : null;
+
+      if (provider === 'azure-openai') {
+        if (!aiSettings.encrypted_endpoint || !aiSettings.azure_deployment_name || !aiSettings.azure_api_version) {
+          res.status(400).json({ error: 'Azure OpenAI settings are incomplete for the matched project owner.' });
+          return;
+        }
+        azureOptions = {
+          endpoint: decrypt(aiSettings.encrypted_endpoint),
+          deploymentName: aiSettings.azure_deployment_name,
+          apiVersion: aiSettings.azure_api_version,
+          organization: aiSettings.azure_organization ?? undefined,
+        };
+      }
+    } else {
+      res.status(400).json({ error: 'No AI provider configured on the server, and no matching Sprintermate project was found to source AI settings from.' });
+      return;
+    }
+
+    // Reference scores (calibration anchors) — only available when a matching project exists.
+    let referenceScores: ReferenceScoreItem[] = [];
+    if (matchedProject) {
+      const refScoreRows = await ReferenceScore.findAll({
+        where: { project_id: matchedProject.id },
+        order: [['story_points', 'ASC']],
+      });
+      referenceScores = refScoreRows.map((r: any) => ({
+        title: r.title,
+        description: r.description,
+        story_points: r.story_points,
+      }));
+    }
+
+    // Build prompt and call AI (no previous-sprint history for this endpoint — see comment above).
+    const prompt = buildEstimationPrompt(workItem, referenceScores, [], locale);
+    const raw = await callAI(provider, apiKey, prompt, azureOptions);
+    const result = extractJSON(raw);
+
+    // Persist only when we found a real Sprintermate project to associate it with.
+    if (matchedProject) {
+      await persistEstimate(matchedProject.id, workItemIdNum, result);
+    }
+
+    res.json(result);
+  } catch (err: any) {
+    log.error('estimate external error', { err, name: err?.name, errors: err?.errors });
+    res.status(500).json({ error: err.message ?? 'AI estimation failed' });
+  } finally {
+    if (lockedProjectId !== null && workItemIdNum !== null) {
+      unlockItem(lockedProjectId, workItemIdNum);
     }
   }
 });
