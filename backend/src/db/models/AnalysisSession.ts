@@ -29,7 +29,7 @@ AnalysisSession.init(
       defaultValue: 'New Analysis',
     },
     project_id: {
-      type: DataTypes.TEXT,
+      type: DataTypes.UUID,
       allowNull: true,
       defaultValue: null,
     },
