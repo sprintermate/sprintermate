@@ -37,6 +37,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      EXTERNAL_API_SECRET: ${EXTERNAL_API_SECRET:-}
       SEQ_URL: http://seq:5341
       SEQ_API_KEY: ${SEQ_API_KEY:-}
     depends_on:
