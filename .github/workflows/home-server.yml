@@ -8,6 +8,9 @@ on:
 jobs:
   deploy:
     strategy:
+      # Don't cancel the other server's deploy if one server fails —
+      # each matrix entry (pi/dt) should run to completion independently.
+      fail-fast: false
       matrix:
         # Define your server labels and their corresponding paths
         include:
