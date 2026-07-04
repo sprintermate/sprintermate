@@ -28,11 +28,23 @@ const devFormat = winston.format.combine(
   }),
 );
 
+// A console transport is always registered — even in production — so that
+// `docker logs` shows startup/crash reasons. Previously production only used
+// SeqTransport; if Seq was unreachable (e.g. no `seq` service deployed on
+// dt/pi), logs — including fatal startup errors — vanished silently and
+// `docker logs` showed nothing while the container crash-looped.
+const prodConsoleFormat = winston.format.combine(
+  requestContextFormat,
+  winston.format.timestamp(),
+  winston.format.json(),
+);
+
 const logger = winston.createLogger({
   level: isProduction ? 'info' : 'debug',
   format: isProduction ? requestContextFormat : undefined,
   transports: isProduction
     ? [
+        new winston.transports.Console({ format: prodConsoleFormat, handleExceptions: true, handleRejections: true }),
         new SeqTransport({
           serverUrl: process.env.SEQ_URL ?? 'http://seq:5341',
           apiKey: process.env.SEQ_API_KEY || undefined,
