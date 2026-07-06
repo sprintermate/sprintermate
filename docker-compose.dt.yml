@@ -57,6 +57,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Server-side (SSR) calls go directly to backend over the internal network.
+      # Without this, Server Components (dashboard/login/etc.) can't verify the
+      # session cookie against /api/auth/me and bounce users back to /login.
+      BACKEND_URL: http://backend:4000
     depends_on:
       backend:
         condition: service_healthy
