@@ -162,8 +162,6 @@
     "delete": "Sil",
     "validationError": "Her referans puanın bir başlığı ve geçerli sayısal bir hikaye puanı değeri olmalıdır.",
     "viewMetrics": "Metrikler",
-    "metricsWip": "Bu ekrandaki geliştirmeler devam etmektedir.",
-    "ok": "Tamam",
     "tabAnalysis": "Analiz Ajanı"
   },
   "createRoom": {

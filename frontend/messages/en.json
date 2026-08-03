@@ -160,8 +160,6 @@
     "delete": "Delete",
     "validationError": "Each reference score needs a title and a valid numeric story point value.",
     "viewMetrics": "Metrics",
-    "metricsWip": "This feature is currently under development.",
-    "ok": "OK",
     "tabAnalysis": "Analysis Agent"
   },
   "createRoom": {
