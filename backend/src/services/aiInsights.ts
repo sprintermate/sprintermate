@@ -68,11 +68,14 @@ CURRENT SPRINT: ${current.sprintName}
 Sprint Duration: ${current.startDate} to ${current.endDate}
 
 HEALTH METRICS:
-- Health Score: ${current.health.score}/100
-- Completion Rate: ${current.health.completionRate}%
+- Health Score: ${current.health.score}/100 (Risk Level: ${current.health.riskLevel})
+- Completion Rate: ${current.health.completionRate}% of planned story points (${current.health.breakdown.completion.points}/${current.health.breakdown.completion.max} pts)
 - Velocity: ${current.velocity.completed} points (Planned: ${current.velocity.planned})
-- Scope Change: ${current.health.scopeChange}%
-- Risk Level: ${current.health.riskLevel}
+- Scope Stability: ${current.health.breakdown.scopeStability.status} (${current.health.scopeChange > 0 ? '+' : ''}${current.health.scopeChange}% remaining-work-vs-remaining-time gap, ${current.health.breakdown.scopeStability.points}/${current.health.breakdown.scopeStability.max} pts)
+- Estimation Quality: avg ${current.health.breakdown.velocityQuality.avgStoryPoints} SP/item (${current.health.breakdown.velocityQuality.points}/${current.health.breakdown.velocityQuality.max} pts)
+- Team Balance: ${current.health.breakdown.teamBalance.assigneeCount >= 2 ? `${current.health.breakdown.teamBalance.minAssigneeSP}-${current.health.breakdown.teamBalance.maxAssigneeSP} SP spread across ${current.health.breakdown.teamBalance.assigneeCount} people` : 'not enough assignees to compare'} (${current.health.breakdown.teamBalance.points}/${current.health.breakdown.teamBalance.max} pts)
+- Priority Focus: ${current.health.breakdown.priorityFocus.criticalPercentage}% high/highest priority items (${current.health.breakdown.priorityFocus.points}/${current.health.breakdown.priorityFocus.max} pts)
+${current.health.breakdown.timePressurePenalty > 0 ? `- Time Pressure Penalty: -${current.health.breakdown.timePressurePenalty} pts (sprint nearing end while behind schedule)` : ''}
 
 
 FLOW METRICS:

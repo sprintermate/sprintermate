@@ -11,6 +11,7 @@ import WorkItemScoreRecord from './models/WorkItemScoreRecord';
 import RetroSession from './models/RetroSession';
 import RetroItem from './models/RetroItem';
 import RetroAction from './models/RetroAction';
+import RetroVote from './models/RetroVote';
 import PasswordResetCode from './models/PasswordResetCode';
 import AnalysisSession from './models/AnalysisSession';
 import AnalysisMessage from './models/AnalysisMessage';
@@ -109,4 +110,4 @@ export async function initSchema(): Promise<void> {
   log.info('schema synced');
 }
 
-export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, PasswordResetCode, AnalysisSession, AnalysisMessage };
+export { sequelize, User, Project, Sprint, Room, ReferenceScore, UserAISettings, WorkItemAIEstimate, WorkItemScoreRecord, RetroSession, RetroItem, RetroAction, RetroVote, PasswordResetCode, AnalysisSession, AnalysisMessage };

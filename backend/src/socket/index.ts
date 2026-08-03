@@ -500,6 +500,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
           }
         }
 
+        io.to(code).emit('work:score_saved', { workItemId: Number(workItemId), storyPoints });
         callback({ ok: true });
       } catch (err: any) {
         callback({ error: err.message ?? 'Failed to save score' });
@@ -534,6 +535,14 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
         participants: Array.from(retroRooms.get(code)!.values()),
       });
       log.info('joined retro room', { socketId: socket.id, roomCode: code });
+    });
+
+    // ── retro:typing ──────────────────────────────────────────────────────────
+    // Ephemeral, no persistence — just relay to everyone else in the room.
+    socket.on('retro:typing', (data: { code: string; column: string; displayName: string; typing: boolean }) => {
+      const { code, column, displayName, typing } = data;
+      if (!code || !column || !displayName) return;
+      socket.to(`retro:${code}`).emit('retro:typing', { column, displayName, typing });
     });
 
     // ── retro:leave ───────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import requireAuth from '../middleware/requireAuth';
 import { Project, Sprint, WorkItemScoreRecord } from '../db/schema';
-import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend, getVelocityHistory } from '../services/azDevops';
+import { patAuthHeader, calculateSprintMetrics, calculateSprintTrends, SprintTrend, getVelocityHistory, getWorkItemTitles, buildWorkItemUrl } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { generateSprintInsights } from '../services/aiInsights';
 import { childLogger } from '../utils/logger';
@@ -314,7 +314,35 @@ router.get('/projects/:projectId/sprints/:sprintId/score-records', async (req, r
       attributes: ['work_item_id', 'ai_score', 'user_avg_score'],
     });
 
-    res.json(records.map(r => r.get({ plain: true })));
+    const plainRecords = records.map(r => r.get({ plain: true }));
+    const projectPlain = project.get({ plain: true });
+
+    // Best-effort enrichment with real ADO titles/links — never fails the whole request
+    let titles = new Map<number, { title: string; state: string; workItemType: string }>();
+    if (plainRecords.length > 0 && projectPlain.encrypted_pat) {
+      try {
+        const pat = decrypt(projectPlain.encrypted_pat);
+        const authHeader = patAuthHeader(pat);
+        titles = await getWorkItemTitles(
+          projectPlain.organization,
+          projectPlain.name,
+          plainRecords.map((r: any) => r.work_item_id),
+          authHeader,
+        );
+      } catch (err) {
+        log.warn('Could not enrich score records with ADO titles', { err });
+      }
+    }
+
+    res.json(plainRecords.map((r: any) => {
+      const info = titles.get(r.work_item_id);
+      return {
+        ...r,
+        title: info?.title ?? null,
+        workItemType: info?.workItemType ?? null,
+        url: buildWorkItemUrl(projectPlain.organization, projectPlain.name, r.work_item_id),
+      };
+    }));
   } catch (err: any) {
     log.error('Error fetching score records', { err });
     res.status(500).json({ error: err.message ?? 'Failed to fetch score records' });

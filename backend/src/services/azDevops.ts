@@ -423,6 +423,67 @@ export async function getWorkItemListForIteration(
   return mapped;
 }
 
+export interface AdoWorkItemTitle {
+  id: number;
+  title: string;
+  state: string;
+  workItemType: string;
+}
+
+/**
+ * Lightweight batch lookup of title/state/type for a specific set of work item IDs,
+ * regardless of which sprint they currently belong to. Used to enrich locally stored
+ * records (e.g. AI vs team score history) with human-readable labels.
+ */
+export async function getWorkItemTitles(
+  organization: string,
+  project: string,
+  ids: number[],
+  authHeader: string,
+): Promise<Map<number, AdoWorkItemTitle>> {
+  const result = new Map<number, AdoWorkItemTitle>();
+  if (ids.length === 0) return result;
+
+  const batchUrl = `https://dev.azure.com/${encodeURIComponent(organization)}/${encodeURIComponent(project)}/_apis/wit/workitemsbatch?api-version=7.1`;
+
+  const BATCH_SIZE = 200;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const chunk = ids.slice(i, i + BATCH_SIZE);
+    try {
+      const res = await fetch(batchUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          ids: chunk,
+          fields: ['System.Id', 'System.Title', 'System.State', 'System.WorkItemType'],
+        }),
+        redirect: 'error',
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json() as { value?: any[] };
+      for (const item of data.value ?? []) {
+        const fields = item.fields ?? {};
+        result.set(item.id, {
+          id: item.id,
+          title: fields['System.Title'] ?? '',
+          state: fields['System.State'] ?? '',
+          workItemType: fields['System.WorkItemType'] ?? '',
+        });
+      }
+    } catch (err) {
+      log.error('Failed to batch fetch work item titles', { err });
+    }
+  }
+
+  return result;
+}
+
 /**
  * Returns full details (description, acceptanceCriteria, comments) for a single ADO work item.
  */
@@ -596,12 +657,19 @@ export interface SprintMetrics {
   endDate: string;
   health: {
     score: number; // 0-100
-    completionRate: number; // 0-100
+    completionRate: number; // 0-100, SP-based (Done & Released SP / Total planned SP)
     velocity: number;
-    scopeChange: number; // percentage
+    scopeChange: number; // percentage points: remaining work% - remaining time% (negative = ahead of schedule)
     riskLevel: 'low' | 'medium' | 'high';
     bugCount: number;
-    bugTrend: 'increasing' | 'stable' | 'decreasing';
+    breakdown: {
+      completion: { points: number; max: number };
+      scopeStability: { points: number; max: number; status: 'ahead' | 'onTrack' | 'behind' };
+      velocityQuality: { points: number; max: number; avgStoryPoints: number };
+      teamBalance: { points: number; max: number; minAssigneeSP: number; maxAssigneeSP: number; assigneeCount: number };
+      priorityFocus: { points: number; max: number; criticalPercentage: number };
+      timePressurePenalty: number;
+    };
   };
   workItems: {
     total: number;
@@ -711,6 +779,9 @@ export async function calculateSprintMetrics(
   let itemsWithLeadTime = 0;
   let itemsWithBlockedTime = 0;
 
+  const assigneeSP = new Map<string, number>();
+  let criticalCount = 0; // items with Priority 1 (Highest) or 2 (High)
+
   workItems.forEach(wi => {
     // Count by type
     byType[wi.workItemType] = (byType[wi.workItemType] || 0) + 1;
@@ -736,6 +807,16 @@ export async function calculateSprintMetrics(
       if (wi.state === 'Active' || wi.state === 'New') activeBugs++;
       else if (wi.state === 'Resolved') resolvedBugs++;
       else if (wi.state === 'Closed') closedBugs++;
+    }
+
+    // Workload distribution & priority focus (skip removed items — not part of live scope)
+    if (!isRemovedState(wi.state)) {
+      if (wi.assignedTo) {
+        assigneeSP.set(wi.assignedTo, (assigneeSP.get(wi.assignedTo) || 0) + points);
+      }
+      if (wi.priority === 1 || wi.priority === 2) {
+        criticalCount++;
+      }
     }
 
     // Flow metrics from history (if available)
@@ -765,24 +846,95 @@ export async function calculateSprintMetrics(
   const flowEfficiency = avgLeadTime > 0 ? (valueAddingTime / avgLeadTime) * 100 : 
     (avgCycleTime > 0 ? 100 : 0); // If no lead time but has cycle time, assume 100% efficiency
 
-  const completionRate = total > 0 ? (completed / total) * 100 : 0;
   const velocity = totalCompletedPoints;
 
-  // Calculate scope change (simplified - would need sprint start snapshot in real implementation)
-  const scopeChange = 0; // Placeholder - requires historical data
+  // ── Dynamic Health Score (0-100) ──────────────────────────────────────────
+  // A weighted breakdown of 5 factors, modeled after real-world sprint health
+  // scoring: completion dominates, but scope drift, estimation quality, team
+  // load balance and priority discipline all pull the score down when off.
 
-  // Calculate health score (weighted average)
-  const healthScore = Math.round(
-    completionRate * 0.4 +
-    (velocity / (totalPlannedPoints || 1)) * 100 * 0.3 +
-    (100 - Math.min(bugCount * 10, 100)) * 0.2 +
-    flowEfficiency * 0.1
-  );
+  // 1) Completion Rate (50 pts): Done & Released SP / Total planned SP
+  const completionRateSP = totalPlannedPoints > 0 ? totalCompletedPoints / totalPlannedPoints : 0;
+  const completionPoints = Math.round(Math.min(1, completionRateSP) * 50 * 10) / 10;
+
+  // 2) Scope Stability (15 pts): % work remaining vs % time remaining
+  const sprintStart = startDate ? new Date(startDate) : null;
+  const sprintEnd = endDate ? new Date(endDate) : null;
+  const hasValidDates = !!(sprintStart && sprintEnd && sprintEnd.getTime() > sprintStart.getTime());
+  const now = new Date();
+  let elapsedPct = 0;
+  let timeRemainingPct = 0;
+  if (hasValidDates && sprintStart && sprintEnd) {
+    const totalDuration = sprintEnd.getTime() - sprintStart.getTime();
+    const elapsed = Math.min(Math.max(now.getTime() - sprintStart.getTime(), 0), totalDuration);
+    elapsedPct = elapsed / totalDuration;
+    timeRemainingPct = 1 - elapsedPct;
+  }
+  const workRemainingPct = totalPlannedPoints > 0 ? Math.max(0, 1 - completionRateSP) : 0;
+  const scopeGap = workRemainingPct - timeRemainingPct; // > 0 => behind schedule
+  const scopeStabilityPoints = hasValidDates
+    ? Math.round(Math.max(0, Math.min(15, 15 - Math.max(0, scopeGap) * 30)) * 10) / 10
+    : 15; // no reliable sprint dates → don't penalize
+  const scopeStatus: 'ahead' | 'onTrack' | 'behind' = scopeGap <= -0.05 ? 'ahead' : scopeGap <= 0.05 ? 'onTrack' : 'behind';
+
+  // 3) Velocity Quality (15 pts): average SP per issue, ideal range 3-8
+  const scoredItems = workItems.filter(wi => !isRemovedState(wi.state) && (wi.storyPoints || 0) > 0);
+  const avgStoryPoints = scoredItems.length > 0
+    ? scoredItems.reduce((s, wi) => s + (wi.storyPoints || 0), 0) / scoredItems.length
+    : 0;
+  let velocityQualityPoints: number;
+  if (scoredItems.length === 0) {
+    velocityQualityPoints = 15;
+  } else if (avgStoryPoints >= 3 && avgStoryPoints <= 8) {
+    velocityQualityPoints = 15;
+  } else if (avgStoryPoints < 3) {
+    velocityQualityPoints = Math.round((avgStoryPoints / 3) * 15 * 10) / 10;
+  } else {
+    velocityQualityPoints = Math.max(0, Math.round((15 - (avgStoryPoints - 8) * 2) * 10) / 10);
+  }
+
+  // 4) Team Balance (10 pts): gap between the least and most loaded assignee (SP)
+  const assigneeSPValues = Array.from(assigneeSP.values()).filter(v => v > 0);
+  let teamBalancePoints = 10;
+  let minAssigneeSP = 0;
+  let maxAssigneeSP = 0;
+  if (assigneeSPValues.length >= 2) {
+    minAssigneeSP = Math.min(...assigneeSPValues);
+    maxAssigneeSP = Math.max(...assigneeSPValues);
+    const gapRatio = maxAssigneeSP > 0 ? (maxAssigneeSP - minAssigneeSP) / maxAssigneeSP : 0;
+    teamBalancePoints = Math.round(Math.max(0, 10 - gapRatio * 10) * 10) / 10;
+  } else if (assigneeSPValues.length === 1) {
+    minAssigneeSP = maxAssigneeSP = assigneeSPValues[0];
+  }
+
+  // 5) Priority Focus (10 pts): penalize when >30% of scope is Highest/High priority
+  const nonRemovedTotal = total - removed;
+  const criticalPercentage = nonRemovedTotal > 0 ? (criticalCount / nonRemovedTotal) * 100 : 0;
+  const priorityFocusPoints = criticalPercentage <= 30
+    ? 10
+    : Math.max(0, Math.round((10 - (criticalPercentage - 30) * 0.4) * 10) / 10);
+
+  // Time Pressure Penalty: sprint is >60% elapsed but completion is lagging behind (max -25)
+  let timePressurePenalty = 0;
+  if (hasValidDates && sprintEnd && elapsedPct > 0.6 && completionRateSP < elapsedPct) {
+    const daysRemaining = Math.max(0, (sprintEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const multiplier = daysRemaining <= 1 ? 1.5 : daysRemaining <= 2 ? 1.25 : 1;
+    const gap = elapsedPct - completionRateSP;
+    timePressurePenalty = Math.min(25, Math.round(gap * 40 * multiplier * 10) / 10);
+  }
+
+  const rawHealthScore =
+    completionPoints + scopeStabilityPoints + velocityQualityPoints +
+    teamBalancePoints + priorityFocusPoints - timePressurePenalty;
+  const healthScore = Math.max(0, Math.min(100, Math.round(rawHealthScore)));
+
+  // scopeChange: % point gap between remaining work and remaining time (negative = ahead of schedule)
+  const scopeChange = hasValidDates ? Math.round(scopeGap * 1000) / 10 : 0;
 
   // Determine risk level
   let riskLevel: 'low' | 'medium' | 'high' = 'low';
-  if (healthScore < 50 || completionRate < 60) riskLevel = 'high';
-  else if (healthScore < 70 || completionRate < 75) riskLevel = 'medium';
+  if (healthScore < 50 || completionRateSP * 100 < 60) riskLevel = 'high';
+  else if (healthScore < 70 || completionRateSP * 100 < 75) riskLevel = 'medium';
 
   // Calculate state duration metrics
   const workItemIds = workItems.map(wi => wi.id);
@@ -812,12 +964,19 @@ export async function calculateSprintMetrics(
     endDate,
     health: {
       score: healthScore,
-      completionRate: Math.round(completionRate * 10) / 10,
+      completionRate: Math.round(completionRateSP * 1000) / 10,
       velocity,
       scopeChange,
       riskLevel,
       bugCount,
-      bugTrend: 'stable', // Placeholder - requires historical comparison
+      breakdown: {
+        completion: { points: completionPoints, max: 50 },
+        scopeStability: { points: scopeStabilityPoints, max: 15, status: scopeStatus },
+        velocityQuality: { points: velocityQualityPoints, max: 15, avgStoryPoints: Math.round(avgStoryPoints * 10) / 10 },
+        teamBalance: { points: teamBalancePoints, max: 10, minAssigneeSP, maxAssigneeSP, assigneeCount: assigneeSPValues.length },
+        priorityFocus: { points: priorityFocusPoints, max: 10, criticalPercentage: Math.round(criticalPercentage * 10) / 10 },
+        timePressurePenalty,
+      },
     },
     workItems: {
       total,
@@ -919,6 +1078,7 @@ async function getWorkItemsWithHistory(
             'Microsoft.VSTS.Common.ActivatedDate',
             'Microsoft.VSTS.Common.ResolvedDate',
             'Microsoft.VSTS.Common.ClosedDate',
+            'Microsoft.VSTS.Common.Priority',
           ],
         }),
       });
@@ -963,6 +1123,7 @@ async function getWorkItemsWithHistory(
       workItemType: fields['System.WorkItemType'] ?? '',
       storyPoints: fields['Microsoft.VSTS.Scheduling.StoryPoints'] ?? null,
       assignedTo: fields['System.AssignedTo']?.displayName ?? null,
+      priority: fields['Microsoft.VSTS.Common.Priority'] ?? null,
       history: {
         cycleTime,
         leadTime,

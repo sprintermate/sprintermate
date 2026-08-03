@@ -21,7 +21,14 @@ interface SprintMetrics {
     scopeChange: number;
     riskLevel: 'low' | 'medium' | 'high';
     bugCount: number;
-    bugTrend: 'increasing' | 'stable' | 'decreasing';
+    breakdown: {
+      completion: { points: number; max: number };
+      scopeStability: { points: number; max: number; status: 'ahead' | 'onTrack' | 'behind' };
+      velocityQuality: { points: number; max: number; avgStoryPoints: number };
+      teamBalance: { points: number; max: number; minAssigneeSP: number; maxAssigneeSP: number; assigneeCount: number };
+      priorityFocus: { points: number; max: number; criticalPercentage: number };
+      timePressurePenalty: number;
+    };
   };
   workItems: {
     total: number;
@@ -87,6 +94,9 @@ interface ScoreRecord {
   work_item_id: number;
   ai_score: number;
   user_avg_score: number;
+  title?: string | null;
+  workItemType?: string | null;
+  url?: string | null;
 }
 
 interface VelocityHistoryItem {
@@ -220,13 +230,33 @@ export default function SprintMetricsClient({
       ? Math.round(trends.slice(0, 3).reduce((s, t) => s + t.velocity, 0) / Math.min(trends.length, 3))
       : metrics.velocity.completed);
 
-  // AI vs Team stats
+  // AI vs Team stats — average (population std dev of AI vs team deviations)
   const n = scoreRecords.length;
   const avgAI = n > 0 ? scoreRecords.reduce((s, r) => s + r.ai_score, 0) / n : 0;
   const avgUser = n > 0 ? scoreRecords.reduce((s, r) => s + r.user_avg_score, 0) / n : 0;
   const stdDev = n > 0
     ? Math.sqrt(scoreRecords.reduce((s, r) => s + (r.ai_score - r.user_avg_score) ** 2, 0) / n)
     : 0;
+  // Per-item deviation, sorted by biggest AI vs team disagreement first
+  const scoreRecordsByDeviation = [...scoreRecords].sort(
+    (a, b) => Math.abs(b.ai_score - b.user_avg_score) - Math.abs(a.ai_score - a.user_avg_score)
+  );
+
+  // Bug trend vs previous sprint — only shown when we actually have a previous sprint to compare against
+  const currentTrendIndex = trends.findIndex(t => t.sprintId === metrics.sprintId);
+  const previousTrend = currentTrendIndex > 0 ? trends[currentTrendIndex - 1] : null;
+  const bugTrend: 'increasing' | 'stable' | 'decreasing' | null = previousTrend
+    ? metrics.bugs.total > previousTrend.bugCount ? 'increasing'
+      : metrics.bugs.total < previousTrend.bugCount ? 'decreasing'
+      : 'stable'
+    : null;
+
+  const riskColors: Record<'low' | 'medium' | 'high', { text: string; bg: string; ring: string; label: string }> = {
+    low: { text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800', ring: '#10b981', label: 'Düşük Risk' },
+    medium: { text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', ring: '#f59e0b', label: 'Orta Risk' },
+    high: { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800', ring: '#ef4444', label: 'Yüksek Risk' },
+  };
+  const risk = riskColors[metrics.health.riskLevel];
 
   return (
     <div className="space-y-6">
@@ -254,6 +284,96 @@ export default function SprintMetricsClient({
               <><span>🤖</span> AI Insights</>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Health Score */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-slate-800/60 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">🩺 Sprint Sağlık Skoru</h2>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Tamamlanma, kapsam istikrarı, tahmin kalitesi, takım dengesi ve öncelik odağının ağırlıklı toplamı</p>
+          </div>
+          <span className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${risk.bg} ${risk.text}`}>
+            {risk.label}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 items-center">
+          <ScoreRing score={metrics.health.score} color={risk.ring} />
+
+          <div className="space-y-3 w-full">
+            <HealthBreakdownBar
+              label="Tamamlanma Oranı"
+              points={metrics.health.breakdown.completion.points}
+              max={metrics.health.breakdown.completion.max}
+              detail={`${metrics.health.completionRate.toFixed(1)}% SP tamamlandı`}
+            />
+            <HealthBreakdownBar
+              label="Kapsam İstikrarı"
+              points={metrics.health.breakdown.scopeStability.points}
+              max={metrics.health.breakdown.scopeStability.max}
+              detail={
+                metrics.health.breakdown.scopeStability.status === 'ahead' ? '🟢 Takvimin önünde'
+                  : metrics.health.breakdown.scopeStability.status === 'onTrack' ? '🟡 Takvimle uyumlu'
+                  : '🔴 Takvimin gerisinde'
+              }
+            />
+            <HealthBreakdownBar
+              label="Velocity Kalitesi"
+              points={metrics.health.breakdown.velocityQuality.points}
+              max={metrics.health.breakdown.velocityQuality.max}
+              detail={`Ort. ${metrics.health.breakdown.velocityQuality.avgStoryPoints} SP / madde`}
+            />
+            <HealthBreakdownBar
+              label="Takım Dengesi"
+              points={metrics.health.breakdown.teamBalance.points}
+              max={metrics.health.breakdown.teamBalance.max}
+              detail={
+                metrics.health.breakdown.teamBalance.assigneeCount >= 2
+                  ? `${metrics.health.breakdown.teamBalance.minAssigneeSP} – ${metrics.health.breakdown.teamBalance.maxAssigneeSP} SP aralığı`
+                  : 'Karşılaştırma için yetersiz veri'
+              }
+            />
+            <HealthBreakdownBar
+              label="Öncelik Odağı"
+              points={metrics.health.breakdown.priorityFocus.points}
+              max={metrics.health.breakdown.priorityFocus.max}
+              detail={`%${metrics.health.breakdown.priorityFocus.criticalPercentage.toFixed(0)} yüksek öncelikli`}
+            />
+            {metrics.health.breakdown.timePressurePenalty > 0 && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 pt-1">
+                <span>⏱️</span>
+                <span>Zaman Baskısı Cezası: <strong>-{metrics.health.breakdown.timePressurePenalty.toFixed(1)} puan</strong> (sprint sonuna yaklaşılıyor, tamamlanma geride)</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">
+          <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-1">Toplam Hata</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+              {metrics.bugs.total}
+              {bugTrend === 'increasing' && <span className="text-red-500 text-sm" title="Önceki sprinte göre arttı">▲</span>}
+              {bugTrend === 'decreasing' && <span className="text-emerald-500 text-sm" title="Önceki sprinte göre azaldı">▼</span>}
+              {bugTrend === 'stable' && <span className="text-gray-400 text-sm" title="Önceki sprintle aynı">▬</span>}
+            </div>
+          </div>
+          <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-1">Aktif Hata</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-white">{metrics.bugs.active}</div>
+          </div>
+          <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-1">Kapsam Kayması</div>
+            <div className={`text-lg font-bold ${metrics.health.scopeChange > 5 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+              {metrics.health.scopeChange > 0 ? '+' : ''}{metrics.health.scopeChange.toFixed(1)}%
+            </div>
+          </div>
+          <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-3">
+            <div className="text-xs text-gray-500 dark:text-slate-400 mb-1">Devam Eden İşler</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-white">{metrics.flow.wipCount}</div>
+          </div>
         </div>
       </div>
 
@@ -396,7 +516,7 @@ export default function SprintMetricsClient({
                 <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{avgUser.toFixed(1)}</div>
               </div>
               <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 text-center">
-                <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wider mb-1">Standart Sapma</div>
+                <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wider mb-1">Ort. Sapma (Std. Sapma)</div>
                 <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">{stdDev.toFixed(2)}</div>
               </div>
             </div>
@@ -413,6 +533,56 @@ export default function SprintMetricsClient({
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm bg-indigo-500"></div>
                 <span className="text-gray-600 dark:text-slate-400">Kullanıcı Seçimi</span>
+              </div>
+            </div>
+
+            {/* Per-item deviation table */}
+            <div className="mt-8">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Madde Bazında Sapma</h3>
+              <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-800">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-slate-800/50">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-slate-400">Madde</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-slate-400">AI Skoru</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-slate-400">Takım Skoru</th>
+                      <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-slate-400">Sapma</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                    {scoreRecordsByDeviation.map(r => {
+                      const deviation = Math.abs(r.ai_score - r.user_avg_score);
+                      const deviationColor = deviation === 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : deviation <= 2
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-red-600 dark:text-red-400';
+                      const label = `#${r.work_item_id}${r.title ? ` · ${r.title}` : ''}`;
+                      return (
+                        <tr key={r.work_item_id} className="hover:bg-gray-50 dark:hover:bg-slate-800/40">
+                          <td className="px-4 py-2 max-w-[420px]">
+                            {r.url ? (
+                              <a
+                                href={r.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={label}
+                                className="text-indigo-600 dark:text-indigo-400 hover:underline truncate block"
+                              >
+                                {label}
+                              </a>
+                            ) : (
+                              <span title={label} className="text-gray-700 dark:text-slate-300 truncate block">{label}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-right text-violet-600 dark:text-violet-400 font-medium">{r.ai_score}</td>
+                          <td className="px-4 py-2 text-right text-indigo-600 dark:text-indigo-400 font-medium">{r.user_avg_score}</td>
+                          <td className={`px-4 py-2 text-right font-semibold ${deviationColor}`}>{deviation.toFixed(1)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </>
@@ -573,6 +743,54 @@ function FlowMetricCard({ title, value, suffix, description, highlight }: {
         {suffix && <span className="text-sm text-gray-500 dark:text-slate-400">{suffix}</span>}
       </div>
       <div className="text-xs text-gray-500 dark:text-slate-500 mt-1">{description}</div>
+    </div>
+  );
+}
+
+function ScoreRing({ score, color }: { score: number; color: string }) {
+  const r = 64;
+  const cx = 84;
+  const cy = 84;
+  const circumference = 2 * Math.PI * r;
+  const filled = (Math.max(0, Math.min(100, score)) / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center shrink-0 mx-auto">
+      <svg width="168" height="168" viewBox="0 0 168 168">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeWidth="16" className="text-gray-200 dark:text-slate-700" />
+        <circle
+          cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="16"
+          strokeDasharray={`${filled} ${circumference}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+          style={{ transition: 'stroke-dasharray 0.5s ease' }}
+        />
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="34" fontWeight="bold" fill="currentColor" className="text-gray-900 dark:text-white">
+          {Math.round(score)}
+        </text>
+        <text x={cx} y={cy + 20} textAnchor="middle" fontSize="12" fill="currentColor" className="text-gray-500 dark:text-slate-400">
+          / 100
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function HealthBreakdownBar({ label, points, max, detail }: { label: string; points: number; max: number; detail: string }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (points / max) * 100)) : 0;
+  const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-500';
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">{label}</span>
+        <span className="text-xs text-gray-500 dark:text-slate-400">
+          <span className="font-semibold text-gray-900 dark:text-white">{points.toFixed(1)}</span> / {max} · {detail}
+        </span>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2">
+        <div className={`h-2 rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

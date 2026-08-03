@@ -5,10 +5,24 @@ import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Kalam } from 'next/font/google';
 import LogoutButton from './LogoutButton';
 import { getRetroFormat, type RetroColumn } from '../lib/retroFormats';
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
+
+// Hand-drawn marker font for headings — the "sticky note on a corkboard" nostalgia
+const kalam = Kalam({ subsets: ['latin'], weight: ['700'] });
+
+// How many dots each participant may spend across the whole board (classic dot-voting)
+const VOTE_BUDGET_FALLBACK = 5;
+
+/** Deterministic small rotation per card id, so notes look hand-placed but stay stable across re-renders. */
+function cardRotation(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return (Math.abs(hash) % 7) - 3; // -3deg..3deg
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +65,9 @@ export interface RetroSession {
   isModerator: boolean;
   items: RetroItem[];
   actions: RetroAction[];
+  voteBudget?: number;
+  myVotedItemIds?: string[];
+  myVotesRemaining?: number;
 }
 
 interface HistoryEntry {
@@ -164,8 +181,15 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Per-session reaction tracking: 'up' = 👍, 'down' = 👎
-  const [votedItems, setVotedItems] = useState<Map<string, 'up' | 'down'>>(new Map());
+  // Dot-voting: which cards this participant has spent a dot on, and how many are left
+  const [myVotedItemIds, setMyVotedItemIds] = useState<Set<string>>(new Set(initialSession.myVotedItemIds ?? []));
+  const [myVotesRemaining, setMyVotesRemaining] = useState<number>(initialSession.myVotesRemaining ?? VOTE_BUDGET_FALLBACK);
+  const [voteBudget, setVoteBudget] = useState<number>(initialSession.voteBudget ?? VOTE_BUDGET_FALLBACK);
+  const [voteError, setVoteError] = useState<string | null>(null);
+
+  // "X is typing…" per column — ephemeral, socket-only
+  const [typingByColumn, setTypingByColumn] = useState<Record<string, string[]>>({});
+  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isDark = theme === 'dark';
 
@@ -195,6 +219,14 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
       setItems(prev => prev.filter(i => i.id !== id));
     });
 
+    socket.on('retro:typing', ({ column, displayName: typer, typing }: { column: string; displayName: string; typing: boolean }) => {
+      setTypingByColumn(prev => {
+        const list = new Set(prev[column] ?? []);
+        if (typing) list.add(typer); else list.delete(typer);
+        return { ...prev, [column]: Array.from(list) };
+      });
+    });
+
     socket.on('retro:analysis:done', (result: AIAnalysisResult) => {
       setAiResult(result);
       setActions(result.actions);
@@ -208,11 +240,30 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
       setStatus('closed');
     });
 
+    const typingTimeouts = typingTimeoutRef.current;
     return () => {
       socket.emit('retro:leave', { code: initialSession.code });
       socket.disconnect();
+      Object.values(typingTimeouts).forEach(clearTimeout);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSession.code, user.displayName]);
+
+  // ── Refresh my dot-vote state on mount ───────────────────────────────────────
+  // The SSR-rendered initial session prop can't know a guest's client-generated
+  // id (it doesn't exist until after they submit their name), so re-fetch here.
+  useEffect(() => {
+    fetch(`${BACKEND}/api/retro/${initialSession.code}?voterId=${encodeURIComponent(user.id)}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: RetroSession | null) => {
+        if (!data) return;
+        setMyVotedItemIds(new Set(data.myVotedItemIds ?? []));
+        setMyVotesRemaining(data.myVotesRemaining ?? VOTE_BUDGET_FALLBACK);
+        setVoteBudget(data.voteBudget ?? VOTE_BUDGET_FALLBACK);
+      })
+      .catch(() => { /* keep defaults */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSession.code, user.id]);
 
   // ── Add item ───────────────────────────────────────────────────────────────
   const handleAddItem = useCallback(async (category: string) => {
@@ -231,6 +282,11 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
       if (res.ok) {
         setDraft(d => ({ ...d, [category]: '' }));
         setAddingTo(null);
+        const socket = socketRef.current;
+        if (socket) {
+          if (typingTimeoutRef.current[category]) clearTimeout(typingTimeoutRef.current[category]);
+          socket.emit('retro:typing', { code: initialSession.code, column: category, displayName: user.displayName, typing: false });
+        }
       }
     } finally {
       setSubmitting(false);
@@ -245,32 +301,48 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
     });
   }, [initialSession.code]);
 
-  // ── Vote ───────────────────────────────────────────────────────────────────
-  const handleVote = useCallback(async (item: RetroItem, delta: number) => {
-    await fetch(`${BACKEND}/api/retro/${initialSession.code}/items/${item.id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vote: delta }),
-    });
-  }, [initialSession.code]);
-
-  // ── 👍 / 👎 reaction — one reaction per item, switch or remove ────────────
-  const handleReactionVote = useCallback(async (item: RetroItem, reaction: 'up' | 'down') => {
-    const prev = votedItems.get(item.id);
-    let delta: number;
-    if (!prev) {
-      delta = reaction === 'up' ? 1 : -1;
-      setVotedItems(m => new Map(m).set(item.id, reaction));
-    } else if (prev === reaction) {
-      delta = reaction === 'up' ? -1 : 1;
-      setVotedItems(m => { const next = new Map(m); next.delete(item.id); return next; });
-    } else {
-      delta = reaction === 'up' ? 2 : -2;
-      setVotedItems(m => new Map(m).set(item.id, reaction));
+  // ── Dot-vote toggle — classic fixed-budget retro voting ───────────────────
+  const handleDotVote = useCallback(async (item: RetroItem) => {
+    setVoteError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/retro/${initialSession.code}/items/${item.id}/vote`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voterId: user.id, voterName: user.displayName }),
+      });
+      const data = await res.json() as {
+        voted?: boolean; voteBudget?: number; myVotesRemaining?: number; error?: string;
+      };
+      if (!res.ok) {
+        setVoteError(data.error ?? t('noVotesLeft'));
+        setTimeout(() => setVoteError(null), 2500);
+        return;
+      }
+      setMyVotedItemIds(prev => {
+        const next = new Set(prev);
+        if (data.voted) next.add(item.id); else next.delete(item.id);
+        return next;
+      });
+      if (typeof data.myVotesRemaining === 'number') setMyVotesRemaining(data.myVotesRemaining);
+      if (typeof data.voteBudget === 'number') setVoteBudget(data.voteBudget);
+    } catch {
+      setVoteError(t('noVotesLeft'));
+      setTimeout(() => setVoteError(null), 2500);
     }
-    await handleVote(item, delta);
-  }, [votedItems, handleVote]);
+  }, [initialSession.code, user.id, user.displayName, t]);
+
+  // ── Typing indicator — debounced, ephemeral ────────────────────────────────
+  const handleDraftChange = useCallback((columnKey: string, value: string) => {
+    setDraft(d => ({ ...d, [columnKey]: value }));
+    const socket = socketRef.current;
+    if (!socket) return;
+    socket.emit('retro:typing', { code: initialSession.code, column: columnKey, displayName: user.displayName, typing: true });
+    if (typingTimeoutRef.current[columnKey]) clearTimeout(typingTimeoutRef.current[columnKey]);
+    typingTimeoutRef.current[columnKey] = setTimeout(() => {
+      socket.emit('retro:typing', { code: initialSession.code, column: columnKey, displayName: user.displayName, typing: false });
+    }, 2000);
+  }, [initialSession.code, user.displayName]);
 
   // ── AI Analyze ─────────────────────────────────────────────────────────────
   const handleAnalyze = useCallback(async () => {
@@ -346,13 +418,14 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
   };
 
   // ── Theming classes ────────────────────────────────────────────────────────
+  // Dark = chalkboard, Light = corkboard — a nod to the physical retro boards these replace.
   const boardBg = isDark
     ? 'bg-slate-900 text-white'
-    : 'bg-white text-gray-900';
+    : 'bg-[#f6efdf] text-gray-900';
 
   const boardTexture = isDark
-    ? 'bg-[radial-gradient(ellipse_at_top_left,_rgba(30,80,40,0.25)_0%,_transparent_60%)] bg-[length:1px_1px]'
-    : 'bg-[radial-gradient(ellipse_at_top_right,_rgba(230,230,230,0.5)_0%,_transparent_60%)]';
+    ? 'bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:24px_24px]'
+    : 'bg-[radial-gradient(circle_at_1px_1px,rgba(120,83,45,0.14)_1px,transparent_0)] [background-size:24px_24px]';
 
   // Build card background maps dynamically from format columns
   const cardBgMap = useMemo(() => {
@@ -384,7 +457,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
               </div>
             </Link>
             <div className="min-w-0 hidden sm:block">
-              <div className={`font-semibold text-sm truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{initialSession.title}</div>
+              <div className={`${kalam.className} text-base truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{initialSession.title}</div>
               <div className={`text-xs font-mono uppercase tracking-wide
                 ${status === 'writing' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') :
                   status === 'analyzing' ? (isDark ? 'text-violet-400' : 'text-violet-600') :
@@ -429,6 +502,30 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                 </svg>
               )}
             </button>
+
+            {/* Presence avatars — always visible, real-time */}
+            {participants.length > 0 && (
+              <div className="hidden sm:flex items-center -space-x-2">
+                {participants.slice(0, 5).map((name, i) => (
+                  <div
+                    key={i}
+                    title={name}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ring-2 ${
+                      isDark ? 'bg-violet-700 text-white ring-slate-950' : 'bg-violet-200 text-violet-800 ring-white'
+                    }`}
+                  >
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                {participants.length > 5 && (
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ring-2 ${
+                    isDark ? 'bg-slate-700 text-slate-300 ring-slate-950' : 'bg-gray-200 text-gray-600 ring-white'
+                  }`}>
+                    +{participants.length - 5}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Participants */}
             <button
@@ -557,17 +654,41 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
 
       {/* ── Board columns ── */}
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Dot-voting budget indicator */}
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-white/70 border-amber-200'}`}>
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{t('votesRemaining')}</span>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: voteBudget }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    i < voteBudget - myVotesRemaining
+                      ? (isDark ? 'bg-violet-400' : 'bg-violet-500')
+                      : (isDark ? 'bg-slate-700' : 'bg-gray-300')
+                  }`}
+                />
+              ))}
+            </div>
+            <span className={`text-xs font-mono font-bold ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{myVotesRemaining}/{voteBudget}</span>
+          </div>
+          {voteError && (
+            <span className="text-xs font-medium text-red-500 animate-toast-in">{voteError}</span>
+          )}
+        </div>
+
         <div className={`grid grid-cols-1 ${gridCols} gap-5`}>
           {columns.map(col => {
             const colItems = items.filter(i => i.category === col.key);
+            const typers = (typingByColumn[col.key] ?? []).filter(name => name !== user.displayName);
             return (
               <div
                 key={col.key}
-                className={`flex flex-col gap-3 rounded-2xl p-4 min-h-[400px] ${isDark ? 'bg-slate-800/50 border border-slate-700/60' : 'bg-gray-50 border border-gray-200'}`}
+                className={`flex flex-col gap-3 rounded-2xl p-4 min-h-[400px] ${isDark ? 'bg-slate-800/50 border border-slate-700/60' : 'bg-white/50 border border-amber-900/10'}`}
               >
                 {/* Column header */}
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className={`text-base font-bold ${isDark ? col.darkColor : col.lightColor} tracking-wide`}>
+                  <h2 className={`${kalam.className} text-lg ${isDark ? col.darkColor : col.lightColor} tracking-wide`}>
                     {t(col.labelKey)}
                   </h2>
                   <span className={`text-xs font-mono ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
@@ -576,60 +697,65 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                 </div>
 
                 {/* Items */}
-                <div className="flex flex-col gap-2 flex-1">
+                <div className="flex flex-col gap-3 flex-1">
                   {colItems
                     .slice()
                     .sort((a, b) => b.votes - a.votes)
-                    .map(item => (
-                      <div
-                        key={item.id}
-                        className={`group relative rounded-lg border p-3 text-sm shadow-sm break-words ${cardBg[col.key]}`}
-                      >
-                        <p className={`leading-snug ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
-                          {item.content}
-                        </p>
-                        <div className="flex items-center justify-end mt-2">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleReactionVote(item, 'up')}
-                              className={`text-sm px-1.5 py-0.5 rounded transition-all ${
-                                votedItems.get(item.id) === 'up'
-                                  ? isDark ? 'bg-emerald-700/80 text-white ring-1 ring-emerald-400' : 'bg-emerald-500 text-white ring-1 ring-emerald-600'
-                                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-700'
-                              }`}
-                              title="Katılıyorum"
-                            >
-                              👍
-                            </button>
-                            {item.votes > 0 && (
-                              <span className={`text-xs font-mono min-w-[1rem] text-center ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                                {item.votes}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => handleReactionVote(item, 'down')}
-                              className={`text-sm px-1.5 py-0.5 rounded transition-all ${
-                                votedItems.get(item.id) === 'down'
-                                  ? isDark ? 'bg-red-700/80 text-white ring-1 ring-red-400' : 'bg-red-500 text-white ring-1 ring-red-600'
-                                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-700'
-                              }`}
-                              title="Katılmıyorum"
-                            >
-                              👎
-                            </button>
-                            {(item.author_id === user.id || initialSession.isModerator) && (
-                              <button
-                                onClick={() => handleDeleteItem(item)}
-                                className="text-xs ml-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
-                              >
-                                ✕
-                              </button>
-                            )}
+                    .map(item => {
+                      const rotation = cardRotation(item.id);
+                      const iVoted = myVotedItemIds.has(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className="transition-transform duration-200 hover:-translate-y-0.5 hover:rotate-0"
+                          style={{ transform: `rotate(${rotation}deg)` }}
+                        >
+                          <div
+                            className={`group relative rounded-sm border p-3 pt-4 text-sm shadow-md break-words animate-pop-in ${cardBg[col.key]}`}
+                          >
+                            {/* Pin */}
+                            <span className={`absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full shadow-sm ${isDark ? 'bg-slate-400' : 'bg-rose-400'}`} />
+                            <p className={`leading-snug ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>
+                              {item.content}
+                            </p>
+                            <div className="flex items-center justify-between mt-2.5">
+                              <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>{item.author_name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => handleDotVote(item)}
+                                  disabled={!iVoted && myVotesRemaining <= 0}
+                                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    iVoted
+                                      ? isDark ? 'bg-violet-700/80 text-white ring-1 ring-violet-400' : 'bg-violet-500 text-white ring-1 ring-violet-600'
+                                      : isDark ? 'bg-slate-700/60 text-slate-300 hover:bg-slate-700' : 'bg-amber-100/80 text-gray-600 hover:bg-amber-200/80'
+                                  }`}
+                                  title={t('dotVoteHint')}
+                                >
+                                  <span>🔴</span>
+                                  {item.votes > 0 && <span className="font-mono font-bold">{item.votes}</span>}
+                                </button>
+                                {(item.author_id === user.id || initialSession.isModerator) && (
+                                  <button
+                                    onClick={() => handleDeleteItem(item)}
+                                    className="text-xs opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
+
+                {/* Typing indicator */}
+                {typers.length > 0 && (
+                  <div className={`text-[11px] italic px-1 -mt-1 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
+                    {t('typingIndicator', { name: typers[0] })}
+                  </div>
+                )}
 
                 {/* Add item form */}
                 {status === 'writing' && (
@@ -640,7 +766,7 @@ function RetroBoard({ session: initialSession, user, locale }: Props) {
                           autoFocus
                           rows={2}
                           value={draft[col.key]}
-                          onChange={e => setDraft(d => ({ ...d, [col.key]: e.target.value }))}
+                          onChange={e => handleDraftChange(col.key, e.target.value)}
                           onKeyDown={e => {
                             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddItem(col.key); }
                             if (e.key === 'Escape') { setAddingTo(null); }

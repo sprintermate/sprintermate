@@ -268,6 +268,25 @@ router.get('/:id/sprints', async (req, res) => {
   }
 });
 
+/** GET /api/projects/:id/sprints/:sprintId — read a single sprint from the local DB cache */
+router.get('/:id/sprints/:sprintId', async (req, res) => {
+  const userId = req.user!.id;
+  const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
+
+  if (!project) {
+    res.status(404).json({ error: 'Project not found' });
+    return;
+  }
+
+  const sprint = await Sprint.findOne({ where: { id: req.params.sprintId, project_id: project.id } });
+  if (!sprint) {
+    res.status(404).json({ error: 'Sprint not found' });
+    return;
+  }
+
+  res.json(sprint.get({ plain: true }));
+});
+
 /** GET /api/projects/:id/reference-scores — get reference scores for a project */
 router.get('/:id/reference-scores', async (req, res) => {
   const userId = req.user!.id;

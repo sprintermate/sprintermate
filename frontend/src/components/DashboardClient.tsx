@@ -71,7 +71,6 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
   const [modalOpen, setModalOpen] = useState(false);
   const [retroModalOpen, setRetroModalOpen] = useState(false);
   const [joinRetroModalOpen, setJoinRetroModalOpen] = useState(false);
-  const [metricsWipOpen, setMetricsWipOpen] = useState(false);
 
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
@@ -579,7 +578,7 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                       <div className="flex items-center gap-2 ml-4 shrink-0">
                         {project.hasPat && (
                           <button
-                            onClick={() => setMetricsWipOpen(true)}
+                            onClick={() => router.push(`/${locale}/projects/${project.id}/metrics`)}
                             className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-medium transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
                           >
                             <span>📊</span>
@@ -753,31 +752,6 @@ export default function DashboardClient({ initialProjects, initialRooms, locale 
                 {joining ? rt('joining') : rt('joinBtn')}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-
-      {/* Metrics WIP Popup */}
-      {metricsWipOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setMetricsWipOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl text-center"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🚧</span>
-            </div>
-            <p className="text-sm text-gray-700 dark:text-slate-300 mb-5">{t('metricsWip')}</p>
-            <button
-              onClick={() => setMetricsWipOpen(false)}
-              className="w-full py-2 text-sm rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition-colors"
-            >
-              {t('ok')}
-            </button>
           </div>
         </div>
       )}
