@@ -176,29 +176,22 @@ router.put('/:id/pat', async (req, res) => {
   res.json({ message: 'PAT updated', hasPat: true });
 });
 
-/** GET /api/projects/:id/sprints — fetch sprints via ADO REST API, cache in DB */
+function sortSprints(rows: any[]) {
+  return rows.map((s: any) => (s.get ? s.get({ plain: true }) : s)).sort((a: any, b: any) => {
+    if (!a.start_date && !b.start_date) return a.name.localeCompare(b.name);
+    if (!a.start_date) return 1;
+    if (!b.start_date) return -1;
+    return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+  });
+}
+
+/** GET /api/projects/:id/sprints — always fetch live from ADO REST API, upsert into DB cache */
 router.get('/:id/sprints', async (req, res) => {
   const userId = req.user!.id;
   const project = await Project.findOne({ where: { id: req.params.id, user_id: userId } });
 
   if (!project) {
     res.status(404).json({ error: 'Project not found' });
-    return;
-  }
-
-  // Return cached sprints if available
-  const cached = await Sprint.findAll({
-    where: { project_id: project.id },
-  });
-
-  if (cached.length > 0) {
-    const sorted = cached.map((s: any) => s.get({ plain: true })).sort((a: any, b: any) => {
-      if (!a.start_date && !b.start_date) return a.name.localeCompare(b.name);
-      if (!a.start_date) return 1;
-      if (!b.start_date) return -1;
-      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
-    });
-    res.json(sorted);
     return;
   }
 
@@ -217,31 +210,42 @@ router.get('/:id/sprints', async (req, res) => {
     const sprints = await listSprints(project.organization, project.name, project.team, authResult.header);
 
     const now = new Date().toISOString();
-    await Sprint.bulkCreate(
-      sprints.map(s => ({
-        id: randomUUID(),
-        ado_sprint_id: s.id,
-        project_id: project.id,
-        name: s.name,
-        path: s.path ?? null,
-        start_date: s.startDate ?? null,
-        finish_date: s.finishDate ?? null,
-        created_at: now,
-      })),
-    );
+    const existing = await Sprint.findAll({ where: { project_id: project.id } });
+    const existingByAdoId = new Map(existing.map((s: any) => [s.get('ado_sprint_id'), s]));
 
-    const rows = await Sprint.findAll({
-      where: { project_id: project.id },
-    });
+    for (const s of sprints) {
+      const row = existingByAdoId.get(s.id);
+      if (row) {
+        await row.update({
+          name: s.name,
+          path: s.path ?? null,
+          start_date: s.startDate ?? null,
+          finish_date: s.finishDate ?? null,
+        });
+      } else {
+        await Sprint.create({
+          id: randomUUID(),
+          ado_sprint_id: s.id,
+          project_id: project.id,
+          name: s.name,
+          path: s.path ?? null,
+          start_date: s.startDate ?? null,
+          finish_date: s.finishDate ?? null,
+          created_at: now,
+        });
+      }
+    }
 
-    const sorted = rows.map((s: any) => s.get({ plain: true })).sort((a: any, b: any) => {
-      if (!a.start_date && !b.start_date) return a.name.localeCompare(b.name);
-      if (!a.start_date) return 1;
-      if (!b.start_date) return -1;
-      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
-    });
-    res.json(sorted);
+    const rows = await Sprint.findAll({ where: { project_id: project.id } });
+    res.json(sortSprints(rows));
   } catch (err: any) {
+    // ADO unreachable/erroring — fall back to whatever we have cached rather than failing outright
+    const cached = await Sprint.findAll({ where: { project_id: project.id } });
+    if (cached.length > 0) {
+      res.json(sortSprints(cached));
+      return;
+    }
+
     const msg: string = err?.message ?? '';
     const isAuthErr =
       err instanceof TypeError ||
