@@ -273,7 +273,13 @@
     "moderatorGranted": "You are now the Co-Moderator",
     "moderatorRevoked": "Your moderator role has been revoked",
     "scoringProgress": "Scoring Progress",
-    "scoringProgressTooltip": "{scored} of {total} items scored ({percent}%)"
+    "scoringProgressTooltip": "{scored} of {total} items scored ({percent}%)",
+    "halfwayToast": "Halfway there! 💪",
+    "celebrationTitle": "Congratulations! 🎉",
+    "celebrationSubtitle": "You've successfully completed planning for {sprintName}",
+    "celebrationStatsItems": "Items Scored",
+    "celebrationStatsPoints": "Total Story Points",
+    "celebrationClose": "Awesome!"
   },
   "workItemList": {
     "loading": "Fetching work items from Azure DevOps…",
@@ -549,7 +555,11 @@
     "colProblem": "🔴 Problem",
     "colWhy1": "❓ Why?",
     "colWhy2": "❓ Why deeper?",
-    "colRootCause": "🎯 Root Cause"
+    "colRootCause": "🎯 Root Cause",
+    "votesRemaining": "Your Votes:",
+    "dotVoteHint": "Vote for this card",
+    "noVotesLeft": "No votes left",
+    "typingIndicator": "{name} is typing…"
   },
   "retroGuestJoin": {
     "title": "Join Retrospective",

@@ -5,6 +5,7 @@ import { Project, Sprint, Room, WorkItemScoreRecord } from '../db/schema';
 import { getWorkItemDetail, getWorkItemListForIteration, patAuthHeader, updateWorkItemStoryPoints, addWorkItemComment } from '../services/azDevops';
 import { decrypt } from '../utils/crypto';
 import { getActiveModerator } from '../socket/index';
+import { getIO } from '../socket/ioInstance';
 
 const router = Router();
 
@@ -323,6 +324,10 @@ router.patch('/:code/work-items/:workItemId', requireAuth, async (req, res) => {
         });
       }
     }
+
+    try {
+      getIO().to(code).emit('work:score_saved', { workItemId: Number(workItemId), storyPoints });
+    } catch (_) { /* IO not initialized */ }
 
     res.json({ ok: true });
   } catch (err: any) {

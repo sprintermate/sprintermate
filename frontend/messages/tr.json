@@ -275,7 +275,13 @@
     "moderatorGranted": "Artık Ortak Moderatörsünüz",
     "moderatorRevoked": "Moderatör rolünüz geri alındı",
     "scoringProgress": "Puanlama İlerlemesi",
-    "scoringProgressTooltip": "{total} öğeden {scored} tanesi puanlandı (%{percent})"
+    "scoringProgressTooltip": "{total} öğeden {scored} tanesi puanlandı (%{percent})",
+    "halfwayToast": "Yarı yoldasınız! 💪",
+    "celebrationTitle": "Tebrikler! 🎉",
+    "celebrationSubtitle": "{sprintName} planlamasını başarıyla tamamladınız",
+    "celebrationStatsItems": "Puanlanan Madde",
+    "celebrationStatsPoints": "Toplam Story Point",
+    "celebrationClose": "Harika!"
   },
   "workItemList": {
     "loading": "Azure DevOps'tan iş öğeleri yükleniyor…",
@@ -551,7 +557,11 @@
     "colProblem": "🔴 Problem",
     "colWhy1": "❓ Neden?",
     "colWhy2": "❓ Neden (derinlemesine)?",
-    "colRootCause": "🎯 Kök Neden"
+    "colRootCause": "🎯 Kök Neden",
+    "votesRemaining": "Oy Hakkın:",
+    "dotVoteHint": "Bu maddeye oy ver",
+    "noVotesLeft": "Oy hakkın kalmadı",
+    "typingIndicator": "{name} yazıyor…"
   },
   "retroGuestJoin": {
     "title": "Retrospektife Katıl",

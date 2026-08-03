@@ -5,11 +5,15 @@ import { UserAISettings } from '../db/schema';
 import RetroSession from '../db/models/RetroSession';
 import RetroItem from '../db/models/RetroItem';
 import RetroAction from '../db/models/RetroAction';
+import RetroVote from '../db/models/RetroVote';
 import { callAIFreeform, getProductionAISettings } from '../services/aiService';
 import { decrypt } from '../utils/crypto';
 import { getIO } from '../socket/ioInstance';
 
 const router = Router();
+
+/** Classic dot-voting budget — how many dots each participant may spend per retro. */
+const VOTE_BUDGET = 5;
 
 function generateRetroCode(): string {
   return randomBytes(3).toString('hex').toUpperCase();
@@ -155,8 +159,9 @@ router.delete('/:code', requireAuth, async (req, res) => {
     return;
   }
 
-  // Delete all related items and actions
+  // Delete all related items, votes and actions
   await RetroItem.destroy({ where: { session_code: code } });
+  await RetroVote.destroy({ where: { session_code: code } });
   await RetroAction.destroy({ where: { session_code: code } });
   await session.destroy();
 
@@ -166,6 +171,9 @@ router.delete('/:code', requireAuth, async (req, res) => {
 // ─── GET /api/retro/:code — get session with items + actions ─────────────────
 router.get('/:code', async (req, res) => {
   const { code } = req.params;
+  // Guests aren't authenticated (req.user is empty), so the client passes its
+  // own client-generated id explicitly — same trust model as item creation below.
+  const voterId = (req.query.voterId as string) || req.user?.id || null;
 
   const session = await RetroSession.findOne({ where: { code } });
   if (!session) {
@@ -173,19 +181,26 @@ router.get('/:code', async (req, res) => {
     return;
   }
 
-  const [items, actions] = await Promise.all([
+  const [items, actions, myVotes] = await Promise.all([
     RetroItem.findAll({ where: { session_code: code }, order: [['created_at', 'ASC']] }),
     RetroAction.findAll({ where: { session_code: code }, order: [['created_at', 'ASC']] }),
+    voterId
+      ? RetroVote.findAll({ where: { session_code: code, voter_id: voterId } })
+      : Promise.resolve([]),
   ]);
 
   const sessionPlain = (session as any).get({ plain: true });
   const isModerator = req.user ? req.user.id === sessionPlain.created_by : false;
+  const myVotedItemIds = myVotes.map((v: any) => v.get({ plain: true }).item_id as string);
 
   res.json({
     ...sessionPlain,
     isModerator,
     items: items.map((i: any) => i.get({ plain: true })),
     actions: actions.map((a: any) => a.get({ plain: true })),
+    voteBudget: VOTE_BUDGET,
+    myVotedItemIds,
+    myVotesRemaining: VOTE_BUDGET - myVotedItemIds.length,
   });
 });
 
@@ -232,10 +247,10 @@ router.post('/:code/items', async (req, res) => {
   res.status(201).json(plain);
 });
 
-// ─── PATCH /api/retro/:code/items/:id — update content / votes ───────────────
+// ─── PATCH /api/retro/:code/items/:id — update content ───────────────────────
 router.patch('/:code/items/:id', requireAuth, async (req, res) => {
   const { code, id } = req.params;
-  const { content, vote } = req.body as { content?: string; vote?: number };
+  const { content } = req.body as { content?: string };
 
   const item = await RetroItem.findOne({ where: { id, session_code: code } });
   if (!item) {
@@ -258,11 +273,6 @@ router.patch('/:code/items/:id', requireAuth, async (req, res) => {
     (item as any).content = content.trim();
   }
 
-  if (typeof vote === 'number' && Number.isInteger(vote) && vote !== 0) {
-    const newVotes = Math.max(0, plain.votes + vote);
-    (item as any).votes = newVotes;
-  }
-
   await item.save();
   const updated = (item as any).get({ plain: true });
 
@@ -271,6 +281,63 @@ router.patch('/:code/items/:id', requireAuth, async (req, res) => {
   } catch (_) { /* IO not initialized */ }
 
   res.json(updated);
+});
+
+// ─── POST /api/retro/:code/items/:id/vote — toggle a dot-vote ────────────────
+// No requireAuth: guests participate with a client-generated voterId, same
+// trust model as item creation (POST /:code/items) below.
+router.post('/:code/items/:id/vote', async (req, res) => {
+  const { code, id } = req.params;
+  const { voterId, voterName } = req.body as { voterId?: string; voterName?: string };
+
+  if (!voterId) {
+    res.status(400).json({ error: 'voterId is required' });
+    return;
+  }
+
+  const item = await RetroItem.findOne({ where: { id, session_code: code } });
+  if (!item) {
+    res.status(404).json({ error: 'Item not found' });
+    return;
+  }
+
+  const existingVote = await RetroVote.findOne({ where: { item_id: id, voter_id: voterId } });
+
+  if (existingVote) {
+    // Toggle off — free up the dot
+    await existingVote.destroy();
+    (item as any).votes = Math.max(0, (item as any).votes - 1);
+  } else {
+    const votesUsed = await RetroVote.count({ where: { session_code: code, voter_id: voterId } });
+    if (votesUsed >= VOTE_BUDGET) {
+      res.status(400).json({ error: 'No dots left to spend', voteBudget: VOTE_BUDGET, myVotesRemaining: 0 });
+      return;
+    }
+    await RetroVote.create({
+      id: randomUUID(),
+      session_code: code,
+      item_id: id,
+      voter_id: voterId,
+      voter_name: voterName ?? 'Guest',
+      created_at: new Date().toISOString(),
+    } as any);
+    (item as any).votes = (item as any).votes + 1;
+  }
+
+  await item.save();
+  const updatedItem = (item as any).get({ plain: true });
+  const votesUsedAfter = await RetroVote.count({ where: { session_code: code, voter_id: voterId } });
+
+  try {
+    getIO().to(`retro:${code}`).emit('retro:item:updated', updatedItem);
+  } catch (_) { /* IO not initialized */ }
+
+  res.json({
+    item: updatedItem,
+    voted: !existingVote,
+    voteBudget: VOTE_BUDGET,
+    myVotesRemaining: VOTE_BUDGET - votesUsedAfter,
+  });
 });
 
 // ─── DELETE /api/retro/:code/items/:id ───────────────────────────────────────
@@ -294,6 +361,7 @@ router.delete('/:code/items/:id', requireAuth, async (req, res) => {
   }
 
   await item.destroy();
+  await RetroVote.destroy({ where: { item_id: id } });
 
   try {
     getIO().to(`retro:${code}`).emit('retro:item:deleted', { id });

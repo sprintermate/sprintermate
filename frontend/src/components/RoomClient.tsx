@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useTranslations } from 'next-intl';
+import confetti from 'canvas-confetti';
 import WorkItemList, { type WorkItem, type WorkItemFilters } from './WorkItemList';
 import WorkItemDetail, { type VoteInfo, type VoteStats, type AIEstimateResult, SCORE_COFFEE } from './WorkItemDetail';
 import { ThemeToggle } from './ThemeProvider';
@@ -93,6 +94,13 @@ export default function RoomClient({ room, user, locale }: Props) {
 
   // Set when this session is displaced by a newer connection with the same userId
   const [replacedMessage, setReplacedMessage] = useState<string | null>(null);
+
+  // ── Scoring progress: milestone toast + completion celebration ──────────────
+  const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationStats, setCelebrationStats] = useState<{ items: number; points: number } | null>(null);
+  const prevScoredCountRef = useRef<number | null>(null);
+  const celebratedRef = useRef(false);
 
   // Effective moderator: when delegation active → only delegate; otherwise main mod
   const isEffectiveModerator = delegatedModerator !== null
@@ -331,12 +339,68 @@ export default function RoomClient({ room, user, locale }: Props) {
       setIsEstimatingAll(false);
     });
 
+    // Keep every participant's work item list in sync in real time so the
+    // progress bar / celebration are consistent for the whole room, not just
+    // whoever happened to save the score.
+    socket.on('work:score_saved', (data: { workItemId: number; storyPoints: number }) => {
+      setWorkItems((prev) => prev.map((wi) => wi.id === data.workItemId ? { ...wi, storyPoints: data.storyPoints } : wi));
+      setCurrentWorkItem((cw) => cw && cw.id === data.workItemId ? { ...cw, storyPoints: data.storyPoints } : cw);
+    });
+
     return () => {
       socket.emit('room:leave', { code: room.code });
       socket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.code, user.id]);
+
+  // ── Milestone toast (50%) + completion celebration ──────────────────────────
+  useEffect(() => {
+    if (workItems.length === 0) return;
+    const scoredCount = workItems.filter((wi) => wi.storyPoints != null).length;
+    const total = workItems.length;
+    const prev = prevScoredCountRef.current;
+    prevScoredCountRef.current = scoredCount;
+
+    // Only react to forward progress after we have an established baseline —
+    // avoids firing on initial load/sync when the room is already mid-way done.
+    if (prev === null || scoredCount <= prev) return;
+
+    const prevPct = (prev / total) * 100;
+    const pct = (scoredCount / total) * 100;
+
+    if (prevPct < 50 && pct >= 50 && pct < 100) {
+      setMilestoneToast(t('halfwayToast'));
+    }
+
+    if (pct >= 100 && !celebratedRef.current) {
+      celebratedRef.current = true;
+      const totalPoints = workItems.reduce((s, wi) => s + (wi.storyPoints ?? 0), 0);
+      setCelebrationStats({ items: total, points: totalPoints });
+      setShowCelebration(true);
+    }
+  }, [workItems, t]);
+
+  useEffect(() => {
+    if (!milestoneToast) return;
+    const timer = setTimeout(() => setMilestoneToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [milestoneToast]);
+
+  // ── Confetti burst on completion ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!showCelebration) return;
+    const colors = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b'];
+    confetti({ particleCount: 120, spread: 100, origin: { y: 0.6 }, colors });
+    const end = Date.now() + 2200;
+    let frameId: number;
+    (function frame() {
+      confetti({ particleCount: 4, angle: 60, spread: 65, origin: { x: 0 }, colors });
+      confetti({ particleCount: 4, angle: 120, spread: 65, origin: { x: 1 }, colors });
+      if (Date.now() < end) frameId = requestAnimationFrame(frame);
+    })();
+    return () => { if (frameId) cancelAnimationFrame(frameId); };
+  }, [showCelebration]);
 
   // ── Socket action handlers ─────────────────────────────────────────────────
 
@@ -683,20 +747,52 @@ export default function RoomClient({ room, user, locale }: Props) {
         {workItems.length > 0 && (() => {
           const scoredCount = workItems.filter((wi) => wi.storyPoints != null).length;
           const pct = Math.round((scoredCount / workItems.length) * 100);
+          const milestones = [25, 50, 75];
+          const complete = pct >= 100;
           return (
-            <div className="mb-5 group relative">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-gray-400 dark:text-slate-500 text-xs">{t('scoringProgress')}</span>
-                <span className="font-mono text-gray-400 dark:text-slate-500 text-xs">{scoredCount}/{workItems.length}</span>
+            <div className="mb-8 group relative">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 dark:text-slate-500 text-xs font-medium">{t('scoringProgress')}</span>
+                <span className={`font-mono text-xs font-bold transition-colors ${complete ? 'text-emerald-500 dark:text-emerald-400' : 'text-gray-500 dark:text-slate-400'}`}>
+                  {scoredCount}/{workItems.length} · %{pct}
+                </span>
               </div>
-              <div className="h-1 rounded-full bg-gray-200 dark:bg-slate-800 overflow-hidden">
+              <div className="relative h-3 rounded-full bg-gray-200 dark:bg-slate-800">
+                {/* Fill */}
                 <div
-                  className="h-full rounded-full bg-indigo-500 dark:bg-indigo-500 transition-all duration-500"
+                  className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
+                    complete
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                      : 'bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400'
+                  }`}
                   style={{ width: `${pct}%` }}
-                />
+                >
+                  {pct > 0 && (
+                    <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                  )}
+                </div>
+                {/* Milestone ticks */}
+                {milestones.map((m) => (
+                  <div
+                    key={m}
+                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full ring-2 transition-all duration-300 ${
+                      pct >= m ? 'bg-white ring-emerald-400 scale-100' : 'bg-gray-400 dark:bg-slate-600 ring-transparent scale-75'
+                    }`}
+                    style={{ left: `${m}%` }}
+                  />
+                ))}
+                {/* Riding marker */}
+                {pct > 0 && (
+                  <div
+                    className="absolute -top-7 -translate-x-1/2 text-lg transition-all duration-700 ease-out animate-bounce-slow"
+                    style={{ left: `${Math.min(pct, 100)}%` }}
+                  >
+                    {complete ? '🏁' : '🚀'}
+                  </div>
+                )}
               </div>
               {/* Tooltip */}
-              <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+              <div className="pointer-events-none absolute -top-14 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
                 <span className="inline-block px-2.5 py-1 rounded-md bg-gray-900 dark:bg-slate-700 text-white text-xs shadow-lg">
                   {t('scoringProgressTooltip', { scored: scoredCount, total: workItems.length, percent: pct })}
                 </span>
@@ -704,6 +800,50 @@ export default function RoomClient({ room, user, locale }: Props) {
             </div>
           );
         })()}
+
+        {/* ── Milestone toast ── */}
+        {milestoneToast && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-toast-in">
+            <div className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30">
+              {milestoneToast}
+            </div>
+          </div>
+        )}
+
+        {/* ── Completion celebration modal ── */}
+        {showCelebration && celebrationStats && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowCelebration(false)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl text-center animate-modal-pop"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-5xl mb-3">🎉</div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{t('celebrationTitle')}</h2>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">
+                {t('celebrationSubtitle', { sprintName: room.sprintName })}
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3">
+                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{celebrationStats.items}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{t('celebrationStatsItems')}</div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3">
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{celebrationStats.points}</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{t('celebrationStatsPoints')}</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCelebration(false)}
+                className="w-full py-2.5 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors"
+              >
+                {t('celebrationClose')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {view === 'list' ? (
           <>
