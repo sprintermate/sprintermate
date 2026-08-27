@@ -363,7 +363,14 @@
     "reanalyze": "YZ ile Yeniden Analiz Et",
     "reanalyzeLabel": "Analiz",
     "resetRoundLabel": "Sıfırla",
-    "addCommentLabel": "Yorum"
+    "addCommentLabel": "Yorum",
+    "sectionTags": "Etiketler",
+    "aiSuggestionTitle": "AI Önerisi",
+    "aiSuggestionSubtitle": "AI tahmini takım ortalamasından farklı.",
+    "aiSuggestionTeamAverage": "Takım ortalaması",
+    "aiSuggestionAi": "AI tahmini",
+    "aiSuggestionUseScore": "{score} SP olarak kaydet",
+    "aiSuggestionDismiss": "Devam et"
   },
   "guestJoin": {
     "title": "Odaya Katıl",

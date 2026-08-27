@@ -11,6 +11,8 @@ export interface WorkItem {
   storyPoints: number | null;
   workItemType: string;
   assignedTo: string | null;
+  /** Azure DevOps tags (System.Tags), already split into individual labels. */
+  tags?: string[];
 }
 
 export interface WorkItemFilters {
@@ -45,6 +47,19 @@ function stateColor(state: string): string {
   if (s === 'closed' || s === 'completed') return 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30';
   if (s === 'new' || s === 'to do') return 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30';
   return 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-slate-700/40 dark:text-slate-300 dark:border-slate-600/40';
+}
+
+/** Small pill used to render an Azure DevOps tag. */
+export function TagChip({ tag, className = '' }: { tag: string; className?: string }) {
+  return (
+    <span
+      title={tag}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-500/10 dark:text-fuchsia-300 dark:border-fuchsia-500/30 ${className}`}
+    >
+      <span className="opacity-60">#</span>
+      {tag}
+    </span>
+  );
 }
 
 function typeIcon(type: string): string {
@@ -313,6 +328,11 @@ export default function WorkItemList({
                     </span>
                     {item.assignedTo && (
                       <span className="text-gray-400 dark:text-slate-500 text-xs truncate">{item.assignedTo}</span>
+                    )}
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {item.tags.map((tag) => <TagChip key={tag} tag={tag} />)}
+                      </div>
                     )}
                   </div>
                 </td>

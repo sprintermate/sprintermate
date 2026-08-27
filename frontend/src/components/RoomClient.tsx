@@ -131,6 +131,26 @@ export default function RoomClient({ room, user, locale }: Props) {
     [workItems, workItemFilters],
   );
 
+  // ── Detail-view navigation order ────────────────────────────────────────────
+  // Snapshot of the filtered work item ids used by the detail view's prev/next
+  // buttons. It is frozen while an item is open so that scoring the current item
+  // — which drops it out of an active filter such as "unscored" — does not strand
+  // the moderator with both navigation buttons disabled.
+  const [navItemIds, setNavItemIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    // Keep the frozen snapshot while navigating inside an open item
+    if (currentWorkItem && navItemIds.includes(currentWorkItem.id)) return;
+    const ids = filteredWorkItems.map((wi) => wi.id);
+    setNavItemIds((prev) =>
+      prev.length === ids.length && prev.every((id, i) => id === ids[i]) ? prev : ids,
+    );
+  }, [filteredWorkItems, currentWorkItem, navItemIds]);
+
+  const navIndex = currentWorkItem ? navItemIds.indexOf(currentWorkItem.id) : -1;
+  const hasNextItem = navIndex >= 0 && navIndex < navItemIds.length - 1;
+  const hasPrevItem = navIndex > 0;
+
   // View: 'list' or 'item'
   const view = currentWorkItem ? 'item' : 'list';
 
@@ -586,21 +606,24 @@ export default function RoomClient({ room, user, locale }: Props) {
     }
   }, [isEffectiveModerator, room.code]);
 
-  const handleNextItem = useCallback(() => {
+  /** Moves to the neighbouring item of the frozen navigation snapshot. */
+  const goToNavItem = useCallback((offset: number) => {
     if (!currentWorkItem) return;
-    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
-    if (idx >= 0 && idx < filteredWorkItems.length - 1) {
-      handleSelectItem(filteredWorkItems[idx + 1]!);
+    const idx = navItemIds.indexOf(currentWorkItem.id);
+    if (idx < 0) return;
+    // Walk in the requested direction, skipping ids that vanished from the sprint.
+    // Always take the freshest copy of the item (story points may have changed).
+    for (let i = idx + offset; i >= 0 && i < navItemIds.length; i += offset) {
+      const target = workItems.find((wi) => wi.id === navItemIds[i]);
+      if (target) {
+        handleSelectItem(target);
+        return;
+      }
     }
-  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
+  }, [currentWorkItem, navItemIds, workItems, handleSelectItem]);
 
-  const handlePrevItem = useCallback(() => {
-    if (!currentWorkItem) return;
-    const idx = filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id);
-    if (idx > 0) {
-      handleSelectItem(filteredWorkItems[idx - 1]!);
-    }
-  }, [currentWorkItem, filteredWorkItems, handleSelectItem]);
+  const handleNextItem = useCallback(() => goToNavItem(1), [goToNavItem]);
+  const handlePrevItem = useCallback(() => goToNavItem(-1), [goToNavItem]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -917,8 +940,8 @@ export default function RoomClient({ room, user, locale }: Props) {
             onBack={handleBack}
             onNextItem={isEffectiveModerator ? handleNextItem : undefined}
             onPrevItem={isEffectiveModerator ? handlePrevItem : undefined}
-            hasNext={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) < filteredWorkItems.length - 1 && filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) >= 0 : undefined}
-            hasPrev={isEffectiveModerator ? filteredWorkItems.findIndex((wi) => wi.id === currentWorkItem.id) > 0 : undefined}
+            hasNext={isEffectiveModerator ? hasNextItem : undefined}
+            hasPrev={isEffectiveModerator ? hasPrevItem : undefined}
             onUpdateWorkItem={isEffectiveModerator ? handleUpdateWorkItem : undefined}
             aiEstimate={isEffectiveModerator ? aiEstimate : revealed ? aiEstimate : null}
             aiLoading={aiLoading}

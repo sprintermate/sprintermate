@@ -190,6 +190,7 @@ export interface AdoWorkItemSummary {
   storyPoints: number | null;
   workItemType: string;
   assignedTo: string | null;
+  tags: string[];
 }
 
 export interface AdoWorkItem extends AdoWorkItemSummary {
@@ -244,6 +245,18 @@ function sanitizeAdoHtml(html: string | null, roomCode?: string): string {
   }
 
   return sanitized;
+}
+
+/**
+ * Azure DevOps stores tags as a single semicolon-separated string
+ * (e.g. "backend; tech-debt; urgent"). Returns them as a trimmed array.
+ */
+function parseAdoTags(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  return raw
+    .split(';')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -310,6 +323,7 @@ export async function getWorkItemsForIteration(
         'System.State',
         'System.WorkItemType',
         'System.AssignedTo',
+        'System.Tags',
         'Microsoft.VSTS.Scheduling.StoryPoints',
         'Microsoft.VSTS.Common.AcceptanceCriteria',
       ],
@@ -333,6 +347,7 @@ export async function getWorkItemsForIteration(
     storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
     workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
     assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
+    tags: parseAdoTags(wi.fields?.['System.Tags']),
     acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null, roomCode),
   }));
   mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
@@ -398,6 +413,7 @@ export async function getWorkItemListForIteration(
         'System.State',
         'System.WorkItemType',
         'System.AssignedTo',
+        'System.Tags',
         'Microsoft.VSTS.Scheduling.StoryPoints',
       ],
     }),
@@ -418,6 +434,7 @@ export async function getWorkItemListForIteration(
     storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
     workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
     assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
+    tags: parseAdoTags(wi.fields?.['System.Tags']),
   }));
   mapped.sort((a, b) => (idIndex.get(a.id) ?? 0) - (idIndex.get(b.id) ?? 0));
   return mapped;
@@ -501,6 +518,7 @@ export async function getWorkItemDetail(
     'System.State',
     'System.WorkItemType',
     'System.AssignedTo',
+    'System.Tags',
     'Microsoft.VSTS.Scheduling.StoryPoints',
     'Microsoft.VSTS.Common.AcceptanceCriteria',
   ].join(',');
@@ -532,6 +550,7 @@ export async function getWorkItemDetail(
     storyPoints: (wi.fields?.['Microsoft.VSTS.Scheduling.StoryPoints'] as number | null) ?? null,
     workItemType: (wi.fields?.['System.WorkItemType'] as string) ?? '',
     assignedTo: (wi.fields?.['System.AssignedTo'] as { displayName?: string } | null)?.displayName ?? null,
+    tags: parseAdoTags(wi.fields?.['System.Tags']),
     acceptanceCriteria: sanitizeAdoHtml(wi.fields?.['Microsoft.VSTS.Common.AcceptanceCriteria'] as string | null, roomCode) || null,
     comments,
   };
