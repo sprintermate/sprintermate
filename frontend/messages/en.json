@@ -91,7 +91,9 @@
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "noAccount": "Don't have an account?",
-    "register": "Register",    "forgotPassword": "Forgot your password?",    "error": {
+    "register": "Register",
+    "forgotPassword": "Forgot your password?",
+    "error": {
       "invalid_credentials": "Invalid email or password.",
       "network_error": "A network error occurred. Please check your connection.",
       "unknown": "An unexpected error occurred."
@@ -361,7 +363,14 @@
     "reanalyze": "Re-analyze with AI",
     "reanalyzeLabel": "Analyze",
     "resetRoundLabel": "Reset",
-    "addCommentLabel": "Comment"
+    "addCommentLabel": "Comment",
+    "sectionTags": "Tags",
+    "aiSuggestionTitle": "AI Suggestion",
+    "aiSuggestionSubtitle": "The AI estimate differs from the team average.",
+    "aiSuggestionTeamAverage": "Team average",
+    "aiSuggestionAi": "AI estimate",
+    "aiSuggestionUseScore": "Use {score} SP",
+    "aiSuggestionDismiss": "Continue"
   },
   "guestJoin": {
     "title": "Join Room",
@@ -600,7 +609,7 @@
     "emailLabel": "Email",
     "emailPlaceholder": "you@example.com",
     "sendCode": "Send Reset Code",
-    "sending": "Sending\u2026",
+    "sending": "Sending…",
     "codeSent": "A 6-digit code has been sent to your email.",
     "codeLabel": "Reset Code",
     "codePlaceholder": "Enter 6-digit code",
@@ -609,7 +618,7 @@
     "confirmPasswordLabel": "Confirm New Password",
     "confirmPasswordPlaceholder": "Repeat your new password",
     "resetPassword": "Reset Password",
-    "resetting": "Resetting\u2026",
+    "resetting": "Resetting…",
     "success": "Your password has been reset successfully!",
     "backToLogin": "Back to Sign In",
     "resendCode": "Resend code",
