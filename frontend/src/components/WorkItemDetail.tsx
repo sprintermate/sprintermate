@@ -850,7 +850,7 @@ export default function WorkItemDetail({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-violet-300 dark:border-violet-500/40 bg-gradient-to-br from-white via-violet-50 to-indigo-50 dark:from-slate-900 dark:via-violet-950/60 dark:to-indigo-950/40 shadow-2xl shadow-violet-500/30 p-6 animate-modal-pop"
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-violet-300 dark:border-violet-500/40 bg-gradient-to-br from-white via-violet-50 to-indigo-50 dark:from-slate-900 dark:via-violet-950/60 dark:to-indigo-950/40 shadow-2xl shadow-violet-500/30 p-6 animate-modal-pop"
           >
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
@@ -904,9 +904,12 @@ export default function WorkItemDetail({
 
             {/* Analysis */}
             {displayEstimate.analysis && (
-              <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed max-h-28 overflow-y-auto mb-5">
-                {displayEstimate.analysis}
-              </p>
+              <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-4 py-3 mb-5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">{t('aiAnalysis')}</p>
+                <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed whitespace-pre-line break-words">
+                  {displayEstimate.analysis}
+                </p>
+              </div>
             )}
 
             <div className="flex gap-3">
