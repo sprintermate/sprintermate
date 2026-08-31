@@ -1,15 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { TagChip, type WorkItem } from './WorkItemList';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55];
 
-/** Snaps a raw average onto the closest planning-poker card. */
-function nearestFibonacci(value: number): number {
-  return FIBONACCI.reduce((best, n) =>
-    Math.abs(n - value) < Math.abs(best - value) ? n : best,
-  FIBONACCI[0]!);
-}
 export const SCORE_UNDECIDED = -1; // ?
 export const SCORE_COFFEE    = -2; // ☕
 
@@ -211,41 +205,6 @@ export default function WorkItemDetail({
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateScore, setUpdateScore] = useState<number | null>(null);
   const [updating, setUpdating] = useState(false);
-
-  // ── AI suggestion popup ─────────────────────────────────────────────────────
-  // When the revealed team average lands on a different card than the AI
-  // estimate, the AI card is pushed to the foreground once per item. Dismissing
-  // it returns the user to the normal flow without re-opening.
-  const aiScore = displayEstimate?.['story-point'] ?? null;
-  const teamAverage = stats?.average ?? null;
-  const aiDiffersFromTeam =
-    aiScore != null && teamAverage != null && nearestFibonacci(teamAverage) !== aiScore;
-
-  const [showAiSuggestion, setShowAiSuggestion] = useState(false);
-  const aiSuggestionShownForRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!revealed) {
-      // A new round (or a reset) re-arms the popup for this item
-      aiSuggestionShownForRef.current = null;
-      setShowAiSuggestion(false);
-      return;
-    }
-    if (!aiDiffersFromTeam) return;
-    if (aiSuggestionShownForRef.current === workItem.id) return;
-    aiSuggestionShownForRef.current = workItem.id;
-    setShowAiSuggestion(true);
-  }, [revealed, aiDiffersFromTeam, workItem.id]);
-
-  // Esc closes the popup
-  useEffect(() => {
-    if (!showAiSuggestion) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setShowAiSuggestion(false);
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [showAiSuggestion]);
 
   // Detail state (description, acceptanceCriteria, comments fetched together)
   const [description, setDescription] = useState<string>('');
@@ -841,100 +800,6 @@ export default function WorkItemDetail({
           </div>
         )}
       </div>
-
-      {/* ── AI Suggestion popup — fires when the AI card diverges from the team average ── */}
-      {showAiSuggestion && aiScore != null && teamAverage != null && displayEstimate && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm animate-toast-in"
-          onClick={() => setShowAiSuggestion(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-violet-300 dark:border-violet-500/40 bg-gradient-to-br from-white via-violet-50 to-indigo-50 dark:from-slate-900 dark:via-violet-950/60 dark:to-indigo-950/40 shadow-2xl shadow-violet-500/30 p-6 animate-modal-pop"
-          >
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl leading-none animate-bounce-slow">✨</span>
-                <div>
-                  <h3 className="text-gray-900 dark:text-white font-semibold text-base">{t('aiSuggestionTitle')}</h3>
-                  <p className="text-gray-500 dark:text-slate-400 text-xs mt-0.5">{t('aiSuggestionSubtitle')}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAiSuggestion(false)}
-                aria-label={t('cancel')}
-                className="text-gray-400 hover:text-gray-700 dark:text-slate-500 dark:hover:text-white transition-colors shrink-0"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Team average vs AI estimate */}
-            <div className="flex items-stretch gap-3 mb-4">
-              <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 py-4">
-                <span className="text-3xl font-bold text-gray-900 dark:text-white leading-none">{teamAverage}</span>
-                <span className="text-[11px] text-gray-500 dark:text-slate-400 mt-1.5">{t('aiSuggestionTeamAverage')}</span>
-              </div>
-              <div className="flex items-center text-gray-300 dark:text-slate-600 text-lg font-bold">→</div>
-              <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-violet-300 dark:border-violet-500/40 bg-violet-50 dark:bg-violet-500/10 py-4">
-                <span className="text-3xl font-bold text-violet-700 dark:text-violet-300 leading-none">{aiScore}</span>
-                <span className="text-[11px] text-violet-600 dark:text-violet-400 mt-1.5">{t('aiSuggestionAi')}</span>
-              </div>
-            </div>
-
-            {/* Confidence */}
-            <div className="flex justify-center mb-3">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                displayEstimate.confidence === 'high'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
-                  : displayEstimate.confidence === 'medium'
-                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
-                    : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  displayEstimate.confidence === 'high' ? 'bg-emerald-500 dark:bg-emerald-400'
-                    : displayEstimate.confidence === 'medium' ? 'bg-amber-500 dark:bg-amber-400'
-                      : 'bg-red-500 dark:bg-red-400'
-                }`} />
-                {t('confidence')}: {t(`confidence_${displayEstimate.confidence}`)}
-              </span>
-            </div>
-
-            {/* Analysis */}
-            {displayEstimate.analysis && (
-              <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 px-4 py-3 mb-5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-500 mb-1.5">{t('aiAnalysis')}</p>
-                <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed whitespace-pre-line break-words">
-                  {displayEstimate.analysis}
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowAiSuggestion(false)}
-                className="flex-1 py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-gray-700 dark:text-slate-300 text-sm font-medium transition-colors"
-              >
-                {t('aiSuggestionDismiss')}
-              </button>
-              {isModerator && onUpdateWorkItem && (
-                <button
-                  onClick={() => {
-                    setShowAiSuggestion(false);
-                    setUpdateScore(aiScore);
-                    setShowUpdateModal(true);
-                  }}
-                  className="flex-1 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-medium transition-all duration-200 shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/30"
-                >
-                  {t('aiSuggestionUseScore', { score: aiScore })}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Update Work Item Modal ── */}
       {showUpdateModal && (
