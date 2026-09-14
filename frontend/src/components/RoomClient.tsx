@@ -22,6 +22,7 @@ interface RoomInfo {
   code: string;
   moderatorId: string;
   isModerator: boolean;
+  projectId?: string | null;
   projectName: string;
   organization: string;
   sprintName: string;
@@ -155,33 +156,57 @@ export default function RoomClient({ room, user, locale }: Props) {
   const view = currentWorkItem ? 'item' : 'list';
 
   // ── Fetch work items (moderator / authenticated participants only) ─────────
+  const loadWorkItems = useCallback(async () => {
+    setItemsLoading(true);
+    setItemsError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json() as WorkItem[];
+      setWorkItems(data);
+    } catch (err: unknown) {
+      setItemsError(err instanceof Error ? err.message : 'Failed to load work items');
+    } finally {
+      setItemsLoading(false);
+    }
+  }, [room.code]);
+
   useEffect(() => {
     // Guests don't fetch the item list unless they've been promoted to co-moderator
     if (user.isGuest && !isEffectiveModerator) {
       setItemsLoading(false);
       return;
     }
-    async function load() {
-      setItemsLoading(true);
-      setItemsError(null);
-      try {
-        const res = await fetch(`${BACKEND}/api/rooms/${room.code}/work-items`, {
-          credentials: 'include',
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
-          throw new Error(body.error ?? `HTTP ${res.status}`);
-        }
-        const data = await res.json() as WorkItem[];
-        setWorkItems(data);
-      } catch (err: unknown) {
-        setItemsError(err instanceof Error ? err.message : 'Failed to load work items');
-      } finally {
-        setItemsLoading(false);
-      }
+    void loadWorkItems();
+  }, [loadWorkItems, user.isGuest, isEffectiveModerator]);
+
+  // ── Update the connected project's ADO PAT from the room (moderator only) ──
+  const handleUpdatePat = useCallback(async (pat: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!room.projectId) {
+      return { ok: false, error: t('patUpdateNoProject') };
     }
-    void load();
-  }, [room.code, user.isGuest, isEffectiveModerator]);
+    try {
+      const res = await fetch(`${BACKEND}/api/projects/${room.projectId}/pat`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ pat }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
+        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      }
+      await loadWorkItems();
+      return { ok: true };
+    } catch (err: unknown) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Failed to update PAT' };
+    }
+  }, [room.projectId, loadWorkItems, t]);
 
   // ── Load persisted AI estimates ───────────────────────────────────────────
   useEffect(() => {
@@ -897,6 +922,8 @@ export default function RoomClient({ room, user, locale }: Props) {
                 items={workItems}
                 loading={itemsLoading}
                 error={itemsError}
+                canUpdatePat={isEffectiveModerator && !!room.projectId}
+                onUpdatePat={handleUpdatePat}
                 onSelectItem={handleSelectItem}
                 isModerator={isEffectiveModerator}
                 onEstimateAll={isEffectiveModerator ? handleEstimateAll : undefined}

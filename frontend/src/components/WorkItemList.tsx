@@ -38,6 +38,9 @@ interface Props {
   filters?: WorkItemFilters;
   onFiltersChange?: (f: WorkItemFilters) => void;
   showScoredFilter?: boolean;
+  /** When true (and onUpdatePat is provided), an ADO auth error offers an inline PAT-update form. */
+  canUpdatePat?: boolean;
+  onUpdatePat?: (pat: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 function stateColor(state: string): string {
@@ -86,12 +89,17 @@ export default function WorkItemList({
   adoProject,
   filters,
   onFiltersChange,
+  canUpdatePat,
+  onUpdatePat,
 }: Props) {
   const t = useTranslations('workItemList');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<'id' | 'title' | 'state' | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [showAiEstimates, setShowAiEstimates] = useState(false);
+  const [patInput, setPatInput] = useState('');
+  const [patSaving, setPatSaving] = useState(false);
+  const [patError, setPatError] = useState<string | null>(null);
 
   // Compute unique options for filter dropdowns from the full item list
   const typeOptions = [...new Set(items.map((i) => i.workItemType))].filter(Boolean).sort();
@@ -143,11 +151,49 @@ export default function WorkItemList({
   }
 
   if (error) {
+    async function submitPat() {
+      if (!onUpdatePat || !patInput.trim()) return;
+      setPatSaving(true);
+      setPatError(null);
+      const result = await onUpdatePat(patInput.trim());
+      setPatSaving(false);
+      if (result.ok) {
+        setPatInput('');
+      } else {
+        setPatError(result.error ?? t('patUpdateFailed'));
+      }
+    }
+
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-800/40">
+        <div className="max-w-md w-full text-center px-6 py-8 rounded-2xl bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-800/40">
           <div className="text-3xl mb-3">⚠️</div>
           <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
+
+          {canUpdatePat && onUpdatePat && (
+            <div className="mt-5 pt-5 border-t border-red-200 dark:border-red-800/40 text-left">
+              <p className="text-red-700 dark:text-red-200 text-xs font-medium mb-2">{t('patUpdateHint')}</p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={patInput}
+                  onChange={(e) => setPatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void submitPat(); }}
+                  placeholder={t('patInputPlaceholder')}
+                  disabled={patSaving}
+                  className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-red-200 dark:border-red-800/50 bg-white dark:bg-slate-900 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+                <button
+                  onClick={() => void submitPat()}
+                  disabled={patSaving || !patInput.trim()}
+                  className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium disabled:opacity-50 transition-colors shrink-0"
+                >
+                  {patSaving ? t('patUpdating') : t('patUpdateButton')}
+                </button>
+              </div>
+              {patError && <p className="text-red-600 dark:text-red-300 text-xs mt-2">{patError}</p>}
+            </div>
+          )}
         </div>
       </div>
     );
