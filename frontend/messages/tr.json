@@ -281,7 +281,8 @@
     "celebrationSubtitle": "{sprintName} planlamasını başarıyla tamamladınız",
     "celebrationStatsItems": "Puanlanan Madde",
     "celebrationStatsPoints": "Toplam Story Point",
-    "celebrationClose": "Harika!"
+    "celebrationClose": "Harika!",
+    "patUpdateNoProject": "Bağlı proje bulunamadı."
   },
   "workItemList": {
     "loading": "Azure DevOps'tan iş öğeleri yükleniyor…",
@@ -305,7 +306,12 @@
     "clearFilters": "Filtreleri temizle",
     "filterAllScored": "Hepsi (puanlı/puansız)",
     "filterUnscored": "Puansız (henüz puanlanmamış)",
-    "filterScored": "Puanlanmış (puanı var)"
+    "filterScored": "Puanlanmış (puanı var)",
+    "patUpdateHint": "Bu projeyi yeniden bağlamak için yeni bir Azure DevOps Personal Access Token girin.",
+    "patInputPlaceholder": "Yeni Personal Access Token",
+    "patUpdateButton": "Kaydet ve Tekrar Dene",
+    "patUpdating": "Kaydediliyor…",
+    "patUpdateFailed": "PAT güncellenemedi."
   },
   "workItemDetail": {
     "backToList": "Listeye dön",

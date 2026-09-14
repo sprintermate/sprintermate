@@ -24,6 +24,7 @@ interface RoomInfo {
   code: string;
   moderatorId: string;
   isModerator: boolean;
+  projectId?: string | null;
   projectName: string;
   organization: string;
   sprintName: string;

@@ -120,12 +120,16 @@ router.get('/:code', async (req, res) => {
     Sprint.findOne({ where: { id: room.sprint_id } }),
   ]);
 
+  const isModerator = userId !== null && room.moderator_id === userId;
+
   res.json({
     id: room.id,
     code: room.code,
     status: room.status,
     moderatorId: room.moderator_id,
-    isModerator: userId !== null && room.moderator_id === userId,
+    isModerator,
+    // Only the moderator needs the project id (e.g. to update its ADO PAT from the room)
+    projectId: isModerator ? room.project_id : null,
     projectName: (project as any)?.name ?? '',
     organization: (project as any)?.organization ?? '',
     sprintName: (sprint as any)?.name ?? '',
